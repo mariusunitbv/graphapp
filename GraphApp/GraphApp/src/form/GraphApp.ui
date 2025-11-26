@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>GraphAppClass</class>
+ <widget class="QMainWindow" name="GraphAppClass">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>665</width>
+    <height>469</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Graph Visualization Tool</string>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="0" alignment="Qt::AlignmentFlag::AlignLeft">
+     <widget class="QTextEdit" name="textEdit">
+      <property name="minimumSize">
+       <size>
+        <width>200</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>200</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="toolTip">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Example:&lt;/p&gt;&lt;p&gt;2 5 4 (Node 2 connects to Node 5 with a cost of 4)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
+      <property name="whatsThis">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
+      <property name="placeholderText">
+       <string>sourceNode, dstNode, [cost]</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0">
+     <widget class="QLabel" name="zoomScaleText">
+      <property name="text">
+       <string>Graph scale: 100%</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="1" rowspan="2">
+     <widget class="Graph" name="graph">
+      <property name="styleSheet">
+       <string notr="true">background-color: rgb(255, 255, 255);</string>
+      </property>
+      <property name="verticalScrollBarPolicy">
+       <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+      </property>
+      <property name="horizontalScrollBarPolicy">
+       <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+      </property>
+      <property name="renderHints">
+       <set>QPainter::RenderHint::Antialiasing|QPainter::RenderHint::TextAntialiasing</set>
+      </property>
+      <property name="transformationAnchor">
+       <enum>QGraphicsView::ViewportAnchor::AnchorUnderMouse</enum>
+      </property>
+      <property name="viewportUpdateMode">
+       <enum>QGraphicsView::ViewportUpdateMode::FullViewportUpdate</enum>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>665</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuGraph">
+    <property name="title">
+     <string>Graph</string>
+    </property>
+    <addaction name="actionComplete_Graph"/>
+    <addaction name="actionRandom_Graph"/>
+   </widget>
+   <widget class="QMenu" name="menuAlgorithms">
+    <property name="title">
+     <string>Algorithms</string>
+    </property>
+    <addaction name="actionGenericTraversal"/>
+    <addaction name="actionGeneric_Total_Traversal"/>
+    <addaction name="actionPath_s_y"/>
+    <addaction name="actionBreadth_Traversal"/>
+    <addaction name="actionDepth_Traversal"/>
+   </widget>
+   <addaction name="menuGraph"/>
+   <addaction name="menuAlgorithms"/>
+  </widget>
+  <action name="actionGenericTraversal">
+   <property name="text">
+    <string>Generic Traversal</string>
+   </property>
+  </action>
+  <action name="actionGeneric_Total_Traversal">
+   <property name="text">
+    <string>Generic Total Traversal</string>
+   </property>
+  </action>
+  <action name="actionPath_s_y">
+   <property name="text">
+    <string>Path(s, y)</string>
+   </property>
+  </action>
+  <action name="actionComplete_Graph">
+   <property name="text">
+    <string>Complete Graph</string>
+   </property>
+  </action>
+  <action name="actionRandom_Graph">
+   <property name="text">
+    <string>Random Connect Graph</string>
+   </property>
+  </action>
+  <action name="actionBreadth_Traversal">
+   <property name="text">
+    <string>Breadth Traversal</string>
+   </property>
+  </action>
+  <action name="actionDepth_Traversal">
+   <property name="text">
+    <string>Depth Traversal</string>
+   </property>
+  </action>
+ </widget>
+ <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>Graph</class>
+   <extends>QGraphicsView</extends>
+   <header>../graph/Graph.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

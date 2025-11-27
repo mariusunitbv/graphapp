@@ -17,8 +17,31 @@ AlgorithmLabel::AlgorithmLabel(QGraphicsScene* scene, QPointF pos,
 }
 
 AlgorithmLabel::~AlgorithmLabel() {
-    m_scene->removeItem(m_label);
-    delete m_label;
+    if (m_label) {
+        m_scene->removeItem(m_label);
+        delete m_label;
+    }
+}
+
+AlgorithmLabel::AlgorithmLabel(AlgorithmLabel&& other)
+    : m_scene(other.m_scene), m_label(other.m_label), m_compute(std::move(other.m_compute)) {
+    other.m_scene = nullptr;
+    other.m_label = nullptr;
+    other.m_compute = nullptr;
+}
+
+AlgorithmLabel& AlgorithmLabel::operator=(AlgorithmLabel&& other) {
+    if (this != &other) {
+        m_scene = other.m_scene;
+        m_label = other.m_label;
+        m_compute = std::move(other.m_compute);
+
+        other.m_scene = nullptr;
+        other.m_label = nullptr;
+        other.m_compute = nullptr;
+    }
+
+    return *this;
 }
 
 void AlgorithmLabel::compute() const { m_compute(m_label); }

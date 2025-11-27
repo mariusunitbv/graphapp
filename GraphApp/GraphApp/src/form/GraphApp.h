@@ -12,6 +12,9 @@ class GraphApp : public QMainWindow {
    private:
     void onZoomChanged();
 
+    void onStartedAlgorithm();
+    void onEndedAlgorithm();
+
     Ui::GraphAppClass ui;
 
     QGraphicsScene* m_scene;

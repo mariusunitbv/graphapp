@@ -8,6 +8,8 @@ class Node : public QGraphicsObject {
    public:
     enum { NodeType = UserType + 1 };
 
+    enum InternalState { NONE, CURRENTLY_ANALYZED, ANALYZED };
+
     Node(size_t index);
     ~Node();
 
@@ -16,9 +18,9 @@ class Node : public QGraphicsObject {
     QPainterPath shape() const override;
     int type() const override;
 
-    void setFillColor(const QColor& c);
-    void setOutlineColor(const QColor& c);
-    void setSelectedOutlineColor(const QColor& c);
+    void setFillColor(const QRgb c);
+    void setOutlineColor(const QRgb c);
+    void setSelectedOutlineColor(const QRgb c);
 
     void markUnvisited();
     void markVisited(Node* parent);
@@ -36,6 +38,8 @@ class Node : public QGraphicsObject {
 
     void setRadius(double radius);
     double getRadius() const;
+
+    InternalState getInternalState() const;
 
    signals:
     void positionChanged();
@@ -55,13 +59,27 @@ class Node : public QGraphicsObject {
 
     QVariant itemChange(GraphicsItemChange change, const QVariant& value) override;
 
+   public:
+    static constexpr QRgb k_defaultFillColor{qRgb(255, 255, 255)};
+    static constexpr QRgb k_defaultOutlineColor{qRgb(0, 0, 0)};
+    static constexpr QRgb k_defaultSelectedOutlineColor{qRgb(41, 134, 243)};
+    static constexpr QRgb k_defaultAnalyzedColor{qRgb(135, 245, 66)};
+    static constexpr QRgb k_defaultCurrentlyAnalyzedColor{qRgb(255, 255, 61)};
+    static constexpr QRgb k_defaultVisitedColor{qRgb(204, 204, 204)};
+    static constexpr QRgb k_defaultUnvisitedOutlineColor{qRgb(240, 240, 240)};
+
    private:
-    QColor m_fill{Qt::white};
-    QColor m_outline{Qt::black};
-    QColor m_selectedOutline{QColor("#2986F3")};
+    QRgb m_fill{qRgb(255, 255, 255)};
+    QRgb m_outline{qRgb(0, 0, 0)};
+
+    /*
+    QRgb m_selectedOutline{qRgb(41, 134, 243)};
+    */
 
     size_t m_index;
     double m_radius{1.};
+
+    InternalState m_internalState{NONE};
 
    public:
     static constexpr double k_fullRadius{24.};

@@ -1,6 +1,7 @@
 #pragma once
 
 struct AlgorithmLabel {
+    AlgorithmLabel() = default;
     explicit AlgorithmLabel(QGraphicsScene* scene, QPointF pos,
                             std::function<void(QGraphicsSimpleTextItem*)> computeFunc);
     ~AlgorithmLabel();
@@ -8,8 +9,8 @@ struct AlgorithmLabel {
     AlgorithmLabel(const AlgorithmLabel&) = delete;
     AlgorithmLabel& operator=(const AlgorithmLabel&) = delete;
 
-    AlgorithmLabel(AlgorithmLabel&& other) = delete;
-    AlgorithmLabel& operator=(AlgorithmLabel&& other) = delete;
+    AlgorithmLabel(AlgorithmLabel&& other);
+    AlgorithmLabel& operator=(AlgorithmLabel&& other);
 
     void compute() const;
 

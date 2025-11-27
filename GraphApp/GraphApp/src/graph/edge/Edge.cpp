@@ -26,7 +26,7 @@ QRectF Edge::boundingRect() const {
     return QRectF(m_line.p1(), m_line.p2()).normalized();
 }
 
-void Edge::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) {
+void Edge::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) {
     if (isLoop()) {
         drawSelfLoopEdge(painter);
     } else {
@@ -38,7 +38,7 @@ int Edge::type() const { return UserType + 2; }
 
 bool Edge::connectsNode(Node* node) const { return m_startNode == node || m_endNode == node; }
 
-void Edge::setColor(const QColor& c) { m_color = c; }
+void Edge::setColor(const QRgb c) { m_color = c; }
 
 qreal Edge::getProgress() const { return m_progress; }
 
@@ -63,6 +63,8 @@ void Edge::connectNodeSignals(Node* node) {
 }
 
 void Edge::updatePosition() {
+    prepareGeometryChange();
+
     const auto srcCenter = m_startNode->pos();
     const auto targetCenter = m_endNode->pos();
 
@@ -88,14 +90,14 @@ void Edge::updatePosition() {
     m_arrowHead = QPolygonF({lineEnd, arrowP1, arrowP2});
 }
 
-void Edge::markUnvisited() { setColor(Qt::lightGray); }
+void Edge::markUnvisited() { setColor(Node::k_defaultUnvisitedOutlineColor); }
 
 void Edge::markVisited(Node* parent) {
     if (parent != m_startNode) {
         return;
     }
 
-    setColor(Qt::yellow);
+    setColor(Node::k_defaultCurrentlyAnalyzedColor);
 }
 
 void Edge::markAnalyzed(Node* parent) {
@@ -103,7 +105,7 @@ void Edge::markAnalyzed(Node* parent) {
         return;
     }
 
-    setColor(Qt::green);
+    setColor(Node::k_defaultAnalyzedColor);
 }
 
 void Edge::markAvailableInPathFindingPath(Node* node) {
@@ -111,7 +113,7 @@ void Edge::markAvailableInPathFindingPath(Node* node) {
         return;
     }
 
-    setColor(Qt::black);
+    setColor(Node::k_defaultOutlineColor);
 }
 
 void Edge::markPath(Node* parent) {
@@ -119,16 +121,20 @@ void Edge::markPath(Node* parent) {
         return;
     }
 
-    setColor(Qt::green);
+    setColor(Node::k_defaultAnalyzedColor);
 }
 
-void Edge::unmark() { setColor(Qt::black); }
+void Edge::unmark() { setColor(Node::k_defaultOutlineColor); }
 
 void Edge::drawSelfLoopEdge(QPainter* painter) {
-    painter->setPen(m_startNode->isSelected() ? m_selectedColor : m_color);
+    painter->setPen(QColor::fromRgba(m_startNode->isSelected() ? m_selectedColor : m_color));
 
     int spanAngle = static_cast<int>(360 * 16 * m_progress);
     painter->drawArc(boundingRect(), 200 * 16, spanAngle);
+
+    if (m_cost > 0 && m_progress == 1) {
+        painter->drawText(boundingRect(), Qt::AlignCenter, QString::number(m_cost));
+    }
 }
 
 void Edge::drawEdge(QPainter* painter) {
@@ -139,9 +145,9 @@ void Edge::drawEdge(QPainter* painter) {
 
     setZValue(m_startNode->isSelected() ? 1 : -1);
 
-    painter->setPen(QPen{m_startNode->isSelected() ? m_selectedColor : m_color});
+    painter->setPen(QColor::fromRgba(m_startNode->isSelected() ? m_selectedColor : m_color));
     painter->drawLine(p1, current);
-    painter->setBrush(m_startNode->isSelected() ? m_selectedColor : m_color);
+    painter->setBrush(QColor::fromRgba(m_startNode->isSelected() ? m_selectedColor : m_color));
 
     if (m_progress == 1) {
         painter->drawPolygon(m_arrowHead);

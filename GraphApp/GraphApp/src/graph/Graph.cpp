@@ -4,7 +4,20 @@
 
 #include "algorithm_label/algorithm_label.h"
 
-Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_randomEngine(std::random_device()()) {}
+#include "../random/Random.h"
+
+Graph::Graph(QWidget* parent) : QGraphicsView(parent) {
+    setBackgroundBrush(Qt::white);
+
+    QSurfaceFormat format;
+    format.setSamples(4);
+    format.setSwapInterval(1);
+
+    QOpenGLWidget* glWidget = new QOpenGLWidget(this);
+    glWidget->setFormat(format);
+
+    setViewport(glWidget);
+}
 
 Graph::~Graph() {}
 
@@ -78,67 +91,20 @@ void Graph::genericTraversal(Node* start) {
 
     markNodesAsUnvisited();
 
-    enum NodeState : uint8_t { UNVISITED, VISITED, ANALYZED };
+    m_traversalData = new GenericTraversal(m_nodes, this);
+    const auto traversalData = static_cast<GenericTraversal*>(m_traversalData);
 
-    size_t k = 1;
-    std::vector<size_t> parents(m_nodes.size(), -1);
-    std::vector<size_t> orders(m_nodes.size(), -1);
-    std::vector<NodeState> visited(m_nodes.size(), UNVISITED);
+    auto& orders = traversalData->m_orders;
+    auto& visited = traversalData->m_visited;
+    auto& nodesVector = traversalData->m_nodesVector;
 
-    std::vector<Node*> nodesVector;
+    auto& uText = traversalData->m_unvisitedLabel;
+    auto& vText = traversalData->m_visitedLabel;
+    auto& wText = traversalData->m_analyzedLabel;
+    auto& pText = traversalData->m_parentsLabel;
+    auto& oText = traversalData->m_ordersLabel;
 
-    const auto uText = AlgorithmLabel(scene(), mapToScene(10, 10), [&](auto label) {
-        QStringList list;
-        for (size_t i = 0; i < visited.size(); ++i) {
-            if (visited[i] == UNVISITED) {
-                list << QString::number(i);
-            }
-        }
-
-        label->setText("U = { " + list.join(", ") + " }");
-    });
-
-    const auto vText = AlgorithmLabel(scene(), mapToScene(10, 30), [&](auto label) {
-        QStringList list;
-        for (size_t i = 0; i < visited.size(); ++i) {
-            if (visited[i] == VISITED) {
-                list << QString::number(i);
-            }
-        }
-
-        label->setText("V = { " + list.join(", ") + " }");
-    });
-
-    const auto wText = AlgorithmLabel(scene(), mapToScene(10, 50), [&](auto label) {
-        QStringList list;
-        for (size_t i = 0; i < visited.size(); ++i) {
-            if (visited[i] == ANALYZED) {
-                list << QString::number(i);
-            }
-        }
-
-        label->setText("W = { " + list.join(", ") + " }");
-    });
-
-    const auto pText = AlgorithmLabel(scene(), mapToScene(10, 100), [&](auto label) {
-        QStringList list;
-        for (auto parent : parents) {
-            list << (parent == -1 ? "-" : QString::number(parent));
-        }
-
-        label->setText("p = [ " + list.join(", ") + " ]");
-    });
-
-    const auto oText = AlgorithmLabel(scene(), mapToScene(10, 120), [&](auto label) {
-        QStringList list;
-        for (auto order : orders) {
-            list << (order == -1 ? "-" : QString::number(order));
-        }
-
-        label->setText("o = [ " + list.join(", ") + " ]");
-    });
-
-    visited[start->getIndex()] = VISITED;
+    visited[start->getIndex()] = TraversalData::VISITED;
     orders[start->getIndex()] = 1;
 
     uText.compute();
@@ -149,49 +115,7 @@ void Graph::genericTraversal(Node* start) {
 
     nodesVector.push_back(start);
 
-    size_t i = 0;
-    while (i < nodesVector.size()) {
-        auto x = nodesVector[i];
-        x->markCurrentlyAnalyzed();
-        waitForStepDuration();
-
-        for (auto y : m_adjacencyList[x]) {
-            if (visited[y->getIndex()] == UNVISITED) {
-                y->markVisited(x);
-
-                visited[y->getIndex()] = VISITED;
-                uText.compute();
-                vText.compute();
-
-                parents[y->getIndex()] = x->getIndex();
-                pText.compute();
-
-                orders[y->getIndex()] = ++k;
-                oText.compute();
-
-                waitForStepDuration();
-
-                nodesVector.push_back(y);
-            }
-        }
-
-        x->markAnalyzed(x);
-
-        visited[x->getIndex()] = ANALYZED;
-        vText.compute();
-        wText.compute();
-
-        waitForStepDuration();
-
-        ++i;
-        if (nodesVector.begin() + i != nodesVector.end()) {
-            std::shuffle(nodesVector.begin() + i, nodesVector.end(), m_randomEngine);
-        }
-    }
-
-    QMessageBox::information(nullptr, "Traversal Complete", "The traversal has completed.");
-
-    unmarkNodes();
+    QTimer::singleShot(0, this, &Graph::genericTraversalStep);
 }
 
 void Graph::genericTotalTraversal(Node* start) {
@@ -201,67 +125,20 @@ void Graph::genericTotalTraversal(Node* start) {
 
     markNodesAsUnvisited();
 
-    enum NodeState : uint8_t { UNVISITED, VISITED, ANALYZED };
+    m_traversalData = new TotalGenericTraversal(m_nodes, this);
+    const auto traversalData = static_cast<TotalGenericTraversal*>(m_traversalData);
 
-    size_t k = 1;
-    std::vector<size_t> parents(m_nodes.size(), -1);
-    std::vector<size_t> orders(m_nodes.size(), -1);
-    std::vector<NodeState> visited(m_nodes.size(), UNVISITED);
+    auto& orders = traversalData->m_orders;
+    auto& visited = traversalData->m_visited;
+    auto& nodesVector = traversalData->m_nodesVector;
 
-    std::vector<Node*> nodesVector;
+    auto& uText = traversalData->m_unvisitedLabel;
+    auto& vText = traversalData->m_visitedLabel;
+    auto& wText = traversalData->m_analyzedLabel;
+    auto& pText = traversalData->m_parentsLabel;
+    auto& oText = traversalData->m_ordersLabel;
 
-    const auto uText = AlgorithmLabel(scene(), mapToScene(10, 10), [&](auto label) {
-        QStringList list;
-        for (size_t i = 0; i < visited.size(); ++i) {
-            if (visited[i] == UNVISITED) {
-                list << QString::number(i);
-            }
-        }
-
-        label->setText("U = { " + list.join(", ") + " }");
-    });
-
-    const auto vText = AlgorithmLabel(scene(), mapToScene(10, 30), [&](auto label) {
-        QStringList list;
-        for (size_t i = 0; i < visited.size(); ++i) {
-            if (visited[i] == VISITED) {
-                list << QString::number(i);
-            }
-        }
-
-        label->setText("V = { " + list.join(", ") + " }");
-    });
-
-    const auto wText = AlgorithmLabel(scene(), mapToScene(10, 50), [&](auto label) {
-        QStringList list;
-        for (size_t i = 0; i < visited.size(); ++i) {
-            if (visited[i] == ANALYZED) {
-                list << QString::number(i);
-            }
-        }
-
-        label->setText("W = { " + list.join(", ") + " }");
-    });
-
-    const auto pText = AlgorithmLabel(scene(), mapToScene(10, 100), [&](auto label) {
-        QStringList list;
-        for (auto parent : parents) {
-            list << (parent == -1 ? "-" : QString::number(parent));
-        }
-
-        label->setText("p = [ " + list.join(", ") + " ]");
-    });
-
-    const auto oText = AlgorithmLabel(scene(), mapToScene(10, 120), [&](auto label) {
-        QStringList list;
-        for (auto order : orders) {
-            list << (order == -1 ? "-" : QString::number(order));
-        }
-
-        label->setText("o = [ " + list.join(", ") + " ]");
-    });
-
-    visited[start->getIndex()] = VISITED;
+    visited[start->getIndex()] = TraversalData::VISITED;
     orders[start->getIndex()] = 1;
 
     uText.compute();
@@ -272,72 +149,7 @@ void Graph::genericTotalTraversal(Node* start) {
 
     nodesVector.push_back(start);
 
-    size_t i = 0;
-    while (true) {
-        while (i < nodesVector.size()) {
-            auto x = nodesVector[i];
-            x->markCurrentlyAnalyzed();
-            waitForStepDuration();
-
-            for (auto y : m_adjacencyList[x]) {
-                if (visited[y->getIndex()] == UNVISITED) {
-                    y->markVisited(x);
-
-                    visited[y->getIndex()] = VISITED;
-                    uText.compute();
-                    vText.compute();
-
-                    parents[y->getIndex()] = x->getIndex();
-                    pText.compute();
-
-                    orders[y->getIndex()] = ++k;
-                    oText.compute();
-
-                    waitForStepDuration();
-
-                    nodesVector.push_back(y);
-                }
-            }
-
-            x->markAnalyzed(x);
-
-            visited[x->getIndex()] = ANALYZED;
-            vText.compute();
-            wText.compute();
-
-            waitForStepDuration();
-
-            ++i;
-            if (nodesVector.begin() + i != nodesVector.end()) {
-                std::shuffle(nodesVector.begin() + i, nodesVector.end(), m_randomEngine);
-            }
-        }
-
-        bool finished = true;
-        for (auto node : m_nodes) {
-            if (visited[node->getIndex()] == UNVISITED) {
-                visited[node->getIndex()] = VISITED;
-                orders[node->getIndex()] = ++k;
-
-                uText.compute();
-                vText.compute();
-                oText.compute();
-
-                nodesVector.push_back(node);
-                finished = false;
-
-                break;
-            }
-        }
-
-        if (finished) {
-            break;
-        }
-    }
-
-    QMessageBox::information(nullptr, "Traversal Complete", "The traversal has completed.");
-
-    unmarkNodes();
+    QTimer::singleShot(0, this, &Graph::genericTraversalStep);
 }
 
 void Graph::path(Node* start) {
@@ -442,7 +254,7 @@ void Graph::path(Node* start) {
 
         ++i;
         if (nodesVector.begin() + i != nodesVector.end()) {
-            std::shuffle(nodesVector.begin() + i, nodesVector.end(), m_randomEngine);
+            std::shuffle(nodesVector.begin() + i, nodesVector.end(), Random::get().getEngine());
         }
     }
 
@@ -779,8 +591,10 @@ void Graph::mouseReleaseEvent(QMouseEvent* event) {
             setDragMode(QGraphicsView::NoDrag);
             m_isSelecting = m_isDragging = false;
         } else {
-            const auto scenePos = mapToScene(event->pos());
-            addNode(scenePos);
+            if (!m_traversalData) {
+                const auto scenePos = mapToScene(event->pos());
+                addNode(scenePos);
+            }
         }
     }
 
@@ -788,11 +602,20 @@ void Graph::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void Graph::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Delete) {
+    if (!m_traversalData && event->key() == Qt::Key_Delete) {
         removeSelectedNodes();
     }
 
     QGraphicsView::keyPressEvent(event);
+}
+
+void Graph::resizeEvent(QResizeEvent* event) {
+    const auto sceneWidth = static_cast<int>(scene()->sceneRect().width());
+    const auto sceneHeight = static_cast<int>(scene()->sceneRect().height());
+
+    scene()->setSceneRect(0, 0, qMax(sceneWidth, width()), qMax(sceneHeight, height()));
+
+    QGraphicsView::resizeEvent(event);
 }
 
 void Graph::addNode(const QPointF& pos) {
@@ -941,4 +764,97 @@ void Graph::waitForStepDuration() {
     scene()->update();
     QCoreApplication::processEvents();
     std::this_thread::sleep_for(std::chrono::milliseconds(m_stepDuration));
+}
+
+void Graph::updateGraphState() {
+    scene()->update();
+    QCoreApplication::processEvents();
+}
+
+void Graph::endAlgorithm() {
+    QMessageBox::information(nullptr, "Traversal Complete", "The traversal has completed.");
+
+    delete m_traversalData;
+    m_traversalData = nullptr;
+
+    unmarkNodes();
+
+    emit endedAlgorithm();
+}
+
+void Graph::genericTraversalStep() {
+    const auto traversalData = static_cast<GenericTraversal*>(m_traversalData);
+
+    auto& parents = traversalData->m_parents;
+    auto& orders = traversalData->m_orders;
+    auto& visited = traversalData->m_visited;
+    auto& nodesVector = traversalData->m_nodesVector;
+
+    auto& uText = traversalData->m_unvisitedLabel;
+    auto& vText = traversalData->m_visitedLabel;
+    auto& wText = traversalData->m_analyzedLabel;
+    auto& pText = traversalData->m_parentsLabel;
+    auto& oText = traversalData->m_ordersLabel;
+
+    auto& i = traversalData->m_currentIndex;
+    auto& k = traversalData->m_order;
+
+    if (traversalData->finished()) {
+        endAlgorithm();
+        return;
+    }
+
+    while (i < nodesVector.size()) {
+        auto x = nodesVector[i];
+
+        if (x->getInternalState() != Node::CURRENTLY_ANALYZED) {
+            x->markCurrentlyAnalyzed();
+
+            if (m_stepDuration > 0) {
+                updateGraphState();
+                return QTimer::singleShot(m_stepDuration, this, &Graph::genericTraversalStep);
+            }
+        }
+
+        for (auto y : m_adjacencyList[x]) {
+            if (visited[y->getIndex()] == TraversalData::UNVISITED) {
+                y->markVisited(x);
+
+                visited[y->getIndex()] = TraversalData::VISITED;
+                uText.compute();
+                vText.compute();
+
+                parents[y->getIndex()] = x->getIndex();
+                pText.compute();
+
+                orders[y->getIndex()] = ++k;
+                oText.compute();
+
+                nodesVector.push_back(y);
+
+                if (m_stepDuration > 0) {
+                    updateGraphState();
+                    return QTimer::singleShot(m_stepDuration, this, &Graph::genericTraversalStep);
+                }
+            }
+        }
+
+        if (x->getInternalState() != Node::ANALYZED) {
+            x->markAnalyzed(x);
+
+            visited[x->getIndex()] = TraversalData::ANALYZED;
+            vText.compute();
+            wText.compute();
+
+            ++i;
+            if (nodesVector.begin() + i != nodesVector.end()) {
+                std::shuffle(nodesVector.begin() + i, nodesVector.end(), Random::get().getEngine());
+            }
+
+            if (m_stepDuration > 0) {
+                updateGraphState();
+                return QTimer::singleShot(m_stepDuration, this, &Graph::genericTraversalStep);
+            }
+        }
+    }
 }

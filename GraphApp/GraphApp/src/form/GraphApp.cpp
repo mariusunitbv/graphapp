@@ -2,17 +2,19 @@
 
 #include "GraphApp.h"
 
+#include "../random/Random.h"
+
 GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphicsScene(this)) {
     ui.setupUi(this);
 
-    m_scene->setSceneRect(0, 0, 1280, 720);
-
+    m_scene->setSceneRect(0, 0, ui.graph->width(), ui.graph->height());
     ui.graph->setScene(m_scene);
 
     connect(ui.textEdit, &QTextEdit::textChanged,
             [this]() { ui.graph->onAdjacencyListChanged(ui.textEdit->toPlainText()); });
 
     connect(ui.graph, &Graph::zoomChanged, this, &GraphApp::onZoomChanged);
+    connect(ui.graph, &Graph::endedAlgorithm, this, &GraphApp::onEndedAlgorithm);
 
     connect(ui.actionComplete_Graph, &QAction::triggered, [this]() {
         QString out;
@@ -37,13 +39,10 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
 
         QString out;
 
-        std::mt19937 rng(std::random_device{}());
-        std::uniform_int_distribution<int> dist(0, 99);
-
         const auto nodesCount = ui.graph->getNodesCount();
         for (size_t i = 0; i < nodesCount; ++i) {
             for (size_t j = 0; j < nodesCount; ++j) {
-                if (dist(rng) < connectChance) {
+                if (Random::get().getInt(0, 99) < connectChance) {
                     out += QString("%1 %2\n").arg(i).arg(j);
                 }
             }
@@ -66,9 +65,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
             QMessageBox::Yes, QMessageBox::No);
 
         if (response == QMessageBox::Yes) {
-            setEnabled(false);
+            onStartedAlgorithm();
             ui.graph->genericTraversal(selectedNode);
-            setEnabled(true);
         }
     });
 
@@ -86,9 +84,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
             QMessageBox::Yes, QMessageBox::No);
 
         if (response == QMessageBox::Yes) {
-            setEnabled(false);
+            onStartedAlgorithm();
             ui.graph->genericTotalTraversal(selectedNode);
-            setEnabled(true);
         }
     });
 
@@ -108,9 +105,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
             QMessageBox::Ok);
 
         if (response == QMessageBox::Ok) {
-            setEnabled(false);
+            onStartedAlgorithm();
             ui.graph->path(selectedNode);
-            setEnabled(true);
         }
     });
 
@@ -128,9 +124,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
             QMessageBox::Yes, QMessageBox::No);
 
         if (response == QMessageBox::Yes) {
-            setEnabled(false);
+            onStartedAlgorithm();
             ui.graph->breadthFirstSearch(selectedNode);
-            setEnabled(true);
         }
     });
 
@@ -148,9 +143,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
             QMessageBox::Yes, QMessageBox::No);
 
         if (response == QMessageBox::Yes) {
-            setEnabled(false);
+            onStartedAlgorithm();
             ui.graph->depthFirstSearch(selectedNode);
-            setEnabled(true);
         }
     });
 }
@@ -160,3 +154,7 @@ GraphApp::~GraphApp() {}
 void GraphApp::onZoomChanged() {
     ui.zoomScaleText->setText(QString("Graph scale: %1%").arg(ui.graph->getZoomPercentage()));
 }
+
+void GraphApp::onStartedAlgorithm() {}
+
+void GraphApp::onEndedAlgorithm() {}

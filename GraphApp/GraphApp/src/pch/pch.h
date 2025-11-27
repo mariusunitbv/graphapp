@@ -4,3 +4,4 @@
 #include <stack>
 
 #include <QtWidgets>
+#include <QtOpenGLWidgets>

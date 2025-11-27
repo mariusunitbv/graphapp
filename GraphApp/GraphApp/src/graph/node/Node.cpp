@@ -14,12 +14,13 @@ QRectF Node::boundingRect() const {
 }
 
 void Node::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) {
-    painter->setBrush(m_fill);
+    painter->setBrush(QColor::fromRgba(m_fill));
 
-    painter->setPen(QPen{isSelected() ? m_selectedOutline : m_outline, 1.5});
+    painter->setPen(
+        QPen{QColor::fromRgba(isSelected() ? k_defaultSelectedOutlineColor : m_outline), 1.5});
     painter->drawEllipse(-m_radius, -m_radius, 2 * m_radius, 2 * m_radius);
 
-    painter->setPen(m_outline);
+    painter->setPen(QColor::fromRgba(m_outline));
     if (m_radius >= 10) {
         painter->drawText(boundingRect(), Qt::AlignCenter, QString::number(m_index));
     }
@@ -33,59 +34,65 @@ QPainterPath Node::shape() const {
 
 int Node::type() const { return UserType + 1; }
 
-void Node::setFillColor(const QColor& c) { m_fill = c; }
+void Node::setFillColor(const QRgb c) { m_fill = c; }
 
-void Node::setOutlineColor(const QColor& c) { m_outline = c; }
+void Node::setOutlineColor(const QRgb c) { m_outline = c; }
 
-void Node::setSelectedOutlineColor(const QColor& c) { m_selectedOutline = c; }
+void Node::setSelectedOutlineColor(const QRgb c) { /*m_selectedOutline = c;*/ }
 
 void Node::markUnvisited() {
-    setOutlineColor(QColor{0, 0, 0, 40});
+    setOutlineColor(qRgba(0, 0, 0, 40));
 
     emit markedUnvisited();
 }
 
 void Node::markVisited(Node* parent) {
-    setFillColor(Qt::lightGray);
-    setOutlineColor(Qt::black);
+    setFillColor(k_defaultVisitedColor);
+    setOutlineColor(k_defaultOutlineColor);
 
     emit markedVisited(parent);
 }
 
 void Node::markVisitedButNotAnalyzedAnymore() {
-    setFillColor(Qt::lightGray);
-    setOutlineColor(Qt::black);
+    setFillColor(k_defaultVisitedColor);
+    setOutlineColor(k_defaultOutlineColor);
 }
 
 void Node::markCurrentlyAnalyzed() {
-    setFillColor(Qt::yellow);
-    setOutlineColor(Qt::black);
+    setFillColor(k_defaultCurrentlyAnalyzedColor);
+    setOutlineColor(k_defaultOutlineColor);
+
+    m_internalState = Node::CURRENTLY_ANALYZED;
 }
 
 void Node::markAnalyzed(Node* parent) {
-    setFillColor(Qt::green);
-    setOutlineColor(Qt::black);
+    setFillColor(k_defaultAnalyzedColor);
+    setOutlineColor(k_defaultOutlineColor);
+
+    m_internalState = Node::ANALYZED;
 
     emit markedAnalyzed(parent);
 }
 
 void Node::markAvailableInPathFinding() {
-    setFillColor(Qt::white);
-    setOutlineColor(Qt::black);
+    setFillColor(k_defaultFillColor);
+    setOutlineColor(k_defaultOutlineColor);
 
     emit markedAvailableInPathFinding(this);
 }
 
 void Node::markPath(Node* parent) {
-    setFillColor(Qt::green);
-    setOutlineColor(Qt::black);
+    setFillColor(k_defaultAnalyzedColor);
+    setOutlineColor(k_defaultOutlineColor);
 
     emit markedPath(parent);
 }
 
 void Node::unmark() {
-    setFillColor(Qt::white);
-    setOutlineColor(Qt::black);
+    setFillColor(k_defaultFillColor);
+    setOutlineColor(k_defaultOutlineColor);
+
+    m_internalState = Node::NONE;
 
     emit unmarked();
 }
@@ -100,6 +107,8 @@ void Node::setRadius(double radius) {
 }
 
 double Node::getRadius() const { return m_radius; }
+
+Node::InternalState Node::getInternalState() const { return m_internalState; }
 
 void Node::mousePressEvent(QGraphicsSceneMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {

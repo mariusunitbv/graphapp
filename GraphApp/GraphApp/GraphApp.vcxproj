@@ -37,12 +37,12 @@
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="QtSettings">
     <QtInstall>6.9.3_msvc2022_64</QtInstall>
-    <QtModules>core;gui;widgets</QtModules>
+    <QtModules>core;gui;widgets;openglwidgets</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="QtSettings">
     <QtInstall>6.9.3_msvc2022_64</QtInstall>
-    <QtModules>core;gui;widgets</QtModules>
+    <QtModules>core;gui;widgets;openglwidgets</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
@@ -130,6 +130,8 @@
   <ItemGroup>
     <QtUic Include="src\form\GraphApp.ui" />
     <QtMoc Include="src\form\GraphApp.h" />
+    <ClCompile Include="src\graph\traversal_data\traversal_data.cpp" />
+    <ClCompile Include="src\random\Random.cpp" />
     <ClCompile Include="src\form\GraphApp.cpp" />
     <ClCompile Include="src\graph\algorithm_label\algorithm_label.cpp" />
     <ClCompile Include="src\graph\edge\Edge.cpp" />
@@ -139,6 +141,8 @@
     <QtMoc Include="src\graph\Graph.h" />
     <QtMoc Include="src\graph\node\Node.h" />
     <QtMoc Include="src\graph\edge\Edge.h" />
+    <ClInclude Include="src\graph\traversal_data\traversal_data.h" />
+    <ClInclude Include="src\random\Random.h" />
     <ClInclude Include="src\graph\algorithm_label\algorithm_label.h" />
     <ClInclude Include="src\pch\pch.h" />
     <ClCompile Include="src\pch\pch.cpp">

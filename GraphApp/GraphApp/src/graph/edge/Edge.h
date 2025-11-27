@@ -10,16 +10,16 @@ class Edge : public QGraphicsObject {
    public:
     enum { EdgeType = UserType + 2 };
 
-    Edge(Node* a, Node* b, int cost = 0);
+    Edge(Node* a, Node* b, int cost);
     ~Edge();
 
     QRectF boundingRect() const override;
-    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
     int type() const override;
 
     bool connectsNode(Node* node) const;
 
-    void setColor(const QColor& c);
+    void setColor(const QRgb c);
 
     qreal getProgress() const;
     void setProgress(qreal p);
@@ -45,15 +45,15 @@ class Edge : public QGraphicsObject {
 
     Node* m_startNode;
     Node* m_endNode;
-    int m_cost{0};
+    int m_cost;
 
     QLineF m_line;
 
     QPolygonF m_arrowHead;
     static constexpr double k_arrowSize{15.};
 
-    QColor m_color{Qt::black};
-    QColor m_selectedColor{Qt::green};
+    QRgb m_color{Node::k_defaultOutlineColor};
+    QRgb m_selectedColor{Node::k_defaultAnalyzedColor};
 
     qreal m_progress = 0.;
 };

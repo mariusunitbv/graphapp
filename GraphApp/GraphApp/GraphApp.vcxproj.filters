@@ -8,6 +8,8 @@
     <ClCompile Include="src\graph\node\Node.cpp" />
     <ClCompile Include="src\graph\edge\Edge.cpp" />
     <ClCompile Include="src\graph\algorithm_label\algorithm_label.cpp" />
+    <ClCompile Include="src\random\Random.cpp" />
+    <ClCompile Include="src\graph\traversal_data\traversal_data.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="src\form\GraphApp.h" />
@@ -18,6 +20,8 @@
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />
     <ClInclude Include="src\graph\algorithm_label\algorithm_label.h" />
+    <ClInclude Include="src\random\Random.h" />
+    <ClInclude Include="src\graph\traversal_data\traversal_data.h" />
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="src\form\GraphApp.ui" />

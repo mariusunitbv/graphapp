@@ -3,6 +3,8 @@
 #include "node/Node.h"
 #include "edge/Edge.h"
 
+#include "traversal_data/traversal_data.h"
+
 class Graph : public QGraphicsView {
     Q_OBJECT
 
@@ -26,6 +28,7 @@ class Graph : public QGraphicsView {
 
    signals:
     void zoomChanged();
+    void endedAlgorithm();
 
    protected:
     void wheelEvent(QWheelEvent* event) final;
@@ -34,6 +37,8 @@ class Graph : public QGraphicsView {
     void mouseReleaseEvent(QMouseEvent* event) final;
 
     void keyPressEvent(QKeyEvent* event) final;
+
+    void resizeEvent(QResizeEvent* event) final;
 
    private:
     void addNode(const QPointF& pos);
@@ -51,19 +56,22 @@ class Graph : public QGraphicsView {
     bool openStepDurationDialog();
     void waitForStepDuration();
 
+    void updateGraphState();
+    void endAlgorithm();
+
+    void genericTraversalStep();
+
     std::vector<Node*> m_nodes;
     std::vector<Edge*> m_edges;
 
     std::unordered_map<Node*, std::unordered_set<Node*>> m_adjacencyList;
+    TraversalData* m_traversalData;
 
     bool m_isDragging{false};
     bool m_isSelecting{false};
 
     double m_currentZoomScale{1.};
-
     int m_stepDuration{1000};
-
-    std::mt19937 m_randomEngine;
 
     static constexpr double k_minScale = 1.;
     static constexpr double k_maxScale = 5.;

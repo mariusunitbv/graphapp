@@ -39,11 +39,20 @@
     <QtInstall>6.9.3_msvc2022_64</QtInstall>
     <QtModules>core;gui;widgets;openglwidgets</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
+    <QtQMLDebugEnable>false</QtQMLDebugEnable>
+    <QtHeaderSearchPath>
+    </QtHeaderSearchPath>
+    <QtLibrarySearchPath>
+    </QtLibrarySearchPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="QtSettings">
     <QtInstall>6.9.3_msvc2022_64</QtInstall>
     <QtModules>core;gui;widgets;openglwidgets</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
+    <QtHeaderSearchPath>
+    </QtHeaderSearchPath>
+    <QtLibrarySearchPath>
+    </QtLibrarySearchPath>
   </PropertyGroup>
   <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
     <Message Importance="High" Text="QtMsBuild: could not locate qt.targets, qt.props; project may not build correctly." />
@@ -78,6 +87,10 @@
     <ClCompile>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
     </ClCompile>
+    <Link>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -88,6 +101,10 @@
     <ClCompile>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
     </ClCompile>
+    <Link>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
     <ClCompile>
@@ -130,10 +147,17 @@
   <ItemGroup>
     <QtUic Include="src\form\GraphApp.ui" />
     <QtMoc Include="src\form\GraphApp.h" />
-    <ClCompile Include="src\graph\traversal_data\traversal_data.cpp" />
+    <ClCompile Include="src\form\pseudocode\PseudocodeForm.cpp" />
+    <ClCompile Include="src\graph\algorithms\paths\Path.cpp" />
+    <ClCompile Include="src\graph\algorithms\TimedInteractiveAlgorithm.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\BreadthTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\DepthTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\GenericTotalTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\GenericTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\TraversalBase.cpp" />
+    <ClCompile Include="src\graph\algorithm_label\AlgorithmText.cpp" />
     <ClCompile Include="src\random\Random.cpp" />
     <ClCompile Include="src\form\GraphApp.cpp" />
-    <ClCompile Include="src\graph\algorithm_label\algorithm_label.cpp" />
     <ClCompile Include="src\graph\edge\Edge.cpp" />
     <ClCompile Include="src\graph\Graph.cpp" />
     <ClCompile Include="src\graph\node\Node.cpp" />
@@ -141,14 +165,22 @@
     <QtMoc Include="src\graph\Graph.h" />
     <QtMoc Include="src\graph\node\Node.h" />
     <QtMoc Include="src\graph\edge\Edge.h" />
-    <ClInclude Include="src\graph\traversal_data\traversal_data.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\TraversalBase.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\GenericTraversal.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\GenericTotalTraversal.h" />
+    <QtMoc Include="src\graph\algorithms\paths\Path.h" />
+    <QtMoc Include="src\graph\algorithms\TimedInteractiveAlgorithm.h" />
+    <QtMoc Include="src\graph\algorithm_label\AlgorithmText.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\BreadthTraversal.h" />
+    <QtMoc Include="src\form\pseudocode\PseudocodeForm.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\DepthTraversal.h" />
     <ClInclude Include="src\random\Random.h" />
-    <ClInclude Include="src\graph\algorithm_label\algorithm_label.h" />
     <ClInclude Include="src\pch\pch.h" />
     <ClCompile Include="src\pch\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <QtUic Include="src\form\pseudocode\PseudocodeForm.ui" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

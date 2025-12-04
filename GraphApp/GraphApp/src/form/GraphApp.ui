@@ -86,6 +86,7 @@
     </property>
     <addaction name="actionComplete_Graph"/>
     <addaction name="actionRandom_Graph"/>
+    <addaction name="actionReset_Graph"/>
    </widget>
    <widget class="QMenu" name="menuAlgorithms">
     <property name="title">
@@ -122,7 +123,7 @@
   </action>
   <action name="actionRandom_Graph">
    <property name="text">
-    <string>Random Connect Graph</string>
+    <string>Random Connect Nodes</string>
    </property>
   </action>
   <action name="actionBreadth_Traversal">
@@ -133,6 +134,11 @@
   <action name="actionDepth_Traversal">
    <property name="text">
     <string>Depth Traversal</string>
+   </property>
+  </action>
+  <action name="actionReset_Graph">
+   <property name="text">
+    <string>Reset Graph</string>
    </property>
   </action>
  </widget>

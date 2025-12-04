@@ -3,46 +3,44 @@
 class Node : public QGraphicsObject {
     Q_OBJECT
 
-    Q_PROPERTY(qreal radius READ getRadius WRITE setRadius)
-
    public:
-    enum { NodeType = UserType + 1 };
-
-    enum InternalState { NONE, CURRENTLY_ANALYZED, ANALYZED };
+    enum class State : uint8_t { NONE, UNVISITED, VISITED, CURRENTLY_ANALYZED, ANALYZED, PATH };
 
     Node(size_t index);
-    ~Node();
 
     QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
     QPainterPath shape() const override;
-    int type() const override;
 
     void setFillColor(const QRgb c);
-    void setOutlineColor(const QRgb c);
-    void setSelectedOutlineColor(const QRgb c);
+    void setOutlineColor(const QRgb c, bool ignoreSelection = false);
+    void setOutlineWidth(float width);
+    void setOpacity(qreal opacity);
+    void setScale(qreal scale);
+
+    void setAllNodesView(const std::vector<Node*>* allNodesView);
 
     void markUnvisited();
-    void markVisited(Node* parent);
+    void markVisited(Node* parent = nullptr);
     void markVisitedButNotAnalyzedAnymore();
     void markCurrentlyAnalyzed();
-    void markAnalyzed(Node* parent);
+    void markAnalyzed();
 
     void markAvailableInPathFinding();
+    void markUnreachable();
     void markPath(Node* parent);
 
+    void markForErasure();
     void unmark();
 
     void setIndex(size_t index);
     size_t getIndex() const;
 
-    void setRadius(double radius);
-    double getRadius() const;
-
-    InternalState getInternalState() const;
+    State getState() const;
 
    signals:
-    void positionChanged();
+    void changedPosition();
+    void selectionChanged(bool selected);
 
     void markedUnvisited();
     void markedVisited(Node* parent);
@@ -51,11 +49,15 @@ class Node : public QGraphicsObject {
     void markedAvailableInPathFinding(Node* node);
     void markedPath(Node* parent);
 
+    void markedForErasure(Node* node);
     void unmarked();
 
    protected:
-    void mousePressEvent(QGraphicsSceneMouseEvent* event);
-    void mouseReleaseEvent(QGraphicsSceneMouseEvent* event);
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
+
+    void hoverEnterEvent(QGraphicsSceneHoverEvent* event) override;
+    void hoverLeaveEvent(QGraphicsSceneHoverEvent* event) override;
 
     QVariant itemChange(GraphicsItemChange change, const QVariant& value) override;
 
@@ -67,20 +69,22 @@ class Node : public QGraphicsObject {
     static constexpr QRgb k_defaultCurrentlyAnalyzedColor{qRgb(255, 255, 61)};
     static constexpr QRgb k_defaultVisitedColor{qRgb(204, 204, 204)};
     static constexpr QRgb k_defaultUnvisitedOutlineColor{qRgb(240, 240, 240)};
+    static constexpr QRgb k_defaultUnreachableColor{qRgb(255, 69, 69)};
 
    private:
+    QPointF getGoodPositionWhenMoving(const QPointF& desiredPos);
+
     QRgb m_fill{qRgb(255, 255, 255)};
     QRgb m_outline{qRgb(0, 0, 0)};
+    QRgb m_outlineBackup{qRgb(0, 0, 0)};
 
-    /*
-    QRgb m_selectedOutline{qRgb(41, 134, 243)};
-    */
+    float m_outlineWidth{1.5f};
 
-    size_t m_index;
-    double m_radius{1.};
+    size_t m_index{std::numeric_limits<size_t>::max()};
+    State m_state{State::NONE};
 
-    InternalState m_internalState{NONE};
+    const std::vector<Node*>* m_allNodesView{nullptr};
 
    public:
-    static constexpr double k_fullRadius{24.};
+    static constexpr double k_radius{24.};
 };

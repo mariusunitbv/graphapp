@@ -18,5 +18,3 @@ size_t Random::getSize(size_t min, size_t max) {
     std::uniform_int_distribution dist(min, max);
     return dist(m_engine);
 }
-
-std::mt19937& Random::getEngine() { return m_engine; }

@@ -1,34 +1,33 @@
-#pragma once
+﻿#pragma once
 
 #include "node/Node.h"
 #include "edge/Edge.h"
-
-#include "traversal_data/traversal_data.h"
 
 class Graph : public QGraphicsView {
     Q_OBJECT
 
    public:
     Graph(QWidget* parent);
-    ~Graph();
 
     void onAdjacencyListChanged(const QString& text);
     Node* getFirstSelectedNode() const;
 
-    void genericTraversal(Node* start);
-    void genericTotalTraversal(Node* start);
-    void path(Node* start);
-    void breadthFirstSearch(Node* start);
-    void depthFirstSearch(Node* start);
-
     size_t getNodesCount();
+    const std::vector<Node*>& getNodes() const;
+    const std::unordered_map<Node*, std::unordered_set<Node*>>& getAdjacencyList() const;
+
     int getZoomPercentage();
 
     void resetGraph();
 
+    void enableEditing();
+    void disableEditing();
+
    signals:
     void zoomChanged();
+    void movedGraph();
     void endedAlgorithm();
+    void spacePressed();
 
    protected:
     void wheelEvent(QWheelEvent* event) final;
@@ -42,36 +41,26 @@ class Graph : public QGraphicsView {
 
    private:
     void addNode(const QPointF& pos);
-    void removeNode(Node* node);
+    void removeNodeConnections(Node* node);
     void removeSelectedNodes();
+    void onNodeMarkedForErasure(Node* node);
 
     void addEdge(Node* a, Node* b, int cost);
     void removeEdgesConnectedToNode(Node* node);
+    void onEdgeMarkedForErasure(Edge* edge);
 
     void resetAdjacencyList();
-
-    void markNodesAsUnvisited();
-    void unmarkNodes();
-
-    bool openStepDurationDialog();
-    void waitForStepDuration();
-
-    void updateGraphState();
-    void endAlgorithm();
-
-    void genericTraversalStep();
 
     std::vector<Node*> m_nodes;
     std::vector<Edge*> m_edges;
 
     std::unordered_map<Node*, std::unordered_set<Node*>> m_adjacencyList;
-    TraversalData* m_traversalData;
 
     bool m_isDragging{false};
     bool m_isSelecting{false};
 
     double m_currentZoomScale{1.};
-    int m_stepDuration{1000};
+    bool m_editingEnabled{true};
 
     static constexpr double k_minScale = 1.;
     static constexpr double k_maxScale = 5.;

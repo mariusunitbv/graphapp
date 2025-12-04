@@ -5,35 +5,36 @@
 class Edge : public QGraphicsObject {
     Q_OBJECT
 
-    Q_PROPERTY(qreal progress READ getProgress WRITE setProgress)
-
    public:
-    enum { EdgeType = UserType + 2 };
-
     Edge(Node* a, Node* b, int cost);
-    ~Edge();
 
     QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
-    int type() const override;
 
     bool connectsNode(Node* node) const;
 
     void setColor(const QRgb c);
-
-    qreal getProgress() const;
-    void setProgress(qreal p);
+    void setProgress(float p);
 
     bool isLoop() const;
+
+    void markForErasure();
+
+   signals:
+    void markedForErasure(Edge* edge);
+
+   protected:
+    QVariant itemChange(GraphicsItemChange change, const QVariant& value) override;
 
    private:
     void connectNodeSignals(Node* node);
 
     void updatePosition();
+    void onSelectedChanged(bool selected);
 
     void markUnvisited();
     void markVisited(Node* parent);
-    void markAnalyzed(Node* parent);
+    void markAnalyzed();
 
     void markAvailableInPathFindingPath(Node* node);
     void markPath(Node* parent);
@@ -45,15 +46,14 @@ class Edge : public QGraphicsObject {
 
     Node* m_startNode;
     Node* m_endNode;
+
     int m_cost;
+    float m_progress = 0.;
 
-    QLineF m_line;
-
-    QPolygonF m_arrowHead;
-    static constexpr double k_arrowSize{15.};
+    QLine m_line;
+    QPolygon m_arrowHead;
 
     QRgb m_color{Node::k_defaultOutlineColor};
-    QRgb m_selectedColor{Node::k_defaultAnalyzedColor};
 
-    qreal m_progress = 0.;
+    static constexpr double k_arrowSize{15.};
 };

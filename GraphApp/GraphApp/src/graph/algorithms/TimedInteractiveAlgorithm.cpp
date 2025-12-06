@@ -2,27 +2,16 @@
 
 #include "TimedInteractiveAlgorithm.h"
 
-TimedInteractiveAlgorithm::TimedInteractiveAlgorithm(Graph* parent)
-    : QObject(parent), m_graph(parent) {
+TimedInteractiveAlgorithm::TimedInteractiveAlgorithm(Graph* parent) : Algorithm(parent) {
     connect(parent, &Graph::spacePressed, this, &TimedInteractiveAlgorithm::onSpacePressed);
 
-    connect(&m_stepTimer, &QTimer::timeout, this, [this]() {
+    m_stepConnection = connect(&m_stepTimer, &QTimer::timeout, this, [this]() {
         if (!stepOnce()) {
-            m_stepTimer.stop();
             emit finished();
         } else {
             emit ticked();
         }
     });
-}
-
-void TimedInteractiveAlgorithm::showPseudocode() {
-    const auto screenGeom = QGuiApplication::primaryScreen()->availableGeometry();
-
-    int x = screenGeom.right() - m_pseudocodeForm.width();
-    int y = screenGeom.bottom() - m_pseudocodeForm.height();
-
-    m_pseudocodeForm.move(x, y);
 }
 
 void TimedInteractiveAlgorithm::setStepDelay(int stepDelay) { m_stepDelay = stepDelay; }
@@ -34,4 +23,19 @@ void TimedInteractiveAlgorithm::onSpacePressed() {
 
     m_stepTimer.setInterval(70);
     QTimer::singleShot(100, this, [this]() { m_stepTimer.setInterval(m_stepDelay); });
+}
+
+void TimedInteractiveAlgorithm::onEscapePressed() {
+    m_stepTimer.stop();
+
+    Algorithm::onEscapePressed();
+}
+
+void TimedInteractiveAlgorithm::onFinishedAlgorithm() {
+    if (m_stepConnection) {
+        disconnect(m_stepConnection);
+    }
+
+    m_stepTimer.stop();
+    Algorithm::onFinishedAlgorithm();
 }

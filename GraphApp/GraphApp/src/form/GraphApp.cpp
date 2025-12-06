@@ -8,15 +8,19 @@
 #include "../graph/algorithms/traversals/GenericTotalTraversal.h"
 #include "../graph/algorithms/traversals/BreadthTraversal.h"
 #include "../graph/algorithms/traversals/DepthTraversal.h"
+#include "../graph/algorithms/traversals/DepthTotalTraversal.h"
+
+#include "../graph/algorithms/other/ConnectedComponents.h"
+#include "../graph/algorithms/other/StronglyConnectedComponents.h"
 
 #include "../graph/algorithms/paths/Path.h"
 
-GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphicsScene(this)) {
+#include "intermediate_graph/IntermediateGraph.h"
+
+GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
     ui.setupUi(this);
 
-    m_scene->setSceneRect(0, 0, ui.graph->width(), ui.graph->height());
-    m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
-    ui.graph->setScene(m_scene);
+    ui.graph->enableEditing();
 
     connect(ui.textEdit, &QTextEdit::textChanged,
             [this]() { ui.graph->onAdjacencyListChanged(ui.textEdit->toPlainText()); });
@@ -29,39 +33,95 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
 
         const auto nodesCount = ui.graph->getNodesCount();
         for (size_t i = 0; i < nodesCount; ++i) {
-            for (size_t j = 0; j < nodesCount; ++j) {
+            size_t j = ui.graph->getOrientedGraph() ? 0 : i + 1;
+            for (; j < nodesCount; ++j) {
+                if (i == j && !ui.graph->getAllowLoops()) {
+                    continue;
+                }
+
                 out += QString("%1 %2\n").arg(i).arg(j);
             }
         }
 
+        ui.graph->reserveEdges(ui.graph->getMaxEdgesCount());
         ui.textEdit->setText(out);
     });
 
     connect(ui.actionRandom_Graph, &QAction::triggered, [this]() {
         bool ok = false;
-        const auto connectChance =
-            QInputDialog::getInt(nullptr, "Chance", "Connection chance:", 20, 0, 100, 1, &ok);
-        if (!ok) {
+        const auto nodesCount = ui.graph->getNodesCount();
+        const auto maxEdges = ui.graph->getMaxEdgesCount();
+
+        const auto edgeCount = QInputDialog::getInt(
+            nullptr, "Edge Count", QString("Number of edges (max %1):").arg(maxEdges), maxEdges / 3,
+            0, maxEdges, 1, &ok);
+
+        if (!ok || edgeCount == 0) {
             return;
         }
 
-        QString out;
-
-        const auto nodesCount = ui.graph->getNodesCount();
+        std::vector<std::pair<size_t, size_t>> possibleEdges;
         for (size_t i = 0; i < nodesCount; ++i) {
-            for (size_t j = 0; j < nodesCount; ++j) {
-                if (Random::get().getInt(0, 99) < connectChance) {
-                    out += QString("%1 %2\n").arg(i).arg(j);
+            size_t j = ui.graph->getOrientedGraph() ? 0 : i + 1;
+            for (; j < nodesCount; ++j) {
+                if (i == j && !ui.graph->getAllowLoops()) {
+                    continue;
                 }
+                possibleEdges.push_back({i, j});
             }
         }
 
+        std::shuffle(possibleEdges.begin(), possibleEdges.end(), Random::get().getEngine());
+
+        QString out;
+        for (size_t k = 0; k < edgeCount; ++k) {
+            out += QString("%1 %2\n").arg(possibleEdges[k].first).arg(possibleEdges[k].second);
+        }
+
+        ui.graph->reserveEdges(edgeCount);
         ui.textEdit->setText(out);
     });
 
+    connect(ui.actionAnimations, &QAction::toggled,
+            [this](bool checked) { ui.graph->setAnimationsDisabled(!checked); });
+
+    connect(ui.actionAllow_Loops, &QAction::toggled,
+            [this](bool checked) { ui.graph->setAllowLoops(checked); });
+
+    connect(ui.actionOriented_Graph, &QAction::toggled, [this](bool checked) {
+        ui.graph->setOrientedGraph(checked);
+        ui.actionAllow_Loops->setEnabled(checked);
+
+        if (!checked) {
+            ui.actionAllow_Loops->setChecked(false);
+        }
+    });
+
     connect(ui.actionReset_Graph, &QAction::triggered, [this]() {
-        ui.graph->resetGraph();
-        ui.textEdit->clear();
+        const auto response =
+            QMessageBox::warning(this, "Confirmation", "Are you sure you want to reset the graph?",
+                                 QMessageBox::Yes, QMessageBox::No);
+
+        if (response == QMessageBox::Yes) {
+            ui.graph->resetGraph();
+            ui.textEdit->clear();
+        }
+    });
+
+    connect(ui.actionInverted_Graph, &QAction::triggered, this, [this]() {
+        if (ui.graph->getEdges().empty()) {
+            QMessageBox::warning(this, "No edges", "Cannot invert a graph with no edges.");
+            return;
+        }
+
+        Graph* invertedGraph = ui.graph->getInvertedGraph();
+        if (!invertedGraph) {
+            return;
+        }
+
+        const auto window = new IntermediateGraph(invertedGraph, this);
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        window->show();
     });
 
     connect(ui.actionGenericTraversal, &QAction::triggered, [this]() {
@@ -85,8 +145,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
             onStartedAlgorithm();
 
             const auto traversal = new GenericTraversal(ui.graph);
-            connect(traversal, &TraversalBase::finished, this, &GraphApp::onEndedAlgorithm);
-            connect(traversal, &TraversalBase::finished, traversal, &TraversalBase::deleteLater);
+            connect(traversal, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
+            connect(traversal, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
 
             traversal->setStartNode(selectedNode);
             traversal->setStepDelay(m_stepDelay);
@@ -116,8 +176,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
             onStartedAlgorithm();
 
             const auto traversal = new GenericTotalTraversal(ui.graph);
-            connect(traversal, &TraversalBase::finished, this, &GraphApp::onEndedAlgorithm);
-            connect(traversal, &TraversalBase::finished, traversal, &TraversalBase::deleteLater);
+            connect(traversal, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
+            connect(traversal, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
 
             traversal->setStartNode(selectedNode);
             traversal->setStepDelay(m_stepDelay);
@@ -149,8 +209,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
             onStartedAlgorithm();
 
             const auto path = new Path(ui.graph);
-            connect(path, &Path::finished, this, &GraphApp::onEndedAlgorithm);
-            connect(path, &Path::finished, path, &Path::deleteLater);
+            connect(path, &Path::finished, this, &GraphApp::onFinishedAlgorithm);
+            connect(path, &Path::aborted, this, &GraphApp::onEndedAlgorithm);
 
             path->setStepDelay(m_stepDelay);
             path->setSourceNodeIndex(m_sourceNodePath);
@@ -180,8 +240,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
             onStartedAlgorithm();
 
             const auto traversal = new BreadthTraversal(ui.graph);
-            connect(traversal, &TraversalBase::finished, this, &GraphApp::onEndedAlgorithm);
-            connect(traversal, &TraversalBase::finished, traversal, &TraversalBase::deleteLater);
+            connect(traversal, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
+            connect(traversal, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
 
             traversal->setStartNode(selectedNode);
             traversal->setStepDelay(m_stepDelay);
@@ -211,8 +271,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
             onStartedAlgorithm();
 
             const auto traversal = new DepthTraversal(ui.graph);
-            connect(traversal, &TraversalBase::finished, this, &GraphApp::onEndedAlgorithm);
-            connect(traversal, &TraversalBase::finished, traversal, &TraversalBase::deleteLater);
+            connect(traversal, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
+            connect(traversal, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
 
             traversal->setStartNode(selectedNode);
             traversal->setStepDelay(m_stepDelay);
@@ -220,9 +280,120 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent), m_scene(new QGraphics
             traversal->start();
         }
     });
-}
 
-GraphApp::~GraphApp() {}
+    connect(ui.actionDepth_Total_Traversal, &QAction::triggered, [this]() {
+        const auto selectedNode = ui.graph->getFirstSelectedNode();
+        if (!selectedNode) {
+            QMessageBox::warning(this, "No node selected",
+                                 "Please select a starting node for the traversal.");
+            return;
+        }
+
+        const auto response = QMessageBox::information(
+            this, "Confirmation",
+            QString("Begin algorithm from node %1?").arg(selectedNode->getIndex()),
+            QMessageBox::Yes, QMessageBox::No);
+
+        if (response == QMessageBox::Yes) {
+            if (!openStepDurationDialog()) {
+                return;
+            }
+
+            onStartedAlgorithm();
+
+            const auto traversal = new DepthTotalTraversal(ui.graph);
+            connect(traversal, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
+            connect(traversal, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
+
+            traversal->setStartNode(selectedNode);
+            traversal->setStepDelay(m_stepDelay);
+            traversal->showPseudocode();
+            traversal->start();
+        }
+    });
+
+    connect(ui.actionConnected_Components, &QAction::triggered, [this]() {
+        if (ui.graph->getNodesCount() == 0) {
+            QMessageBox::warning(this, "No nodes", "The graph has no nodes.");
+            return;
+        }
+
+        if (ui.graph->getOrientedGraph()) {
+            QMessageBox::warning(this, "Oriented graph",
+                                 "Connected Components algorithm is available only for "
+                                 "non-oriented graphs.");
+            return;
+        }
+
+        if (!openStepDurationDialog()) {
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto cc = new ConnectedComponents(ui.graph);
+        connect(cc, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(cc, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        cc->setStepDelay(m_stepDelay);
+        cc->showPseudocode();
+        cc->start();
+    });
+
+    connect(ui.actionStrongly_Connected_Components, &QAction::triggered, [this]() {
+        if (ui.graph->getNodesCount() == 0) {
+            QMessageBox::warning(this, "No nodes", "The graph has no nodes.");
+            return;
+        }
+
+        if (!ui.graph->getOrientedGraph()) {
+            QMessageBox::warning(this, "Unoriented graph",
+                                 "Strongly Connected Components algorithm is available only for "
+                                 "oriented graphs.");
+            return;
+        }
+
+        if (!openStepDurationDialog()) {
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto ctc = new StronglyConnectedComponents(ui.graph);
+        connect(ctc, &StronglyConnectedComponents::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(ctc, &StronglyConnectedComponents::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        ctc->setStepDelay(m_stepDelay);
+        ctc->showPseudocode();
+        ctc->start();
+    });
+
+    connect(ui.actionFill_Graph_With_Nodes, &QAction::triggered, [this]() {
+        ui.graph->addNode({Node::k_radius, Node::k_radius});
+
+        QPointF sceneSize = ui.graph->getGraphSize();
+
+        qreal lastX = Node::k_radius;
+        qreal lastY = Node::k_radius;
+
+        size_t lastIndex = 0;
+        while (lastIndex != ui.graph->getNodesCount()) {
+            lastIndex = ui.graph->getNodesCount();
+
+            qreal newX = lastX + Node::k_radius * 2 + 5.;
+            if (newX >= sceneSize.x()) {
+                newX = Node::k_radius;
+                lastY += Node::k_radius * 2 + 5.;
+            }
+            qreal newY = lastY;
+
+            ui.graph->addNode({newX, newY});
+
+            lastX = newX;
+            lastY = newY;
+        }
+    });
+}
 
 void GraphApp::onZoomChanged() {
     ui.zoomScaleText->setText(QString("Graph scale: %1%").arg(ui.graph->getZoomPercentage()));
@@ -234,11 +405,14 @@ void GraphApp::onStartedAlgorithm() {
     ui.graph->disableEditing();
 }
 
-void GraphApp::onEndedAlgorithm() {
-    QMessageBox::information(this, "Information",
-                             "Algorithm has ended.\nContinuing will reset nodes colors.",
-                             QMessageBox::Ok);
+void GraphApp::onFinishedAlgorithm() {
+    QMessageBox::information(
+        nullptr, "Algorithm",
+        "The aglorithm has finished\nPress escape to return to the initial state.",
+        QMessageBox::Ok);
+}
 
+void GraphApp::onEndedAlgorithm() {
     ui.menuBar->setEnabled(true);
     ui.textEdit->setEnabled(true);
     ui.graph->enableEditing();
@@ -246,8 +420,8 @@ void GraphApp::onEndedAlgorithm() {
 
 bool GraphApp::openStepDurationDialog() {
     bool ok = false;
-    m_stepDelay = QInputDialog::getInt(nullptr, "Step Delay", "Enter step delay (ms):", 500, 0,
-                                       5000, 50, &ok);
+    m_stepDelay = QInputDialog::getInt(nullptr, "Step Delay", "Enter step delay (ms):", 1000, 0,
+                                       10000, 50, &ok);
 
     return ok;
 }

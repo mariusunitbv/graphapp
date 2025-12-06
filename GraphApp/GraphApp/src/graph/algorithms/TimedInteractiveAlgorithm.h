@@ -1,26 +1,21 @@
 #pragma once
 
-#include "../graph/Graph.h"
+#include "Algorithm.h"
 
-#include "../form/pseudocode/PseudocodeForm.h"
-
-class TimedInteractiveAlgorithm : public QObject {
+class TimedInteractiveAlgorithm : public Algorithm {
     Q_OBJECT
 
    public:
     virtual bool stepOnce() = 0;
     virtual void stepAll() = 0;
-    virtual void showPseudocode();
 
     void setStepDelay(int stepDelay);
 
    signals:
     void ticked();
-    void finished();
 
    protected:
     TimedInteractiveAlgorithm(Graph* parent);
-    virtual ~TimedInteractiveAlgorithm() = default;
 
     /**
      * @brief Handles a Space key press.
@@ -29,10 +24,11 @@ class TimedInteractiveAlgorithm : public QObject {
      * allowing the algorithm to advance by one step.
      */
     void onSpacePressed();
-
-    Graph* m_graph;
-    PseudocodeForm m_pseudocodeForm;
+    void onEscapePressed() override;
+    void onFinishedAlgorithm();
 
     QTimer m_stepTimer;
+    QMetaObject::Connection m_stepConnection;
+
     int m_stepDelay{0};
 };

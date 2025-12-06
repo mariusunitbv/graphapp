@@ -2,7 +2,9 @@
 
 #include "Graph.h"
 
-Graph::Graph(QWidget* parent) : QGraphicsView(parent) {
+#include "../random/Random.h"
+
+Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScene()) {
     setBackgroundBrush(Qt::white);
 
     QSurfaceFormat format;
@@ -13,7 +15,17 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent) {
     glWidget->setFormat(format);
 
     setViewport(glWidget);
+
+    m_scene->setSceneRect(0, 0, 1920, 1080);
+    m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
+    setScene(m_scene);
+
+    setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
+    setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 }
+
+Graph::~Graph() { m_scene->deleteLater(); }
 
 void Graph::onAdjacencyListChanged(const QString& text) {
     QStringList lines = text.split('\n', Qt::SkipEmptyParts);
@@ -62,6 +74,25 @@ void Graph::onAdjacencyListChanged(const QString& text) {
                 break;
             }
 
+            if (!m_allowLoops && u == v) {
+                QMessageBox::warning(nullptr, "Loop not allowed",
+                                     QString("Loops are not allowed (Node %1)!").arg(u));
+                break;
+            }
+
+            if (!m_orientedGraph) {
+                if (m_adjacencyList[m_nodes[v]].contains(m_nodes[u])) {
+                    QMessageBox::warning(nullptr, "Duplicate edge",
+                                         QString("Edge from %1 to %2 already exists!\nBecause this "
+                                                 "is an unoriented graph")
+                                             .arg(v)
+                                             .arg(u));
+                    break;
+                }
+
+                m_adjacencyList[m_nodes[v]].emplace(m_nodes[u]);
+            }
+
             uNeighbours.emplace(m_nodes[v]);
             addEdge(m_nodes[u], m_nodes[v], cost);
         }
@@ -78,9 +109,21 @@ Node* Graph::getFirstSelectedNode() const {
     return nullptr;
 }
 
-size_t Graph::getNodesCount() { return m_nodes.size(); }
+size_t Graph::getNodesCount() const { return m_nodes.size(); }
 
 const std::vector<Node*>& Graph::getNodes() const { return m_nodes; }
+
+Node* Graph::getRandomNode() const {
+    if (getNodesCount() == 0) {
+        return 0;
+    }
+
+    return m_nodes[Random::get().getSize(0, getNodesCount() - 1)];
+}
+
+QPointF Graph::getGraphSize() const { return {m_scene->width(), m_scene->height()}; }
+
+const std::vector<Edge*>& Graph::getEdges() const { return m_edges; }
 
 const std::unordered_map<Node*, std::unordered_set<Node*>>& Graph::getAdjacencyList() const {
     return m_adjacencyList;
@@ -88,17 +131,78 @@ const std::unordered_map<Node*, std::unordered_set<Node*>>& Graph::getAdjacencyL
 
 int Graph::getZoomPercentage() { return static_cast<int>(m_currentZoomScale * 100); }
 
-void Graph::resetGraph() {
-    scene()->clear();
-
-    m_adjacencyList.clear();
-    m_edges.clear();
-    m_nodes.clear();
-}
+void Graph::resetGraph() { removeAllNodes(); }
 
 void Graph::enableEditing() { m_editingEnabled = true; }
 
 void Graph::disableEditing() { m_editingEnabled = false; }
+
+void Graph::setAnimationsDisabled(bool disabled) {
+    m_animationsDisabled = disabled;
+    for (auto node : m_nodes) {
+        node->setAnimationDisabled(disabled);
+    }
+}
+
+bool Graph::getAnimationsDisabled() const { return m_animationsDisabled; }
+
+void Graph::setAllowLoops(bool allow) { m_allowLoops = allow; }
+
+bool Graph::getAllowLoops() const { return m_allowLoops; }
+
+void Graph::setOrientedGraph(bool oriented) { m_orientedGraph = oriented; }
+
+bool Graph::getOrientedGraph() const { return m_orientedGraph; }
+
+Graph* Graph::getCopy() const {
+    auto copiedGraph = new Graph();
+
+    copiedGraph->setAnimationsDisabled(m_animationsDisabled);
+    copiedGraph->setAllowLoops(m_allowLoops);
+    copiedGraph->setOrientedGraph(m_orientedGraph);
+
+    for (auto node : m_nodes) {
+        copiedGraph->addNode(node->pos());
+    }
+
+    copiedGraph->reserveEdges(m_edges.size());
+    for (auto edge : m_edges) {
+        Node* u = copiedGraph->m_nodes[edge->getStartNode()->getIndex()];
+        Node* v = copiedGraph->m_nodes[edge->getEndNode()->getIndex()];
+        copiedGraph->addEdge(u, v, edge->getCost());
+    }
+
+    return copiedGraph;
+}
+
+Graph* Graph::getInvertedGraph() const {
+    if (!m_orientedGraph) {
+        QMessageBox::warning(nullptr, "Warning", "Cannot invert an unoriented graph",
+                             QMessageBox::Ok);
+        return nullptr;
+    }
+
+    const auto invertedGraph = new Graph();
+
+    invertedGraph->setAnimationsDisabled(m_animationsDisabled);
+    invertedGraph->setAllowLoops(m_allowLoops);
+    invertedGraph->setOrientedGraph(m_orientedGraph);
+
+    for (auto node : m_nodes) {
+        invertedGraph->addNode(node->pos());
+    }
+
+    invertedGraph->reserveEdges(m_edges.size());
+    for (auto edge : m_edges) {
+        Node* u = invertedGraph->m_nodes[edge->getStartNode()->getIndex()];
+        Node* v = invertedGraph->m_nodes[edge->getEndNode()->getIndex()];
+
+        invertedGraph->addEdge(v, u, edge->getCost());
+        invertedGraph->m_adjacencyList[v].emplace(u);
+    }
+
+    return invertedGraph;
+}
 
 void Graph::wheelEvent(QWheelEvent* event) {
     double newScale = m_currentZoomScale;
@@ -143,8 +247,10 @@ void Graph::mouseReleaseEvent(QMouseEvent* event) {
             m_isDragging = false;
             emit movedGraph();
         } else {
-            const auto scenePos = mapToScene(event->pos());
-            addNode(scenePos);
+            if (m_editingEnabled) {
+                const auto scenePos = mapToScene(event->pos());
+                addNode(scenePos);
+            }
         }
     }
 
@@ -152,10 +258,12 @@ void Graph::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void Graph::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Delete) {
+    if (event->key() == Qt::Key_Delete && m_editingEnabled) {
         removeSelectedNodes();
     } else if (event->key() == Qt::Key_Space) {
         emit spacePressed();
+    } else if (event->key() == Qt::Key_Escape) {
+        emit escapePressed();
     }
 
     QGraphicsView::keyPressEvent(event);
@@ -171,10 +279,6 @@ void Graph::resizeEvent(QResizeEvent* event) {
 }
 
 void Graph::addNode(const QPointF& pos) {
-    if (!m_editingEnabled) {
-        return;
-    }
-
     const auto bounds = scene()->sceneRect();
     constexpr auto r = Node::k_radius;
     if (!bounds.adjusted(r, r, -r, -r).contains(pos)) {
@@ -195,6 +299,7 @@ void Graph::addNode(const QPointF& pos) {
     node->setPos(pos);
     node->setParent(this);
     node->setAllNodesView(&m_nodes);
+    node->setAnimationDisabled(m_animationsDisabled);
 
     connect(node, &Node::markedForErasure, this, &Graph::onNodeMarkedForErasure);
 
@@ -214,10 +319,6 @@ void Graph::removeNodeConnections(Node* node) {
 }
 
 void Graph::removeSelectedNodes() {
-    if (!m_editingEnabled) {
-        return;
-    }
-
     size_t index = 0;
     for (auto it = m_nodes.begin(); it != m_nodes.end();) {
         Node* node = *it;
@@ -233,6 +334,15 @@ void Graph::removeSelectedNodes() {
     }
 }
 
+void Graph::removeAllNodes() {
+    for (auto node : m_nodes) {
+        removeNodeConnections(node);
+        node->markForErasure();
+    }
+
+    m_nodes.clear();
+}
+
 void Graph::onNodeMarkedForErasure(Node* node) {
     scene()->removeItem(node);
     node->deleteLater();
@@ -241,12 +351,27 @@ void Graph::onNodeMarkedForErasure(Node* node) {
 void Graph::addEdge(Node* a, Node* b, int cost) {
     const auto edge = new Edge(a, b, cost);
     edge->setParent(this);
+    edge->setUnorientedEdge(!m_orientedGraph);
 
     connect(edge, &Edge::markedForErasure, this, &Graph::onEdgeMarkedForErasure);
 
     m_edges.push_back(edge);
     scene()->addItem(edge);
+
+    setRenderHint(QPainter::Antialiasing, m_edges.size() < 600);
+    setRenderHint(QPainter::TextAntialiasing, m_edges.size() < 600);
 }
+
+size_t Graph::getMaxEdgesCount() {
+    const size_t n = getNodesCount();
+    if (m_orientedGraph) {
+        return m_allowLoops ? n * n : n * (n - 1);
+    }
+
+    return n * (n - 1) / 2;
+}
+
+void Graph::reserveEdges(size_t edges) { m_edges.reserve(edges); }
 
 void Graph::removeEdgesConnectedToNode(Node* node) {
     for (auto it = m_edges.begin(); it != m_edges.end();) {

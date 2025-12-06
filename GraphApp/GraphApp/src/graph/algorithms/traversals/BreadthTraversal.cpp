@@ -36,7 +36,7 @@ void BreadthTraversal::showPseudocode() {
         return;
     }
 
-    m_pseudocodeForm.setPseudocodeText(
+    m_pseudocodeForm.setPseudocodeText(QStringLiteral(
         R"((1) PROGRAM PBF;
 (2)   BEGIN
 (3)       U := N − {s};  V := {s};  W := ∅;
@@ -53,9 +53,9 @@ void BreadthTraversal::showPseudocode() {
 (14)          V := V − {x};  W := W ∪ {x};
 (15)      END;
 (16) END.
-)");
+)"));
     m_pseudocodeForm.show();
-    m_pseudocodeForm.highlightLine(6);
+    m_pseudocodeForm.highlight({6});
 
     TimedInteractiveAlgorithm::showPseudocode();
 }
@@ -66,11 +66,10 @@ bool BreadthTraversal::stepOnce() {
     }
 
     Node* x = m_nodesQueue.front();
-    if (x->getState() != Node::State::CURRENTLY_ANALYZED) {
+    if (x->getState() != Node::State::CURRENTLY_ANALYZING) {
         x->markCurrentlyAnalyzed();
-        x->update();
 
-        m_pseudocodeForm.highlightLine(9);
+        m_pseudocodeForm.highlight({9});
         m_parentsLabel.compute();
         m_unvisitedLabel.compute();
         m_visitedLabel.compute();
@@ -86,13 +85,13 @@ bool BreadthTraversal::stepOnce() {
                 continue;
             }
 
-            y->markVisited(x);
+            y->markVisited();
 
             m_nodesQueue.push(y);
             m_nodesParent[y->getIndex()] = x->getIndex();
             m_lengths[y->getIndex()] = m_lengths[x->getIndex()] + 1;
 
-            m_pseudocodeForm.highlightLines({12, 13});
+            m_pseudocodeForm.highlight({12, 13});
             m_parentsLabel.compute();
             m_unvisitedLabel.compute();
             m_visitedLabel.compute();
@@ -105,7 +104,7 @@ bool BreadthTraversal::stepOnce() {
     x->markAnalyzed();
     m_nodesQueue.pop();
 
-    m_pseudocodeForm.highlightLine(14);
+    m_pseudocodeForm.highlight({14});
     m_visitedLabel.compute();
     m_analyzedLabel.compute();
 
@@ -124,7 +123,7 @@ void BreadthTraversal::stepAll() {
                     continue;
                 }
 
-                y->markVisited(x);
+                y->markVisited();
 
                 m_nodesQueue.push(y);
                 m_nodesParent[y->getIndex()] = x->getIndex();

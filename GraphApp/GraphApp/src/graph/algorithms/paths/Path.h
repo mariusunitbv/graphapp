@@ -8,7 +8,6 @@ class Path : public TimedInteractiveAlgorithm {
 
    public:
     Path(Graph* parent);
-    ~Path();
 
     void start(Node* start);
     void setSourceNodeIndex(size_t sourceNode);
@@ -24,4 +23,7 @@ class Path : public TimedInteractiveAlgorithm {
     size_t m_sourceNode{std::numeric_limits<size_t>::max()};
 
     Node* m_currentNode{nullptr};
+    AlgorithmText m_currentNodeLabel;
+
+    bool m_isFirstStep{true};
 };

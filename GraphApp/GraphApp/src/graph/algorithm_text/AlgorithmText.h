@@ -6,20 +6,23 @@ class AlgorithmText : public QGraphicsTextItem {
     Q_OBJECT
 
    public:
-    AlgorithmText(Graph* graph, int order, int additionalSpacing = 0);
+    AlgorithmText(Graph* graph, short order, int additionalSpacing = 0);
     ~AlgorithmText();
 
-    int getOrder() const;
+    short getOrder() const;
 
     void setComputeFunction(std::function<void(AlgorithmText*)> computeFunction);
     void compute();
+
+    void hide();
 
    private:
     void repositionAll();
 
     Graph* m_graph;
-    int m_order;
+    short m_order;
     int m_additionalSpacing;
+    bool m_computedAtLeastOnce{false};
 
     std::function<void(AlgorithmText*)> m_computeFunction;
 };

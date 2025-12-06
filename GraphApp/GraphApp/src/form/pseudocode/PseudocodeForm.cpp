@@ -6,38 +6,47 @@ PseudocodeForm::PseudocodeForm(QWidget* parent) : QMainWindow(parent) {
     ui.setupUi(this);
 
     setWindowFlags(Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus);
+    setHighlightColor(qRgb(41, 128, 204));
 }
 
-PseudocodeForm::~PseudocodeForm() {}
+void PseudocodeForm::setHighlightColor(QRgb color) { m_highlightColor = color; }
 
 void PseudocodeForm::setPseudocodeText(const QString& text) {
     ui.plainTextEdit->setPlainText(text);
 }
 
-void PseudocodeForm::highlightLine(int lineNumber) {
-    QList<QTextEdit::ExtraSelection> extraSelections;
+void PseudocodeForm::highlight(std::initializer_list<int> lineNumbers) {
+    m_currentlyHighlightedLines = lineNumbers;
 
-    QTextEdit::ExtraSelection selection;
-    QColor lineColor = QColor(Qt::magenta);
+    if (m_highlightAnimation) {
+        m_highlightAnimation->stop();
+    }
 
-    selection.format.setBackground(lineColor);
-    selection.format.setProperty(QTextFormat::FullWidthSelection, true);
+    m_highlightAnimation = new QVariantAnimation(this);
+    m_highlightAnimation->setStartValue(1);
+    m_highlightAnimation->setEndValue(255);
+    m_highlightAnimation->setDuration(500);
+    m_highlightAnimation->setEasingCurve(QEasingCurve::InOutQuad);
 
-    QTextCursor cursor(ui.plainTextEdit->document()->findBlockByLineNumber(lineNumber - 1));
-    selection.cursor = cursor;
-    extraSelections.append(selection);
+    connect(m_highlightAnimation, &QVariantAnimation::valueChanged, this,
+            [this](const QVariant& v) {
+                m_alpha = v.toInt();
+                highlightInternal();
+            });
 
-    ui.plainTextEdit->setExtraSelections(extraSelections);
+    m_highlightAnimation->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-void PseudocodeForm::highlightLines(const std::vector<int>& lineNumbers) {
+void PseudocodeForm::highlightInternal() {
     QList<QTextEdit::ExtraSelection> extraSelections;
+    extraSelections.reserve(m_currentlyHighlightedLines.size());
 
-    QColor lineColor = QColor(Qt::magenta);
+    QColor color = QColor::fromRgba(m_highlightColor);
+    color.setAlpha(m_alpha);
 
-    for (int lineNumber : lineNumbers) {
+    for (auto lineNumber : m_currentlyHighlightedLines) {
         QTextEdit::ExtraSelection selection;
-        selection.format.setBackground(lineColor);
+        selection.format.setBackground(color);
         selection.format.setProperty(QTextFormat::FullWidthSelection, true);
 
         QTextCursor cursor(ui.plainTextEdit->document()->findBlockByLineNumber(lineNumber - 1));

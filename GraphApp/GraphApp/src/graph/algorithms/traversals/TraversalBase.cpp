@@ -2,6 +2,8 @@
 
 #include "TraversalBase.h"
 
+#include "../random/Random.h"
+
 TraversalBase::TraversalBase(Graph* parent)
     : TimedInteractiveAlgorithm(parent),
       m_nodesParent(parent->getNodesCount(), -1),
@@ -85,6 +87,23 @@ bool TraversalBase::hasNeighbours(Node* node) const {
 
 const std::unordered_set<Node*>& TraversalBase::getNeighboursOf(Node* node) const {
     return m_graph->getAdjacencyList().at(node);
+}
+
+Node* TraversalBase::getRandomUnvisitedNode() const {
+    std::vector<Node*> unvisited;
+
+    for (Node* node : getAllNodes()) {
+        if (node->getState() == Node::State::UNVISITED) {
+            unvisited.push_back(node);
+        }
+    }
+
+    if (unvisited.empty()) {
+        return nullptr;
+    }
+
+    std::shuffle(unvisited.begin(), unvisited.end(), Random::get().getEngine());
+    return unvisited.front();
 }
 
 void TraversalBase::markAllNodesUnvisited() {

@@ -7,7 +7,11 @@ DepthTraversal::DepthTraversal(Graph* parent)
       m_discoveryTimes(parent->getNodesCount(), -1),
       m_analyzeTimes(parent->getNodesCount(), -1),
       m_discoveryTimesLabel(parent, 5),
-      m_analyzeTimesLabel(parent, 6) {
+      m_analyzeTimesLabel(parent, 6),
+      m_treeEdgesLabel(parent, 7),
+      m_forwardEdgesLabel(parent, 8),
+      m_backEdgesLabel(parent, 9),
+      m_crossEdgesLabel(parent, 10) {
     m_visitedLabel.setComputeFunction([&](auto label) {
         auto stack = m_nodesStack;
 
@@ -37,6 +41,42 @@ DepthTraversal::DepthTraversal(Graph* parent)
 
         label->setPlainText("t2 = [ " + list.join(", ") + " ]");
     });
+
+    m_treeEdgesLabel.setComputeFunction([&](auto label) {
+        QStringList list;
+        for (auto [x, y] : m_treeEdges) {
+            list << QString("(%1, %2)").arg(x).arg(y);
+        }
+
+        label->setPlainText("P = [ " + list.join(", ") + " ]");
+    });
+
+    m_forwardEdgesLabel.setComputeFunction([&](auto label) {
+        QStringList list;
+        for (auto [x, y] : m_forwardEdges) {
+            list << QString("(%1, %2)").arg(x).arg(y);
+        }
+
+        label->setPlainText("I = [ " + list.join(", ") + " ]");
+    });
+
+    m_backEdgesLabel.setComputeFunction([&](auto label) {
+        QStringList list;
+        for (auto [x, y] : m_backEdges) {
+            list << QString("(%1, %2)").arg(x).arg(y);
+        }
+
+        label->setPlainText("R = [ " + list.join(", ") + " ]");
+    });
+
+    m_crossEdgesLabel.setComputeFunction([&](auto label) {
+        QStringList list;
+        for (auto [x, y] : m_crossEdges) {
+            list << QString("(%1, %2)").arg(x).arg(y);
+        }
+
+        label->setPlainText("T = [ " + list.join(", ") + " ]");
+    });
 }
 
 void DepthTraversal::setStartNode(Node* node) {
@@ -49,7 +89,7 @@ void DepthTraversal::showPseudocode() {
         return;
     }
 
-    m_pseudocodeForm.setPseudocodeText(
+    m_pseudocodeForm.setPseudocodeText(QStringLiteral(
         R"((1) PROGRAM PDF;
 (2) BEGIN
 (3)     U := N − {s}; V := {s}; W := ∅;
@@ -67,12 +107,14 @@ void DepthTraversal::showPseudocode() {
 (15)     END;
 (16) END.
 
-)");
+)"));
     m_pseudocodeForm.show();
-    m_pseudocodeForm.highlightLine(6);
+    m_pseudocodeForm.highlight({6});
 
     TimedInteractiveAlgorithm::showPseudocode();
 }
+
+const std::vector<size_t>& DepthTraversal::getAnalyzeTimes() const { return m_analyzeTimes; }
 
 bool DepthTraversal::stepOnce() {
     if (m_nodesStack.empty()) {
@@ -80,17 +122,15 @@ bool DepthTraversal::stepOnce() {
     }
 
     Node* x = m_nodesStack.top();
-    if (x->getState() != Node::State::CURRENTLY_ANALYZED) {
+    if (x->getState() != Node::State::CURRENTLY_ANALYZING) {
         if (m_nodeToUnmarkFromBeingAnalyzed) {
             m_nodeToUnmarkFromBeingAnalyzed->markVisitedButNotAnalyzedAnymore();
-            m_nodeToUnmarkFromBeingAnalyzed->update();
             m_nodeToUnmarkFromBeingAnalyzed = nullptr;
         }
 
         x->markCurrentlyAnalyzed();
-        x->update();
 
-        m_pseudocodeForm.highlightLine(9);
+        m_pseudocodeForm.highlight({m_isTotalTraversal ? 11 : 9});
         m_parentsLabel.compute();
         m_unvisitedLabel.compute();
         m_visitedLabel.compute();
@@ -107,17 +147,24 @@ bool DepthTraversal::stepOnce() {
                 continue;
             }
 
-            y->markVisited(x);
+            y->markVisited();
 
             m_nodesStack.push(y);
             m_nodesParent[y->getIndex()] = x->getIndex();
             m_discoveryTimes[y->getIndex()] = ++m_time;
+            m_treeEdges.emplace_back(x->getIndex(), y->getIndex());
 
-            m_pseudocodeForm.highlightLines({11, 12});
+            if (m_isTotalTraversal) {
+                m_pseudocodeForm.highlight({13, 14});
+            } else {
+                m_pseudocodeForm.highlight({11, 12});
+            }
+
             m_parentsLabel.compute();
             m_unvisitedLabel.compute();
             m_visitedLabel.compute();
             m_discoveryTimesLabel.compute();
+            m_treeEdgesLabel.compute();
 
             m_nodeToUnmarkFromBeingAnalyzed = x;
             return true;
@@ -126,10 +173,15 @@ bool DepthTraversal::stepOnce() {
 
     x->markAnalyzed();
     m_analyzeTimes[x->getIndex()] = ++m_time;
+    updateEdgesClassificationOfNode(x);
 
     m_nodesStack.pop();
+    if (m_isTotalTraversal) {
+        m_pseudocodeForm.highlight({15, 16});
+    } else {
+        m_pseudocodeForm.highlight({13, 14});
+    }
 
-    m_pseudocodeForm.highlightLines({13, 14});
     m_visitedLabel.compute();
     m_analyzedLabel.compute();
     m_analyzeTimesLabel.compute();
@@ -150,11 +202,12 @@ void DepthTraversal::stepAll() {
                     continue;
                 }
 
-                y->markVisited(x);
+                y->markVisited();
 
                 m_nodesStack.push(y);
                 m_nodesParent[y->getIndex()] = x->getIndex();
                 m_discoveryTimes[y->getIndex()] = ++m_time;
+                m_treeEdges.emplace_back(x->getIndex(), y->getIndex());
 
                 hasVisitedAllNeighbours = false;
                 break;
@@ -172,10 +225,91 @@ void DepthTraversal::stepAll() {
         m_nodesStack.pop();
     }
 
+    updateAllEdgesClassification();
+
     m_parentsLabel.compute();
     m_unvisitedLabel.compute();
     m_visitedLabel.compute();
     m_analyzedLabel.compute();
     m_discoveryTimesLabel.compute();
     m_analyzeTimesLabel.compute();
+    m_treeEdgesLabel.compute();
+}
+
+void DepthTraversal::updateEdgesClassificationOfNode(Node* x) {
+    if (!hasNeighbours(x)) {
+        return;
+    }
+
+    const auto& neighbours = getNeighboursOf(x);
+    for (Node* y : neighbours) {
+        if (y->getState() == Node::State::UNVISITED) {
+            continue;
+        }
+
+        if (x == y) {
+            m_backEdges.emplace_back(x->getIndex(), y->getIndex());
+            m_backEdgesLabel.compute();
+            continue;
+        }
+
+        if (m_nodesParent[y->getIndex()] == x->getIndex()) {
+            continue;
+        }
+
+        const auto t1X = m_discoveryTimes[x->getIndex()];
+        const auto t2X = m_analyzeTimes[x->getIndex()];
+
+        const auto t1Y = m_discoveryTimes[y->getIndex()];
+        const auto t2Y = m_analyzeTimes[y->getIndex()];
+
+        if (t1X < t1Y && t1Y < t2Y && t2Y < t2X) {
+            m_forwardEdges.emplace_back(x->getIndex(), y->getIndex());
+            m_forwardEdgesLabel.compute();
+        } else if (t1Y < t1X && t1X < t2X && t2X < t2Y) {
+            m_backEdges.emplace_back(x->getIndex(), y->getIndex());
+            m_backEdgesLabel.compute();
+        } else if (t1Y < t2Y && t2Y < t1X && t1X < t2X) {
+            m_crossEdges.emplace_back(x->getIndex(), y->getIndex());
+            m_crossEdgesLabel.compute();
+        }
+    }
+}
+
+void DepthTraversal::updateAllEdgesClassification() {
+    for (Node* x : getAllNodes()) {
+        if (!hasNeighbours(x)) {
+            continue;
+        }
+
+        const auto& neighbours = getNeighboursOf(x);
+        for (Node* y : neighbours) {
+            if (x == y) {
+                m_backEdges.emplace_back(x->getIndex(), y->getIndex());
+                continue;
+            }
+
+            if (m_nodesParent[y->getIndex()] == x->getIndex()) {
+                continue;
+            }
+
+            const auto t1X = m_discoveryTimes[x->getIndex()];
+            const auto t2X = m_analyzeTimes[x->getIndex()];
+
+            const auto t1Y = m_discoveryTimes[y->getIndex()];
+            const auto t2Y = m_analyzeTimes[y->getIndex()];
+
+            if (t1X < t1Y && t1Y < t2Y && t2Y < t2X) {
+                m_forwardEdges.emplace_back(x->getIndex(), y->getIndex());
+            } else if (t1Y < t1X && t1X < t2X && t2X < t2Y) {
+                m_backEdges.emplace_back(x->getIndex(), y->getIndex());
+            } else if (t1Y < t2Y && t2Y < t1X && t1X < t2X) {
+                m_crossEdges.emplace_back(x->getIndex(), y->getIndex());
+            }
+        }
+    }
+
+    m_forwardEdgesLabel.compute();
+    m_backEdgesLabel.compute();
+    m_crossEdgesLabel.compute();
 }

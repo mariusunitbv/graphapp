@@ -10,7 +10,8 @@ Edge::Edge(Node* a, Node* b, int cost) : m_startNode(a), m_endNode(b), m_cost(co
         connectNodeSignals(b);
     }
 
-    connect(a, &Node::selectionChanged, this, &Edge::onSelectedChanged);
+    connect(m_startNode, &Node::selectionChanged, this, &Edge::onSelectedChanged);
+    onSelectedChanged(m_startNode->isSelected());
 
     updatePosition();
 }
@@ -36,25 +37,45 @@ void Edge::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) {
 
 bool Edge::connectsNode(Node* node) const { return m_startNode == node || m_endNode == node; }
 
+Node* Edge::getStartNode() const { return m_startNode; }
+
+Node* Edge::getEndNode() const { return m_endNode; }
+
+int Edge::getCost() const { return m_cost; }
+
 void Edge::setColor(const QRgb c) {
+    if (areAnimationsDisabled()) {
+        m_color = c;
+        return;
+    }
+
+    if (m_colorAnimation) {
+        m_colorAnimation->stop();
+    }
+
     QColor startColor = QColor::fromRgba(m_color);
     QColor endColor = QColor::fromRgba(c);
 
-    auto anim = new QVariantAnimation(this);
-    anim->setStartValue(startColor);
-    anim->setEndValue(endColor);
-    anim->setDuration(250);
-    anim->setEasingCurve(QEasingCurve::InOutCubic);
+    m_colorAnimation = new QVariantAnimation(this);
+    m_colorAnimation->setStartValue(startColor);
+    m_colorAnimation->setEndValue(endColor);
+    m_colorAnimation->setDuration(250);
+    m_colorAnimation->setEasingCurve(QEasingCurve::InOutCubic);
 
-    connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant& v) {
+    connect(m_colorAnimation, &QVariantAnimation::valueChanged, this, [this](const QVariant& v) {
         m_color = v.value<QColor>().rgba();
         update();
     });
 
-    anim->start(QAbstractAnimation::DeleteWhenStopped);
+    m_colorAnimation->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 void Edge::setProgress(float p) {
+    if (areAnimationsDisabled()) {
+        m_progress = p;
+        return;
+    }
+
     auto anim = new QVariantAnimation(this);
     anim->setStartValue(m_progress);
     anim->setEndValue(p);
@@ -69,16 +90,30 @@ void Edge::setProgress(float p) {
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
+void Edge::setUnorientedEdge(bool unoriented) {
+    m_unorientedEdge = unoriented;
+
+    if (unoriented) {
+        connect(m_endNode, &Node::selectionChanged, this, &Edge::onSelectedChanged);
+        onSelectedChanged(m_endNode->isSelected());
+    }
+}
+
 bool Edge::isLoop() const { return m_startNode == m_endNode; }
 
 void Edge::markForErasure() {
     disconnect(m_startNode);
     disconnect(m_endNode);
 
+    if (areAnimationsDisabled()) {
+        emit markedForErasure(this);
+        return;
+    }
+
     auto anim = new QVariantAnimation(this);
     anim->setStartValue(m_progress);
     anim->setEndValue(0.05f);
-    anim->setDuration(150);
+    anim->setDuration(250);
     anim->setEasingCurve(QEasingCurve::InOutCubic);
 
     connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant& v) {
@@ -90,6 +125,8 @@ void Edge::markForErasure() {
 
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
+
+bool Edge::areAnimationsDisabled() const { return m_startNode->isAnimationDisabled(); }
 
 QVariant Edge::itemChange(GraphicsItemChange change, const QVariant& value) {
     switch (change) {
@@ -110,6 +147,7 @@ void Edge::connectNodeSignals(Node* node) {
     connect(node, &Node::markedUnvisited, this, &Edge::markUnvisited);
     connect(node, &Node::markedVisited, this, &Edge::markVisited);
     connect(node, &Node::markedAnalyzed, this, &Edge::markAnalyzed);
+    connect(node, &Node::markedPartOfConnectedComponent, this, &Edge::markPartOfConnectedComponent);
 
     connect(node, &Node::markedAvailableInPathFinding, this, &Edge::markAvailableInPathFindingPath);
     connect(node, &Node::markedPath, this, &Edge::markPath);
@@ -119,6 +157,7 @@ void Edge::connectNodeSignals(Node* node) {
 
 void Edge::updatePosition() {
     prepareGeometryChange();
+
     m_arrowHead.clear();
 
     const auto srcCenter = QPoint(m_startNode->pos().x(), m_startNode->pos().y());
@@ -138,36 +177,41 @@ void Edge::updatePosition() {
 
     m_line.setPoints(lineStart, lineEnd);
 
-    const auto angle = std::atan2(-direction.y(), direction.x());
-    const auto arrowP1 =
-        lineEnd - QPoint(sin(angle + M_PI / 3) * k_arrowSize, cos(angle + M_PI / 3) * k_arrowSize);
-    const auto arrowP2 = lineEnd - QPoint(sin(angle + M_PI - M_PI / 3) * k_arrowSize,
-                                          cos(angle + M_PI - M_PI / 3) * k_arrowSize);
-    m_arrowHead << lineEnd << arrowP1 << arrowP2;
+    if (!m_unorientedEdge) {
+        const auto angle = std::atan2(-direction.y(), direction.x());
+        const auto arrowP1 = lineEnd - QPoint(sin(angle + M_PI / 3) * k_arrowSize,
+                                              cos(angle + M_PI / 3) * k_arrowSize);
+        const auto arrowP2 = lineEnd - QPoint(sin(angle + M_PI - M_PI / 3) * k_arrowSize,
+                                              cos(angle + M_PI - M_PI / 3) * k_arrowSize);
+        m_arrowHead << lineEnd << arrowP1 << arrowP2;
+    }
 }
 
 void Edge::onSelectedChanged(bool selected) {
+    if (!selected && m_startNode->isSelected() != m_endNode->isSelected()) {
+        return;
+    }
+
     setColor(selected ? Node::k_defaultAnalyzedColor : Node::k_defaultOutlineColor);
     setZValue(selected ? 1 : -1);
 }
 
 void Edge::markUnvisited() { setColor(Node::k_defaultUnvisitedOutlineColor); }
 
-void Edge::markVisited(Node* parent) {
-    if (parent != m_startNode) {
-        return;
+void Edge::markVisited() {
+    if (m_startNode->getState() == Node::State::CURRENTLY_ANALYZING &&
+        m_endNode->getState() == Node::State::VISITED) {
+        setColor(Node::k_defaultCurrentlyAnalyzedColor);
     }
-
-    setColor(Node::k_defaultCurrentlyAnalyzedColor);
 }
 
 void Edge::markAnalyzed() {
-    if (m_startNode->getState() != Node::State::ANALYZED) {
-        return;
+    if (m_startNode->getState() == Node::State::ANALYZED || m_unorientedEdge) {
+        setColor(Node::k_defaultAnalyzedColor);
     }
-
-    setColor(Node::k_defaultAnalyzedColor);
 }
+
+void Edge::markPartOfConnectedComponent(QRgb c) { setColor(c); }
 
 void Edge::markAvailableInPathFindingPath(Node* node) {
     if (node != m_startNode) {
@@ -177,12 +221,11 @@ void Edge::markAvailableInPathFindingPath(Node* node) {
     setColor(Node::k_defaultOutlineColor);
 }
 
-void Edge::markPath(Node* parent) {
-    if (parent != m_endNode) {
-        return;
+void Edge::markPath() {
+    if (m_startNode->getState() == Node::State::PATH &&
+        m_endNode->getState() == Node::State::PATH) {
+        setColor(Node::k_defaultAnalyzedColor);
     }
-
-    setColor(Node::k_defaultAnalyzedColor);
 }
 
 void Edge::unmark() { setColor(Node::k_defaultOutlineColor); }
@@ -209,7 +252,10 @@ void Edge::drawEdge(QPainter* painter) {
     painter->drawLine(p1, current);
 
     if (m_progress == 1) {
-        painter->drawPolygon(m_arrowHead);
+        if (!m_unorientedEdge) {
+            painter->drawPolygon(m_arrowHead);
+        }
+
         if (m_cost > 0) {
             const auto srcCenter = m_startNode->pos();
             const auto targetCenter = m_endNode->pos();

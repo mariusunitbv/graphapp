@@ -11,7 +11,7 @@ void GenericTotalTraversal::showPseudocode() {
         return;
     }
 
-    m_pseudocodeForm.setPseudocodeText(
+    m_pseudocodeForm.setPseudocodeText(QStringLiteral(
         R"((1) PROGRAM PTG;
 (2)   BEGIN
 (3)       U := N − {s};  V := {s};  W := ∅;
@@ -32,23 +32,20 @@ void GenericTotalTraversal::showPseudocode() {
 (18)          	k := k + 1; o(s) := k;
 (19)      END;
 (20) END.
-)");
+)"));
     m_pseudocodeForm.show();
-    m_pseudocodeForm.highlightLine(6);
+    m_pseudocodeForm.highlight({6});
 
     TimedInteractiveAlgorithm::showPseudocode();
 }
 
 bool GenericTotalTraversal::stepOnce() {
     if (m_currentNode == getAllNodes().size()) {
-        m_pseudocodeForm.close();
         return false;
     }
 
     if (m_currentNode == m_nodesVector.size()) {
-        pickAnotherNode();
-        m_pseudocodeForm.highlightLines({17, 18});
-        return true;
+        return pickAnotherNode();
     }
 
     return GenericTraversal::stepOnce();
@@ -61,25 +58,22 @@ void GenericTotalTraversal::stepAll() {
     }
 }
 
-void GenericTotalTraversal::pickAnotherNode() {
-    if (m_nodesVector.size() == getAllNodes().size()) {
-        return;
+bool GenericTotalTraversal::pickAnotherNode() {
+    Node* unvisitedNode = getRandomUnvisitedNode();
+    if (!unvisitedNode) {
+        return false;
     }
 
-    for (Node* node : getAllNodes()) {
-        if (node->getState() == Node::State::UNVISITED) {
-            node->markVisited();
+    unvisitedNode->markVisited();
 
-            m_discoveryOrder[node->getIndex()] = ++m_discoveryCount;
+    m_discoveryOrder[unvisitedNode->getIndex()] = ++m_discoveryCount;
 
-            m_unvisitedLabel.compute();
-            m_visitedLabel.compute();
-            m_parentsLabel.compute();
-            m_discoveryLabel.compute();
+    m_pseudocodeForm.highlight({17, 18});
+    m_unvisitedLabel.compute();
+    m_visitedLabel.compute();
+    m_parentsLabel.compute();
+    m_discoveryLabel.compute();
 
-            m_nodesVector.push_back(node);
-
-            break;
-        }
-    }
+    m_nodesVector.push_back(unvisitedNode);
+    return true;
 }

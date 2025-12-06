@@ -86,6 +86,8 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
     </ClCompile>
     <Link>
       <AdditionalDependencies>
@@ -100,6 +102,8 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
     </ClCompile>
     <Link>
       <AdditionalDependencies>
@@ -147,15 +151,20 @@
   <ItemGroup>
     <QtUic Include="src\form\GraphApp.ui" />
     <QtMoc Include="src\form\GraphApp.h" />
+    <ClCompile Include="src\form\intermediate_graph\IntermediateGraph.cpp" />
     <ClCompile Include="src\form\pseudocode\PseudocodeForm.cpp" />
+    <ClCompile Include="src\graph\algorithms\Algorithm.cpp" />
+    <ClCompile Include="src\graph\algorithms\other\StronglyConnectedComponents.cpp" />
     <ClCompile Include="src\graph\algorithms\paths\Path.cpp" />
     <ClCompile Include="src\graph\algorithms\TimedInteractiveAlgorithm.cpp" />
     <ClCompile Include="src\graph\algorithms\traversals\BreadthTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\other\ConnectedComponents.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\DepthTotalTraversal.cpp" />
     <ClCompile Include="src\graph\algorithms\traversals\DepthTraversal.cpp" />
     <ClCompile Include="src\graph\algorithms\traversals\GenericTotalTraversal.cpp" />
     <ClCompile Include="src\graph\algorithms\traversals\GenericTraversal.cpp" />
     <ClCompile Include="src\graph\algorithms\traversals\TraversalBase.cpp" />
-    <ClCompile Include="src\graph\algorithm_label\AlgorithmText.cpp" />
+    <ClCompile Include="src\graph\algorithm_text\AlgorithmText.cpp" />
     <ClCompile Include="src\random\Random.cpp" />
     <ClCompile Include="src\form\GraphApp.cpp" />
     <ClCompile Include="src\graph\edge\Edge.cpp" />
@@ -170,16 +179,22 @@
     <QtMoc Include="src\graph\algorithms\traversals\GenericTotalTraversal.h" />
     <QtMoc Include="src\graph\algorithms\paths\Path.h" />
     <QtMoc Include="src\graph\algorithms\TimedInteractiveAlgorithm.h" />
-    <QtMoc Include="src\graph\algorithm_label\AlgorithmText.h" />
+    <QtMoc Include="src\graph\algorithm_text\AlgorithmText.h" />
     <QtMoc Include="src\graph\algorithms\traversals\BreadthTraversal.h" />
     <QtMoc Include="src\form\pseudocode\PseudocodeForm.h" />
     <QtMoc Include="src\graph\algorithms\traversals\DepthTraversal.h" />
+    <QtMoc Include="src\graph\algorithms\other\ConnectedComponents.h" />
+    <QtMoc Include="src\form\intermediate_graph\IntermediateGraph.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\DepthTotalTraversal.h" />
+    <QtMoc Include="src\graph\algorithms\other\StronglyConnectedComponents.h" />
+    <QtMoc Include="src\graph\algorithms\Algorithm.h" />
     <ClInclude Include="src\random\Random.h" />
     <ClInclude Include="src\pch\pch.h" />
     <ClCompile Include="src\pch\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <QtUic Include="src\form\intermediate_graph\IntermediateGraph.ui" />
     <QtUic Include="src\form\pseudocode\PseudocodeForm.ui" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

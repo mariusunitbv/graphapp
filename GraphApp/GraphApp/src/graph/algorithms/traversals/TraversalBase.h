@@ -2,7 +2,7 @@
 
 #include "../TimedInteractiveAlgorithm.h"
 
-#include "../../algorithm_label/AlgorithmText.h"
+#include "../../algorithm_text/AlgorithmText.h"
 
 class TraversalBase : public TimedInteractiveAlgorithm {
     Q_OBJECT
@@ -22,6 +22,8 @@ class TraversalBase : public TimedInteractiveAlgorithm {
 
     bool hasNeighbours(Node* node) const;
     const std::unordered_set<Node*>& getNeighboursOf(Node* node) const;
+
+    Node* getRandomUnvisitedNode() const;
 
     std::vector<size_t> m_nodesParent;
     AlgorithmText m_parentsLabel;

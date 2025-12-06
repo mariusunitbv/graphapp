@@ -13,10 +13,15 @@
     <ClCompile Include="src\graph\algorithms\traversals\GenericTotalTraversal.cpp" />
     <ClCompile Include="src\graph\algorithms\paths\Path.cpp" />
     <ClCompile Include="src\graph\algorithms\TimedInteractiveAlgorithm.cpp" />
-    <ClCompile Include="src\graph\algorithm_label\AlgorithmText.cpp" />
+    <ClCompile Include="src\graph\algorithm_text\AlgorithmText.cpp" />
     <ClCompile Include="src\graph\algorithms\traversals\BreadthTraversal.cpp" />
     <ClCompile Include="src\form\pseudocode\PseudocodeForm.cpp" />
     <ClCompile Include="src\graph\algorithms\traversals\DepthTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\other\ConnectedComponents.cpp" />
+    <ClCompile Include="src\form\intermediate_graph\IntermediateGraph.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\DepthTotalTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\other\StronglyConnectedComponents.cpp" />
+    <ClCompile Include="src\graph\algorithms\Algorithm.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="src\form\GraphApp.h" />
@@ -28,10 +33,15 @@
     <QtMoc Include="src\graph\algorithms\traversals\GenericTotalTraversal.h" />
     <QtMoc Include="src\graph\algorithms\paths\Path.h" />
     <QtMoc Include="src\graph\algorithms\TimedInteractiveAlgorithm.h" />
-    <QtMoc Include="src\graph\algorithm_label\AlgorithmText.h" />
+    <QtMoc Include="src\graph\algorithm_text\AlgorithmText.h" />
     <QtMoc Include="src\graph\algorithms\traversals\BreadthTraversal.h" />
     <QtMoc Include="src\form\pseudocode\PseudocodeForm.h" />
     <QtMoc Include="src\graph\algorithms\traversals\DepthTraversal.h" />
+    <QtMoc Include="src\graph\algorithms\other\ConnectedComponents.h" />
+    <QtMoc Include="src\form\intermediate_graph\IntermediateGraph.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\DepthTotalTraversal.h" />
+    <QtMoc Include="src\graph\algorithms\other\StronglyConnectedComponents.h" />
+    <QtMoc Include="src\graph\algorithms\Algorithm.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />
@@ -40,5 +50,6 @@
   <ItemGroup>
     <QtUic Include="src\form\GraphApp.ui" />
     <QtUic Include="src\form\pseudocode\PseudocodeForm.ui" />
+    <QtUic Include="src\form\intermediate_graph\IntermediateGraph.ui" />
   </ItemGroup>
 </Project>

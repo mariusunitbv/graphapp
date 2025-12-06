@@ -7,13 +7,20 @@ class PseudocodeForm : public QMainWindow {
 
    public:
     PseudocodeForm(QWidget* parent = nullptr);
-    ~PseudocodeForm();
 
+    void setHighlightColor(QRgb color);
     void setPseudocodeText(const QString& text);
 
-    void highlightLine(int lineNumber);
-    void highlightLines(const std::vector<int>& lineNumbers);
+    void highlight(std::initializer_list<int> lineNumbers);
 
    private:
+    void highlightInternal();
+
     Ui::PseudocodeFormClass ui;
+
+    QRgb m_highlightColor;
+    int m_alpha{0};
+
+    std::vector<int> m_currentlyHighlightedLines;
+    QPointer<QVariantAnimation> m_highlightAnimation;
 };

@@ -15,5 +15,5 @@ class GenericTotalTraversal : public GenericTraversal {
     void stepAll() override;
 
    private:
-    void pickAnotherNode();
+    bool pickAnotherNode();
 };

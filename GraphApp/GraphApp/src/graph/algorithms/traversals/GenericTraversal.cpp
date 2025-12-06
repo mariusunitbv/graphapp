@@ -15,7 +15,7 @@ GenericTraversal::GenericTraversal(Graph* parent)
         const auto& nodes = m_graph->getNodes();
         for (size_t i = 0; i < nodes.size(); ++i) {
             const auto state = nodes[i]->getState();
-            if (state == Node::State::VISITED || state == Node::State::CURRENTLY_ANALYZED) {
+            if (state == Node::State::VISITED || state == Node::State::CURRENTLY_ANALYZING) {
                 list << QString::number(i);
             }
         }
@@ -43,7 +43,7 @@ void GenericTraversal::showPseudocode() {
         return;
     }
 
-    m_pseudocodeForm.setPseudocodeText(
+    m_pseudocodeForm.setPseudocodeText(QStringLiteral(
         R"((1) PROGRAM PG;
 (2) 	BEGIN
 (3) 	U := N − {s}; V := {s}; W := ∅;
@@ -59,25 +59,23 @@ void GenericTraversal::showPseudocode() {
 (13)	       ELSE V := V − {x}; W := W ∪ {x};
 (14)	END;
 (15) END.
-)");
+)"));
     m_pseudocodeForm.show();
-    m_pseudocodeForm.highlightLine(6);
+    m_pseudocodeForm.highlight({6});
 
     TimedInteractiveAlgorithm::showPseudocode();
 }
 
 bool GenericTraversal::stepOnce() {
     if (m_currentNode == m_nodesVector.size()) {
-        m_pseudocodeForm.close();
         return false;
     }
 
     Node* x = m_nodesVector[m_currentNode];
-    if (x->getState() != Node::State::CURRENTLY_ANALYZED) {
+    if (x->getState() != Node::State::CURRENTLY_ANALYZING) {
         x->markCurrentlyAnalyzed();
-        x->update();
 
-        m_pseudocodeForm.highlightLine(m_isTotalTraversal ? 11 : 9);
+        m_pseudocodeForm.highlight({m_isTotalTraversal ? 11 : 9});
         m_parentsLabel.compute();
         m_unvisitedLabel.compute();
         m_visitedLabel.compute();
@@ -93,12 +91,16 @@ bool GenericTraversal::stepOnce() {
                 continue;
             }
 
-            y->markVisited(x);
+            y->markVisited();
             m_nodesParent[y->getIndex()] = x->getIndex();
             m_discoveryOrder[y->getIndex()] = ++m_discoveryCount;
 
-            m_pseudocodeForm.highlightLines(m_isTotalTraversal ? std::vector{13, 14}
-                                                               : std::vector{11, 12});
+            if (m_isTotalTraversal) {
+                m_pseudocodeForm.highlight({13, 14});
+            } else {
+                m_pseudocodeForm.highlight({11, 12});
+            }
+
             m_parentsLabel.compute();
             m_unvisitedLabel.compute();
             m_visitedLabel.compute();
@@ -116,7 +118,7 @@ bool GenericTraversal::stepOnce() {
 
     ++m_currentNode;
 
-    m_pseudocodeForm.highlightLine(m_isTotalTraversal ? 15 : 13);
+    m_pseudocodeForm.highlight({m_isTotalTraversal ? 15 : 13});
     m_visitedLabel.compute();
     m_analyzedLabel.compute();
 
@@ -135,7 +137,7 @@ void GenericTraversal::stepAll() {
                     continue;
                 }
 
-                y->markVisited(x);
+                y->markVisited();
                 m_nodesParent[y->getIndex()] = x->getIndex();
                 m_discoveryOrder[y->getIndex()] = ++m_discoveryCount;
 

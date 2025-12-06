@@ -10,9 +10,10 @@ struct AlgorithmTextComparator {
     }
 };
 
-static std::set<AlgorithmText*, AlgorithmTextComparator> g_allAlgorithmTexts;
+static std::unordered_map<Graph*, std::set<AlgorithmText*, AlgorithmTextComparator>>
+    g_allAlgorithmTexts;
 
-AlgorithmText::AlgorithmText(Graph* graph, int order, int additionalSpacing)
+AlgorithmText::AlgorithmText(Graph* graph, short order, int additionalSpacing)
     : QGraphicsTextItem(), m_graph(graph), m_order(order), m_additionalSpacing(additionalSpacing) {
     setZValue(10);
     setFlag(ItemIgnoresTransformations);
@@ -26,23 +27,32 @@ AlgorithmText::AlgorithmText(Graph* graph, int order, int additionalSpacing)
     connect(m_graph, &Graph::movedGraph, this, &AlgorithmText::repositionAll);
 
     m_graph->scene()->addItem(this);
-    g_allAlgorithmTexts.emplace(this);
+    g_allAlgorithmTexts[m_graph].emplace(this);
 }
 
 AlgorithmText::~AlgorithmText() {
-    m_graph->scene()->removeItem(this);
-    g_allAlgorithmTexts.erase(this);
+    if (g_allAlgorithmTexts[m_graph].contains(this)) {
+        m_graph->scene()->removeItem(this);
+        g_allAlgorithmTexts[m_graph].erase(this);
+    }
 }
 
-int AlgorithmText::getOrder() const { return m_order; }
+short AlgorithmText::getOrder() const { return m_order; }
 
 void AlgorithmText::setComputeFunction(std::function<void(AlgorithmText*)> computeFunction) {
     m_computeFunction = std::move(computeFunction);
 }
 
 void AlgorithmText::compute() {
+    m_computedAtLeastOnce = true;
+
     repositionAll();
     m_computeFunction(this);
+}
+
+void AlgorithmText::hide() {
+    m_graph->scene()->removeItem(this);
+    g_allAlgorithmTexts[m_graph].erase(this);
 }
 
 void AlgorithmText::repositionAll() {
@@ -50,7 +60,11 @@ void AlgorithmText::repositionAll() {
         m_graph->mapToScene(QPoint(0, 10)).y() - m_graph->mapToScene(QPoint(0, 0)).y();
 
     auto currentPos = m_graph->mapToScene(QPoint(10, 10));
-    for (AlgorithmText* text : g_allAlgorithmTexts) {
+    for (AlgorithmText* text : g_allAlgorithmTexts[m_graph]) {
+        if (!text->m_computedAtLeastOnce) {
+            continue;
+        }
+
         text->setTextWidth(m_graph->width() - 20);
         text->setPos(currentPos);
 

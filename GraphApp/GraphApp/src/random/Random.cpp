@@ -18,3 +18,10 @@ size_t Random::getSize(size_t min, size_t max) {
     std::uniform_int_distribution dist(min, max);
     return dist(m_engine);
 }
+
+QRgb Random::getColor() {
+    std::uniform_int_distribution dist(30, 255);
+    return qRgb(dist(m_engine), dist(m_engine), dist(m_engine));
+}
+
+std::mt19937& Random::getEngine() { return m_engine; }

@@ -13,12 +13,18 @@ class Edge : public QGraphicsObject {
 
     bool connectsNode(Node* node) const;
 
+    Node* getStartNode() const;
+    Node* getEndNode() const;
+    int getCost() const;
+
     void setColor(const QRgb c);
     void setProgress(float p);
+    void setUnorientedEdge(bool unoriented);
 
     bool isLoop() const;
 
     void markForErasure();
+    bool areAnimationsDisabled() const;
 
    signals:
     void markedForErasure(Edge* edge);
@@ -33,11 +39,12 @@ class Edge : public QGraphicsObject {
     void onSelectedChanged(bool selected);
 
     void markUnvisited();
-    void markVisited(Node* parent);
+    void markVisited();
     void markAnalyzed();
+    void markPartOfConnectedComponent(QRgb c);
 
     void markAvailableInPathFindingPath(Node* node);
-    void markPath(Node* parent);
+    void markPath();
 
     void unmark();
 
@@ -48,12 +55,15 @@ class Edge : public QGraphicsObject {
     Node* m_endNode;
 
     int m_cost;
-    float m_progress = 0.;
+    float m_progress{0.};
 
     QLine m_line;
     QPolygon m_arrowHead;
 
     QRgb m_color{Node::k_defaultOutlineColor};
+    bool m_unorientedEdge{false};
+
+    QPointer<QVariantAnimation> m_colorAnimation;
 
     static constexpr double k_arrowSize{15.};
 };

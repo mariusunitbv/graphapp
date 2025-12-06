@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>665</width>
-    <height>469</height>
+    <width>640</width>
+    <height>480</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>640</width>
+    <height>480</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Graph Visualization Tool</string>
@@ -76,7 +82,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>665</width>
+     <width>640</width>
      <height>21</height>
     </rect>
    </property>
@@ -86,17 +92,25 @@
     </property>
     <addaction name="actionComplete_Graph"/>
     <addaction name="actionRandom_Graph"/>
+    <addaction name="actionAnimations"/>
+    <addaction name="actionAllow_Loops"/>
+    <addaction name="actionOriented_Graph"/>
     <addaction name="actionReset_Graph"/>
+    <addaction name="actionFill_Graph_With_Nodes"/>
    </widget>
    <widget class="QMenu" name="menuAlgorithms">
     <property name="title">
      <string>Algorithms</string>
     </property>
+    <addaction name="actionInverted_Graph"/>
     <addaction name="actionGenericTraversal"/>
     <addaction name="actionGeneric_Total_Traversal"/>
     <addaction name="actionPath_s_y"/>
     <addaction name="actionBreadth_Traversal"/>
     <addaction name="actionDepth_Traversal"/>
+    <addaction name="actionDepth_Total_Traversal"/>
+    <addaction name="actionConnected_Components"/>
+    <addaction name="actionStrongly_Connected_Components"/>
    </widget>
    <addaction name="menuGraph"/>
    <addaction name="menuAlgorithms"/>
@@ -123,7 +137,7 @@
   </action>
   <action name="actionRandom_Graph">
    <property name="text">
-    <string>Random Connect Nodes</string>
+    <string>Random Adjacency List</string>
    </property>
   </action>
   <action name="actionBreadth_Traversal">
@@ -138,7 +152,62 @@
   </action>
   <action name="actionReset_Graph">
    <property name="text">
-    <string>Reset Graph</string>
+    <string>Clear Graph</string>
+   </property>
+  </action>
+  <action name="actionAnimations">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Animations</string>
+   </property>
+  </action>
+  <action name="actionAllow_Loops">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Allow Loops</string>
+   </property>
+  </action>
+  <action name="actionOriented_Graph">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Oriented Graph</string>
+   </property>
+  </action>
+  <action name="actionConnected_Components">
+   <property name="text">
+    <string>Connected Components</string>
+   </property>
+  </action>
+  <action name="actionInverted_Graph">
+   <property name="text">
+    <string>Inverted Graph</string>
+   </property>
+  </action>
+  <action name="actionDepth_Total_Traversal">
+   <property name="text">
+    <string>Depth Total Traversal</string>
+   </property>
+  </action>
+  <action name="actionStrongly_Connected_Components">
+   <property name="text">
+    <string>Strongly Connected Components</string>
+   </property>
+  </action>
+  <action name="actionFill_Graph_With_Nodes">
+   <property name="text">
+    <string>Fill Graph With Nodes</string>
    </property>
   </action>
  </widget>

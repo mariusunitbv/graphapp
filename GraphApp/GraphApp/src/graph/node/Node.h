@@ -4,7 +4,15 @@ class Node : public QGraphicsObject {
     Q_OBJECT
 
    public:
-    enum class State : uint8_t { NONE, UNVISITED, VISITED, CURRENTLY_ANALYZED, ANALYZED, PATH };
+    enum class State : uint8_t {
+        NONE,
+        UNVISITED,
+        VISITED,
+        CURRENTLY_ANALYZING,
+        ANALYZED,
+        PATH,
+        CONNECTED_COMPONENT
+    };
 
     Node(size_t index);
 
@@ -13,22 +21,28 @@ class Node : public QGraphicsObject {
     QPainterPath shape() const override;
 
     void setFillColor(const QRgb c);
-    void setOutlineColor(const QRgb c, bool ignoreSelection = false);
+    QRgb getFillColor() const;
+
+    void setOutlineColor(const QRgb c);
     void setOutlineWidth(float width);
     void setOpacity(qreal opacity);
     void setScale(qreal scale);
 
+    void setLabel(const QString& label);
+    QString getLabel() const;
+
     void setAllNodesView(const std::vector<Node*>* allNodesView);
 
     void markUnvisited();
-    void markVisited(Node* parent = nullptr);
+    void markVisited();
     void markVisitedButNotAnalyzedAnymore();
     void markCurrentlyAnalyzed();
     void markAnalyzed();
+    void markPartOfConnectedComponent(QRgb c);
 
     void markAvailableInPathFinding();
     void markUnreachable();
-    void markPath(Node* parent);
+    void markPath();
 
     void markForErasure();
     void unmark();
@@ -38,16 +52,20 @@ class Node : public QGraphicsObject {
 
     State getState() const;
 
+    void setAnimationDisabled(bool disabled);
+    bool isAnimationDisabled() const;
+
    signals:
     void changedPosition();
     void selectionChanged(bool selected);
 
     void markedUnvisited();
-    void markedVisited(Node* parent);
-    void markedAnalyzed(Node* parent);
+    void markedVisited();
+    void markedAnalyzed();
+    void markedPartOfConnectedComponent(QRgb c);
 
     void markedAvailableInPathFinding(Node* node);
-    void markedPath(Node* parent);
+    void markedPath();
 
     void markedForErasure(Node* node);
     void unmarked();
@@ -56,8 +74,8 @@ class Node : public QGraphicsObject {
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
 
-    void hoverEnterEvent(QGraphicsSceneHoverEvent* event) override;
-    void hoverLeaveEvent(QGraphicsSceneHoverEvent* event) override;
+    void hoverEnterEvent(QGraphicsSceneHoverEvent*) override;
+    void hoverLeaveEvent(QGraphicsSceneHoverEvent*) override;
 
     QVariant itemChange(GraphicsItemChange change, const QVariant& value) override;
 
@@ -76,14 +94,19 @@ class Node : public QGraphicsObject {
 
     QRgb m_fill{qRgb(255, 255, 255)};
     QRgb m_outline{qRgb(0, 0, 0)};
-    QRgb m_outlineBackup{qRgb(0, 0, 0)};
 
     float m_outlineWidth{1.5f};
 
     size_t m_index{std::numeric_limits<size_t>::max()};
     State m_state{State::NONE};
+    bool m_animationDisabled{false};
 
     const std::vector<Node*>* m_allNodesView{nullptr};
+    QString m_label;
+
+    QPointer<QVariantAnimation> m_colorAnimation;
+    QPointer<QVariantAnimation> m_outlineColorAnimation;
+    QPointer<QVariantAnimation> m_opacityAnimation;
 
    public:
     static constexpr double k_radius{24.};

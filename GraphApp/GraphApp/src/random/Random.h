@@ -7,6 +7,10 @@ class Random {
     int getInt(int min, int max);
     size_t getSize(size_t min, size_t max);
 
+    QRgb getColor();
+
+    std::mt19937& getEngine();
+
    private:
     Random();
 

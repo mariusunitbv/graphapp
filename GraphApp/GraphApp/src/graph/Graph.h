@@ -1,7 +1,6 @@
 ﻿#pragma once
-#pragma once
 
-#include "node/Node.h"
+#include "node/NodeManager.h"
 #include "edge/Edge.h"
 
 class Graph : public QGraphicsView {
@@ -81,6 +80,7 @@ class Graph : public QGraphicsView {
 
     QGraphicsScene* m_scene;
 
+    NodeManager m_nodeManager;
     std::vector<Node*> m_nodes;
     std::vector<Edge*> m_edges;
     std::unordered_map<Node*, std::unordered_set<Node*>> m_adjacencyList;

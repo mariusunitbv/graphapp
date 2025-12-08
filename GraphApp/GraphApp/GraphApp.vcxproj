@@ -88,6 +88,8 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <Link>
       <AdditionalDependencies>
@@ -151,6 +153,7 @@
   <ItemGroup>
     <QtUic Include="src\form\GraphApp.ui" />
     <QtMoc Include="src\form\GraphApp.h" />
+    <ClCompile Include="src\graph\node\QuadTree.cpp" />
     <ClCompile Include="src\form\intermediate_graph\IntermediateGraph.cpp" />
     <ClCompile Include="src\form\pseudocode\PseudocodeForm.cpp" />
     <ClCompile Include="src\graph\algorithms\Algorithm.cpp" />
@@ -165,6 +168,7 @@
     <ClCompile Include="src\graph\algorithms\traversals\GenericTraversal.cpp" />
     <ClCompile Include="src\graph\algorithms\traversals\TraversalBase.cpp" />
     <ClCompile Include="src\graph\algorithm_text\AlgorithmText.cpp" />
+    <ClCompile Include="src\graph\node\NodeManager.cpp" />
     <ClCompile Include="src\random\Random.cpp" />
     <ClCompile Include="src\form\GraphApp.cpp" />
     <ClCompile Include="src\graph\edge\Edge.cpp" />
@@ -188,6 +192,8 @@
     <QtMoc Include="src\graph\algorithms\traversals\DepthTotalTraversal.h" />
     <QtMoc Include="src\graph\algorithms\other\StronglyConnectedComponents.h" />
     <QtMoc Include="src\graph\algorithms\Algorithm.h" />
+    <QtMoc Include="src\graph\node\NodeManager.h" />
+    <ClInclude Include="src\graph\node\QuadTree.h" />
     <ClInclude Include="src\random\Random.h" />
     <ClInclude Include="src\pch\pch.h" />
     <ClCompile Include="src\pch\pch.cpp">

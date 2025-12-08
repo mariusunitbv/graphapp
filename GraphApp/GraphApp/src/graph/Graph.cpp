@@ -7,22 +7,21 @@
 Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScene()) {
     setBackgroundBrush(Qt::white);
 
-    QSurfaceFormat format;
-    format.setSamples(4);
-    format.setSwapInterval(1);
-
     QOpenGLWidget* glWidget = new QOpenGLWidget(this);
-    glWidget->setFormat(format);
+    glWidget->setFormat(QSurfaceFormat::defaultFormat());
 
     setViewport(glWidget);
 
-    m_scene->setSceneRect(0, 0, 1920, 1080);
+    m_scene->setSceneRect(0, 0, 1000, 1000);
     m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
     setScene(m_scene);
 
-    setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    m_scene->addItem(&m_nodeManager);
+    m_nodeManager.setSceneDimensions(m_scene->width(), m_scene->height());
+    m_nodeManager.setPos(0, 0);
 }
 
 Graph::~Graph() { m_scene->deleteLater(); }
@@ -109,7 +108,7 @@ Node* Graph::getFirstSelectedNode() const {
     return nullptr;
 }
 
-size_t Graph::getNodesCount() const { return m_nodes.size(); }
+size_t Graph::getNodesCount() const { return m_nodeManager.getNodesCount(); }
 
 const std::vector<Node*>& Graph::getNodes() const { return m_nodes; }
 
@@ -279,7 +278,9 @@ void Graph::resizeEvent(QResizeEvent* event) {
 }
 
 void Graph::addNode(const QPointF& pos) {
-    const auto bounds = scene()->sceneRect();
+    m_nodeManager.addNode(pos.toPoint());
+
+    /*const auto bounds = scene()->sceneRect();
     constexpr auto r = Node::k_radius;
     if (!bounds.adjusted(r, r, -r, -r).contains(pos)) {
         return;
@@ -306,7 +307,7 @@ void Graph::addNode(const QPointF& pos) {
     scene()->addItem(node);
     m_nodes.push_back(node);
 
-    m_edges.reserve(m_nodes.size() * m_nodes.size());
+    m_edges.reserve(m_nodes.size() * m_nodes.size());*/
 }
 
 void Graph::removeNodeConnections(Node* node) {
@@ -357,9 +358,6 @@ void Graph::addEdge(Node* a, Node* b, int cost) {
 
     m_edges.push_back(edge);
     scene()->addItem(edge);
-
-    setRenderHint(QPainter::Antialiasing, m_edges.size() < 600);
-    setRenderHint(QPainter::TextAntialiasing, m_edges.size() < 600);
 }
 
 size_t Graph::getMaxEdgesCount() {

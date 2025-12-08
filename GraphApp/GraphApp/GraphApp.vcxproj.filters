@@ -22,6 +22,8 @@
     <ClCompile Include="src\graph\algorithms\traversals\DepthTotalTraversal.cpp" />
     <ClCompile Include="src\graph\algorithms\other\StronglyConnectedComponents.cpp" />
     <ClCompile Include="src\graph\algorithms\Algorithm.cpp" />
+    <ClCompile Include="src\graph\node\NodeManager.cpp" />
+    <ClCompile Include="src\graph\node\QuadTree.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="src\form\GraphApp.h" />
@@ -42,10 +44,12 @@
     <QtMoc Include="src\graph\algorithms\traversals\DepthTotalTraversal.h" />
     <QtMoc Include="src\graph\algorithms\other\StronglyConnectedComponents.h" />
     <QtMoc Include="src\graph\algorithms\Algorithm.h" />
+    <QtMoc Include="src\graph\node\NodeManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />
     <ClInclude Include="src\random\Random.h" />
+    <ClInclude Include="src\graph\node\QuadTree.h" />
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="src\form\GraphApp.ui" />

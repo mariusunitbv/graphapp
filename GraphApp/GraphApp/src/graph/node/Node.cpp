@@ -370,3 +370,21 @@ QPointF Node::getGoodPositionWhenMoving(const QPointF& desiredPos) {
 
     return newPos;
 }
+
+NodeData::NodeData(size_t index, const QPointF& position) : m_index(index) {
+    setPosition(position);
+    m_label = QString::number(index);
+}
+
+const QRect& NodeData::getBoundingRect() const { return m_boundingRect; }
+
+void NodeData::setIndex(NodeIndex_t index) { m_index = index; }
+
+NodeIndex_t NodeData::getIndex() const { return m_index; }
+
+void NodeData::setPosition(const QPointF& position) {
+    m_boundingRect.setRect(position.x() - k_radius, position.y() - k_radius, 2 * k_radius,
+                           2 * k_radius);
+}
+
+QPoint NodeData::getPosition() const { return m_boundingRect.center(); }

@@ -111,3 +111,27 @@ class Node : public QGraphicsObject {
    public:
     static constexpr double k_radius{24.};
 };
+
+using NodeIndex_t = uint32_t;
+
+class NodeData {
+   public:
+    friend class NodeManager;
+
+    NodeData(size_t index, const QPointF& position);
+
+    const QRect& getBoundingRect() const;
+
+    void setIndex(NodeIndex_t index);
+    NodeIndex_t getIndex() const;
+
+    void setPosition(const QPointF& position);
+    QPoint getPosition() const;
+
+   private:
+    NodeIndex_t m_index{std::numeric_limits<NodeIndex_t>::max()};
+    QRect m_boundingRect{};
+    QString m_label{};
+
+    static constexpr qreal k_radius{24.};
+};

@@ -381,7 +381,7 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
             lastIndex = ui.graph->getNodesCount();
 
             qreal newX = lastX + Node::k_radius * 2 + 5.;
-            if (newX >= sceneSize.x()) {
+            if (newX + Node::k_radius >= sceneSize.x()) {
                 newX = Node::k_radius;
                 lastY += Node::k_radius * 2 + 5.;
             }

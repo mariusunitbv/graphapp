@@ -67,3 +67,14 @@ class Edge : public QGraphicsObject {
 
     static constexpr double k_arrowSize{15.};
 };
+
+class EdgeData {
+   public:
+    friend class NodeManager;
+
+    EdgeData(NodeIndex_t start, NodeIndex_t end, int cost);
+
+   private:
+    NodeIndex_t m_startNode;
+    NodeIndex_t m_endNode;
+};

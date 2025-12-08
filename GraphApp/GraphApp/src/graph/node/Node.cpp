@@ -371,20 +371,27 @@ QPointF Node::getGoodPositionWhenMoving(const QPointF& desiredPos) {
     return newPos;
 }
 
-NodeData::NodeData(size_t index, const QPointF& position) : m_index(index) {
+NodeData::NodeData(size_t index, const QPoint& position) {
+    setIndex(static_cast<NodeIndex_t>(index));
     setPosition(position);
-    m_label = QString::number(index);
 }
 
 const QRect& NodeData::getBoundingRect() const { return m_boundingRect; }
 
-void NodeData::setIndex(NodeIndex_t index) { m_index = index; }
+void NodeData::setIndex(NodeIndex_t index) {
+    m_index = index;
+    m_label = QString::number(index);
+}
 
 NodeIndex_t NodeData::getIndex() const { return m_index; }
 
-void NodeData::setPosition(const QPointF& position) {
+void NodeData::setPosition(const QPoint& position) {
     m_boundingRect.setRect(position.x() - k_radius, position.y() - k_radius, 2 * k_radius,
                            2 * k_radius);
 }
 
 QPoint NodeData::getPosition() const { return m_boundingRect.center(); }
+
+void NodeData::setFillColor(QRgb c) { m_fillColor = c; }
+
+QColor NodeData::getFillColor() const { return QColor::fromRgba(m_fillColor); }

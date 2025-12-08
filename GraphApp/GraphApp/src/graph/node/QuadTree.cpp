@@ -3,10 +3,12 @@
 #include "QuadTree.h"
 
 QuadTree::~QuadTree() {
-    delete m_northWest;
-    delete m_northEast;
-    delete m_southWest;
-    delete m_southEast;
+    if (isSubdivided()) {
+        delete m_northWest;
+        delete m_northEast;
+        delete m_southWest;
+        delete m_southEast;
+    }
 }
 
 void QuadTree::setBoundary(const QRect& boundary) { m_boundary = boundary; }
@@ -36,33 +38,46 @@ void QuadTree::insert(const NodeData& node) {
     m_southEast->insert(node);
 }
 
-QuadTree* QuadTree::getContainingQuadTree(const NodeData& node) {
+void QuadTree::getContainingTrees(const NodeData& node, std::vector<QuadTree*>& trees) {
+    if (!m_boundary.intersects(node.getBoundingRect())) {
+        return;
+    }
+
     for (size_t i = 0; i < m_nodesCount; ++i) {
         if (m_nodes[i].m_index == node.getIndex()) {
-            return this;
+            return trees.push_back(this);
         }
     }
 
-    if (isSubdivided()) {
-        auto quadTree = m_northWest->getContainingQuadTree(node);
-        if (quadTree) {
-            return quadTree;
-        }
-        quadTree = m_northEast->getContainingQuadTree(node);
-        if (quadTree) {
-            return quadTree;
-        }
-        quadTree = m_southWest->getContainingQuadTree(node);
-        if (quadTree) {
-            return quadTree;
-        }
-        quadTree = m_southEast->getContainingQuadTree(node);
-        if (quadTree) {
-            return quadTree;
+    if (!isSubdivided()) {
+        return;
+    }
+
+    m_northWest->getContainingTrees(node, trees);
+    m_northEast->getContainingTrees(node, trees);
+    m_southWest->getContainingTrees(node, trees);
+    m_southEast->getContainingTrees(node, trees);
+}
+
+void QuadTree::getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>& nodes) {
+    if (!m_boundary.intersects(area)) {
+        return;
+    }
+
+    for (size_t i = 0; i < m_nodesCount; ++i) {
+        if (area.contains(m_nodes[i].m_position)) {
+            nodes.emplace(m_nodes[i].m_index);
         }
     }
 
-    return nullptr;
+    if (!isSubdivided()) {
+        return;
+    }
+
+    m_northWest->getNodesInArea(area, nodes);
+    m_northEast->getNodesInArea(area, nodes);
+    m_southWest->getNodesInArea(area, nodes);
+    m_southEast->getNodesInArea(area, nodes);
 }
 
 bool QuadTree::needsReinserting(const NodeData& node) {
@@ -85,6 +100,19 @@ void QuadTree::remove(const NodeData& node) {
             --m_nodesCount;
             return;
         }
+    }
+}
+
+void QuadTree::clear() {
+    m_nodesCount = 0;
+
+    if (isSubdivided()) {
+        delete m_northWest;
+        delete m_northEast;
+        delete m_southWest;
+        delete m_southEast;
+
+        m_northWest = m_northEast = m_southWest = m_southEast = nullptr;
     }
 }
 
@@ -139,9 +167,6 @@ std::optional<NodeIndex_t> QuadTree::getNodeAtPosition(QPoint pos, float minDist
         const int64_t dy = nodePos.y() - pos.y();
 
         if (dx * dx + dy * dy < (minDistance * minDistance)) {
-            if (indexToIgnore != -1) {
-                qDebug() << "idx" << m_nodes[i].m_index << '\n';
-            }
             return m_nodes[i].m_index;
         }
     }

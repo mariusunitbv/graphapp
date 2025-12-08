@@ -103,7 +103,7 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
                                  QMessageBox::Yes, QMessageBox::No);
 
         if (response == QMessageBox::Yes) {
-            ui.graph->resetGraph();
+            ui.graph->getNodeManager().reset();
             ui.textEdit->clear();
         }
     });
@@ -370,28 +370,31 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
     connect(ui.actionFill_Graph_With_Nodes, &QAction::triggered, [this]() {
         ui.graph->addNode({Node::k_radius, Node::k_radius});
+        ui.graph->getNodeManager().setCollisionsCheckEnabled(false);
 
         QPointF sceneSize = ui.graph->getGraphSize();
 
-        qreal lastX = Node::k_radius;
-        qreal lastY = Node::k_radius;
+        int lastX = Node::k_radius;
+        int lastY = Node::k_radius;
 
-        size_t lastIndex = 0;
+        NodeIndex_t lastIndex = -1;
         while (lastIndex != ui.graph->getNodesCount()) {
             lastIndex = ui.graph->getNodesCount();
 
-            qreal newX = lastX + Node::k_radius * 2 + 5.;
+            int newX = lastX + Node::k_radius * 2 + 5.;
             if (newX + Node::k_radius >= sceneSize.x()) {
                 newX = Node::k_radius;
                 lastY += Node::k_radius * 2 + 5.;
             }
-            qreal newY = lastY;
+            int newY = lastY;
 
-            ui.graph->addNode({newX, newY});
+            ui.graph->getNodeManager().addNode({newX, newY});
 
             lastX = newX;
             lastY = newY;
         }
+
+        ui.graph->getNodeManager().setCollisionsCheckEnabled(true);
     });
 }
 

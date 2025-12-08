@@ -118,20 +118,25 @@ class NodeData {
    public:
     friend class NodeManager;
 
-    NodeData(size_t index, const QPointF& position);
+    NodeData(size_t index, const QPoint& position);
 
     const QRect& getBoundingRect() const;
 
     void setIndex(NodeIndex_t index);
     NodeIndex_t getIndex() const;
 
-    void setPosition(const QPointF& position);
+    void setPosition(const QPoint& position);
     QPoint getPosition() const;
+
+    void setFillColor(QRgb c);
+    QColor getFillColor() const;
 
    private:
     NodeIndex_t m_index{std::numeric_limits<NodeIndex_t>::max()};
     QRect m_boundingRect{};
     QString m_label{};
 
-    static constexpr qreal k_radius{24.};
+    QRgb m_fillColor{qRgb(255, 255, 255)};
+
+    static constexpr float k_radius{24.};
 };

@@ -3,6 +3,7 @@
 #include "NodeManager.h"
 
 NodeManager::NodeManager() {
+    setFlag(ItemIsFocusable);
     connect(&m_sceneUpdateTimer, &QTimer::timeout, [this]() {
         QGraphicsView* view = scene()->views().first();
         QRectF sceneRect = view->mapToScene(view->viewport()->rect()).boundingRect();
@@ -26,7 +27,18 @@ bool NodeManager::isGoodPosition(const QPoint& pos, NodeIndex_t nodeToIgnore) co
         return false;
     }
 
+    if (!m_collisionsCheckEnabled) {
+        return true;
+    }
+
     return !m_quadTree.intersectsAnotherNode(pos, nodeToIgnore);
+}
+
+void NodeManager::setCollisionsCheckEnabled(bool enabled) { m_collisionsCheckEnabled = enabled; }
+
+void NodeManager::reset() {
+    m_nodes.clear();
+    m_quadTree.clear();
 }
 
 size_t NodeManager::getNodesCount() const { return m_nodes.size(); }
@@ -38,11 +50,7 @@ std::optional<NodeIndex_t> NodeManager::getNode(const QPoint& pos) {
 }
 
 void NodeManager::addNode(const QPoint& pos) {
-    if (m_nodes.size() > 10000000) {
-        return;
-    }
-
-    if (!isGoodPosition(pos)) {
+    if (m_nodes.size() > 10000000 || !isGoodPosition(pos)) {
         return;
     }
 
@@ -53,7 +61,12 @@ void NodeManager::addNode(const QPoint& pos) {
     update(nodeData.getBoundingRect());
 }
 
-void NodeManager::drawQuadTree(QPainter* painter, QuadTree* quadTree) {
+void NodeManager::addEdge(NodeIndex_t start, NodeIndex_t end, int cost) {
+    EdgeData edgeData(start, end, cost);
+    m_edges.emplace_back(edgeData);
+}
+
+void NodeManager::drawQuadTree(QPainter* painter, QuadTree* quadTree) const {
     if (!quadTree || !isVisibleInScene(quadTree->getBoundary())) {
         return;
     }
@@ -82,29 +95,36 @@ void NodeManager::drawQuadTree(QPainter* painter, QuadTree* quadTree) {
     }
 }
 
+void NodeManager::reserveEdges(size_t edges) { m_edges.reserve(edges); }
+
 QRectF NodeManager::boundingRect() const { return m_boundingRect; }
 
 void NodeManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*) {
-    int drawnNodes = 0;
-
     const auto lod = option->levelOfDetailFromTransform(painter->worldTransform());
 
-    for (const auto& node : m_nodes) {
+    painter->drawPixmap(mapToScene(0, 0), m_edgesCache);
+
+    int drawnNodes = 0;
+    std::unordered_set<NodeIndex_t> visibleNodes;
+    m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
+
+    for (const auto& nodeIndex : visibleNodes) {
+        const auto& node = m_nodes[nodeIndex];
+
         const auto& rect = node.getBoundingRect();
-        if (!isVisibleInScene(rect)) {
-            continue;
-        }
 
         ++drawnNodes;
-        painter->setPen(QPen{Qt::black, 1.5});
+        painter->setPen(QPen{node.getIndex() == m_selectedNodeIndex ? Qt::green : Qt::black, 1.5});
+        painter->setBrush(node.getFillColor());
         painter->drawEllipse(rect);
         if (lod >= 1) {
             painter->drawText(rect, Qt::AlignCenter, node.m_label);
         }
     }
 
-    qDebug() << "drawn:" << drawnNodes << "out of " << m_nodes.size() << '\n';
+    qDebug() << drawnNodes << " out of " << m_nodes.size() << '\n';
 
+    painter->setBrush(Qt::NoBrush);
     if (lod >= 1.5) {
         painter->setPen(Qt::gray);
         drawQuadTree(painter, &m_quadTree);
@@ -118,9 +138,15 @@ void NodeManager::mousePressEvent(QGraphicsSceneMouseEvent* event) {
         if (nodeOpt.has_value()) {
             setFlag(ItemIsSelectable);
 
-            qDebug() << "Picked node index:" << nodeOpt.value() << '\n';
             m_selectedNodeIndex = nodeOpt.value();
             m_dragOffset = getNode(m_selectedNodeIndex).getPosition() - point;
+        } else {
+            if (m_selectedNodeIndex != std::numeric_limits<NodeIndex_t>::max()) {
+                update(getNode(m_selectedNodeIndex).getBoundingRect());
+                m_selectedNodeIndex = std::numeric_limits<NodeIndex_t>::max();
+            } else {
+                addNode(point);
+            }
         }
     }
 
@@ -131,23 +157,30 @@ void NodeManager::mouseMoveEvent(QGraphicsSceneMouseEvent* event) {
     if (event->buttons() & Qt::LeftButton) {
         if (m_selectedNodeIndex != std::numeric_limits<NodeIndex_t>::max()) {
             auto& node = getNode(m_selectedNodeIndex);
-            const auto desiredPos = event->pos() + m_dragOffset;
+            const auto desiredPos = event->pos().toPoint() + m_dragOffset;
 
-            QuadTree* nodeTree = m_quadTree.getContainingQuadTree(node);
-            if (!nodeTree->intersectsAnotherNode(desiredPos.toPoint(), m_selectedNodeIndex)) {
+            if (isGoodPosition(desiredPos, m_selectedNodeIndex)) {
+                std::vector<QuadTree*> containingTrees;
+                m_quadTree.getContainingTrees(node, containingTrees);
+
                 const auto oldRect = node.getBoundingRect();
                 node.setPosition(desiredPos);
                 const auto newRect = node.getBoundingRect();
                 update(oldRect.united(newRect));
 
-                if (nodeTree->needsReinserting(node)) {
-                    nodeTree->remove(node);
-                    m_quadTree.insert(node);
-                } else {
-                    nodeTree->update(node);
+                bool removedFromEveryTree = true;
+                for (const auto tree : containingTrees) {
+                    if (tree->needsReinserting(node)) {
+                        tree->remove(node);
+                    } else {
+                        removedFromEveryTree = false;
+                        tree->update(node);
+                    }
                 }
-            } else {
-                qDebug() << "Invalid move position for node index:" << m_selectedNodeIndex << '\n';
+
+                if (removedFromEveryTree) {
+                    m_quadTree.insert(node);
+                }
             }
         }
     }
@@ -157,15 +190,81 @@ void NodeManager::mouseMoveEvent(QGraphicsSceneMouseEvent* event) {
 
 void NodeManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
-        if (m_selectedNodeIndex != std::numeric_limits<NodeIndex_t>::max()) {
-            setFlag(ItemIsSelectable, false);
-
-            qDebug() << "Released node index:" << m_selectedNodeIndex << '\n';
-            m_selectedNodeIndex = std::numeric_limits<NodeIndex_t>::max();
-        }
+        setFlag(ItemIsSelectable, false);
     }
 
     QGraphicsObject::mouseReleaseEvent(event);
 }
 
+void NodeManager::keyReleaseEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Delete) {
+        removeSelectedNodes();
+    } else if (event->key() == Qt::Key_Space) {
+        updateEdgeCache();
+    }
+
+    QGraphicsObject::keyReleaseEvent(event);
+}
+
 bool NodeManager::isVisibleInScene(const QRect& rect) const { return m_sceneRect.intersects(rect); }
+
+void NodeManager::removeSelectedNodes() {
+    if (m_selectedNodeIndex == std::numeric_limits<NodeIndex_t>::max()) {
+        return;
+    }
+
+    NodeIndex_t index = m_selectedNodeIndex;
+    for (auto it = m_nodes.begin() + m_selectedNodeIndex; it != m_nodes.end();) {
+        auto& node = *it;
+        if (node.getIndex() == m_selectedNodeIndex) {
+            update(node.getBoundingRect());
+
+            it = m_nodes.erase(it);
+            m_selectedNodeIndex = std::numeric_limits<NodeIndex_t>::max();
+        } else {
+            update(node.getBoundingRect());
+
+            node.setIndex(index++);
+            ++it;
+        }
+    }
+
+    recomputeQuadTree();
+}
+
+void NodeManager::recomputeQuadTree() {
+    m_quadTree.clear();
+    for (const auto& node : m_nodes) {
+        m_quadTree.insert(node);
+    }
+}
+
+void NodeManager::updateEdgeCache() {
+    if (m_edges.empty()) {
+        return;
+    }
+
+    m_edgesCache = QPixmap(m_boundingRect.size());
+    m_edgesCache.fill(Qt::transparent);
+
+    QPainter p(&m_edgesCache);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setPen(Qt::black);
+
+    const QPoint offset = m_sceneRect.topLeft();
+
+    std::unordered_set<NodeIndex_t> visibleNodes;
+    m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
+
+    for (const auto& e : m_edges) {
+        if (!visibleNodes.contains(e.m_startNode) && !visibleNodes.contains(e.m_endNode)) {
+            continue;
+        }
+
+        p.drawLine(m_nodes[e.m_startNode].getPosition(), m_nodes[e.m_endNode].getPosition());
+    }
+
+    p.end();
+
+    update();
+}

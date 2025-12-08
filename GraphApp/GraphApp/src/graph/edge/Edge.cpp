@@ -293,3 +293,6 @@ void Edge::drawEdge(QPainter* painter) {
         }
     }
 }
+
+EdgeData::EdgeData(NodeIndex_t start, NodeIndex_t end, int cost)
+    : m_startNode(start), m_endNode(end) {}

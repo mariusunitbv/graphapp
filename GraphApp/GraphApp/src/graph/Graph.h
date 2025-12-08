@@ -11,6 +11,9 @@ class Graph : public QGraphicsView {
     ~Graph();
 
     void onAdjacencyListChanged(const QString& text);
+
+    NodeManager& getNodeManager();
+
     Node* getFirstSelectedNode() const;
 
     size_t getNodesCount() const;

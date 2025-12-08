@@ -12,7 +12,7 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
 
     setViewport(glWidget);
 
-    m_scene->setSceneRect(0, 0, 1000, 1000);
+    m_scene->setSceneRect(0, 0, 100000, 100000);
     m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
     setScene(m_scene);
 
@@ -54,49 +54,48 @@ void Graph::onAdjacencyListChanged(const QString& text) {
         }();
 
         if (ok1 && ok2) {
-            if (u >= m_nodes.size()) {
-                QMessageBox::warning(nullptr, "Bad value",
-                                     QString("Node %1 doesn't exist!").arg(u));
-                break;
-            }
+            /* if (u >= m_nodes.size()) {
+                 QMessageBox::warning(nullptr, "Bad value",
+                                      QString("Node %1 doesn't exist!").arg(u));
+                 break;
+             }
 
-            if (v >= m_nodes.size()) {
-                QMessageBox::warning(nullptr, "Bad value",
-                                     QString("Node %1 doesn't exist!").arg(v));
-                break;
-            }
+             if (v >= m_nodes.size()) {
+                 QMessageBox::warning(nullptr, "Bad value",
+                                      QString("Node %1 doesn't exist!").arg(v));
+                 break;
+             }
 
-            auto& uNeighbours = m_adjacencyList[m_nodes[u]];
-            if (uNeighbours.contains(m_nodes[v])) {
-                QMessageBox::warning(nullptr, "Duplicate edge",
-                                     QString("Edge from %1 to %2 already exists!").arg(u).arg(v));
-                break;
-            }
+             auto& uNeighbours = m_adjacencyList[m_nodes[u]];
+             if (uNeighbours.contains(m_nodes[v])) {
+                 QMessageBox::warning(nullptr, "Duplicate edge",
+                                      QString("Edge from %1 to %2 already exists!").arg(u).arg(v));
+                 break;
+             }
 
-            if (!m_allowLoops && u == v) {
-                QMessageBox::warning(nullptr, "Loop not allowed",
-                                     QString("Loops are not allowed (Node %1)!").arg(u));
-                break;
-            }
+             if (!m_allowLoops && u == v) {
+                 QMessageBox::warning(nullptr, "Loop not allowed",
+                                      QString("Loops are not allowed (Node %1)!").arg(u));
+                 break;
+             }
 
-            if (!m_orientedGraph) {
-                if (m_adjacencyList[m_nodes[v]].contains(m_nodes[u])) {
-                    QMessageBox::warning(nullptr, "Duplicate edge",
-                                         QString("Edge from %1 to %2 already exists!\nBecause this "
-                                                 "is an unoriented graph")
-                                             .arg(v)
-                                             .arg(u));
-                    break;
-                }
+             if (!m_orientedGraph) {
+                 if (m_adjacencyList[m_nodes[v]].contains(m_nodes[u])) {
+                     QMessageBox::warning(nullptr, "Duplicate edge",
+                                          QString("Edge from %1 to %2 already exists!\nBecause this
+             " "is an unoriented graph") .arg(v) .arg(u)); break;
+                 }
 
-                m_adjacencyList[m_nodes[v]].emplace(m_nodes[u]);
-            }
+                 m_adjacencyList[m_nodes[v]].emplace(m_nodes[u]);
+             }*/
 
-            uNeighbours.emplace(m_nodes[v]);
-            addEdge(m_nodes[u], m_nodes[v], cost);
+            // uNeighbours.emplace(m_nodes[v]);
+            m_nodeManager.addEdge(u, v, cost);
         }
     }
 }
+
+NodeManager& Graph::getNodeManager() { return m_nodeManager; }
 
 Node* Graph::getFirstSelectedNode() const {
     for (auto node : m_nodes) {
@@ -278,7 +277,7 @@ void Graph::resizeEvent(QResizeEvent* event) {
 }
 
 void Graph::addNode(const QPointF& pos) {
-    m_nodeManager.addNode(pos.toPoint());
+    // m_nodeManager.addNode(pos.toPoint());
 
     /*const auto bounds = scene()->sceneRect();
     constexpr auto r = Node::k_radius;
@@ -350,14 +349,14 @@ void Graph::onNodeMarkedForErasure(Node* node) {
 }
 
 void Graph::addEdge(Node* a, Node* b, int cost) {
-    const auto edge = new Edge(a, b, cost);
+    /*const auto edge = new Edge(a, b, cost);
     edge->setParent(this);
     edge->setUnorientedEdge(!m_orientedGraph);
 
     connect(edge, &Edge::markedForErasure, this, &Graph::onEdgeMarkedForErasure);
 
     m_edges.push_back(edge);
-    scene()->addItem(edge);
+    scene()->addItem(edge);*/
 }
 
 size_t Graph::getMaxEdgesCount() {
@@ -369,7 +368,7 @@ size_t Graph::getMaxEdgesCount() {
     return n * (n - 1) / 2;
 }
 
-void Graph::reserveEdges(size_t edges) { m_edges.reserve(edges); }
+void Graph::reserveEdges(size_t edges) { m_nodeManager.reserveEdges(edges); }
 
 void Graph::removeEdgesConnectedToNode(Node* node) {
     for (auto it = m_edges.begin(); it != m_edges.end();) {

@@ -10,13 +10,14 @@ class QuadTree {
     const QRect& getBoundary() const;
 
     void insert(const NodeData& node);
-
-    QuadTree* getContainingQuadTree(const NodeData& node);
+    void getContainingTrees(const NodeData& node, std::vector<QuadTree*>& trees);
+    void getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>& nodes);
 
     // NON-RECURSIVE METHODS
     bool needsReinserting(const NodeData& node);
-    void remove(const NodeData& node);
     void update(const NodeData& node);
+    void remove(const NodeData& node);
+    void clear();
 
     void subdivide();
     bool isSubdivided() const;

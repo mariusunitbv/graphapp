@@ -113,6 +113,7 @@ class Node : public QGraphicsObject {
 };
 
 using NodeIndex_t = uint32_t;
+constexpr auto INVALID_NODE = std::numeric_limits<NodeIndex_t>::max();
 
 class NodeData {
    public:

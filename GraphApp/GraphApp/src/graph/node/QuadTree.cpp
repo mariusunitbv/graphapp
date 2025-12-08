@@ -65,7 +65,11 @@ void QuadTree::getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>
     }
 
     for (size_t i = 0; i < m_nodesCount; ++i) {
-        if (area.contains(m_nodes[i].m_position)) {
+        const auto& nodePos = m_nodes[i].m_position;
+        const QRect nodeArea(nodePos.x() - Node::k_radius, nodePos.y() - Node::k_radius,
+                             2 * Node::k_radius, 2 * Node::k_radius);
+
+        if (area.intersects(nodeArea)) {
             nodes.emplace(m_nodes[i].m_index);
         }
     }

@@ -29,22 +29,12 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
     connect(ui.graph, &Graph::endedAlgorithm, this, &GraphApp::onEndedAlgorithm);
 
     connect(ui.actionComplete_Graph, &QAction::triggered, [this]() {
-        QString out;
-
-        const auto nodesCount = ui.graph->getNodesCount();
-        for (size_t i = 0; i < nodesCount; ++i) {
-            size_t j = ui.graph->getOrientedGraph() ? 0 : i + 1;
-            for (; j < nodesCount; ++j) {
-                if (i == j && !ui.graph->getAllowLoops()) {
-                    continue;
-                }
-
-                out += QString("%1 %2\n").arg(i).arg(j);
-            }
+        auto& nodeManager = ui.graph->getNodeManager();
+        if (ui.graph->getOrientedGraph()) {
+            nodeManager.completeOrientedGraph(ui.graph->getAllowLoops());
+        } else {
+            nodeManager.completeUnorientedGraph();
         }
-
-        ui.graph->reserveEdges(ui.graph->getMaxEdgesCount());
-        ui.textEdit->setText(out);
     });
 
     connect(ui.actionRandom_Graph, &QAction::triggered, [this]() {
@@ -372,15 +362,14 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         ui.graph->addNode({Node::k_radius, Node::k_radius});
         ui.graph->getNodeManager().setCollisionsCheckEnabled(false);
 
-        QPointF sceneSize = ui.graph->getGraphSize();
+        auto& nodeManager = ui.graph->getNodeManager();
+        const auto sceneSize = ui.graph->getGraphSize().toPoint();
 
         int lastX = Node::k_radius;
         int lastY = Node::k_radius;
 
         NodeIndex_t lastIndex = -1;
-        while (lastIndex != ui.graph->getNodesCount()) {
-            lastIndex = ui.graph->getNodesCount();
-
+        while (lastIndex != nodeManager.getNodesCount()) {
             int newX = lastX + Node::k_radius * 2 + 5.;
             if (newX + Node::k_radius >= sceneSize.x()) {
                 newX = Node::k_radius;
@@ -388,13 +377,14 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
             }
             int newY = lastY;
 
-            ui.graph->getNodeManager().addNode({newX, newY});
+            lastIndex = nodeManager.getNodesCount();
+            nodeManager.addNode({newX, newY});
 
             lastX = newX;
             lastY = newY;
         }
 
-        ui.graph->getNodeManager().setCollisionsCheckEnabled(true);
+        nodeManager.setCollisionsCheckEnabled(true);
     });
 }
 

@@ -6,10 +6,10 @@ NodeManager::NodeManager() {
     setFlag(ItemIsFocusable);
     connect(&m_sceneUpdateTimer, &QTimer::timeout, [this]() {
         QGraphicsView* view = scene()->views().first();
-        QRectF sceneRect = view->mapToScene(view->viewport()->rect()).boundingRect();
+        QRect sceneRect = view->mapToScene(view->viewport()->rect()).boundingRect().toRect();
         if (m_sceneRect != sceneRect) {
-            m_sceneRect = sceneRect.toRect();
-            update(m_sceneRect);
+            m_sceneRect = sceneRect;
+            updateEdgeCache();
         }
     });
 }
@@ -39,14 +39,29 @@ void NodeManager::setCollisionsCheckEnabled(bool enabled) { m_collisionsCheckEna
 void NodeManager::reset() {
     m_nodes.clear();
     m_quadTree.clear();
+    m_adjacencyList.clear();
 }
 
-size_t NodeManager::getNodesCount() const { return m_nodes.size(); }
+NodeIndex_t NodeManager::getNodesCount() const { return static_cast<NodeIndex_t>(m_nodes.size()); }
 
 NodeData& NodeManager::getNode(NodeIndex_t index) { return m_nodes[index]; }
 
 std::optional<NodeIndex_t> NodeManager::getNode(const QPoint& pos) {
     return m_quadTree.getNodeAtPosition(pos, Node::k_radius);
+}
+
+bool NodeManager::hasNeighbour(NodeIndex_t index, NodeIndex_t neighbour) const {
+    if (!m_adjacencyList.contains(index)) {
+        return false;
+    }
+
+    return m_adjacencyList.at(index).contains(neighbour);
+}
+
+bool NodeManager::hasNeighbours(NodeIndex_t index) const { return m_adjacencyList.contains(index); }
+
+const Neighbours_t& NodeManager::getNeighbours(NodeIndex_t index) const {
+    return m_adjacencyList.at(index);
 }
 
 void NodeManager::addNode(const QPoint& pos) {
@@ -62,58 +77,96 @@ void NodeManager::addNode(const QPoint& pos) {
 }
 
 void NodeManager::addEdge(NodeIndex_t start, NodeIndex_t end, int cost) {
-    EdgeData edgeData(start, end, cost);
-    m_edges.emplace_back(edgeData);
+    m_adjacencyList[start].emplace(end, cost);
 }
 
-void NodeManager::drawQuadTree(QPainter* painter, QuadTree* quadTree) const {
-    if (!quadTree || !isVisibleInScene(quadTree->getBoundary())) {
-        return;
+void NodeManager::removeEdgesContaining(NodeIndex_t index) {
+    m_adjacencyList.erase(index);
+    AdjacencyList_t newAdjList;
+
+    for (const auto& [nodeIdx, neighbours] : m_adjacencyList) {
+        NodeIndex_t newNodeIdx = nodeIdx > index ? nodeIdx - 1 : nodeIdx;
+
+        Neighbours_t newNeighbours;
+        for (const auto& [neighbour, cost] : neighbours) {
+            if (neighbour != index) {
+                NodeIndex_t newNeighbour = neighbour > index ? neighbour - 1 : neighbour;
+                newNeighbours.emplace(newNeighbour, cost);
+            }
+        }
+
+        newAdjList[newNodeIdx] = std::move(newNeighbours);
     }
 
-    const auto northWest = quadTree->getNorthWest();
-    const auto northEast = quadTree->getNorthEast();
-    const auto southWest = quadTree->getSouthWest();
-    const auto southEast = quadTree->getSouthEast();
-
-    painter->drawRect(quadTree->getBoundary());
-
-    if (northWest) {
-        drawQuadTree(painter, northWest);
-    }
-
-    if (northEast) {
-        drawQuadTree(painter, northEast);
-    }
-
-    if (southWest) {
-        drawQuadTree(painter, southWest);
-    }
-
-    if (southEast) {
-        drawQuadTree(painter, southEast);
-    }
+    m_adjacencyList = std::move(newAdjList);
 }
 
-void NodeManager::reserveEdges(size_t edges) { m_edges.reserve(edges); }
+void NodeManager::updateEdgeCache() {
+    std::unordered_set<NodeIndex_t> visibleNodes;
+    m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
+
+    m_edgesCache.clear();
+    for (const auto nodeIndex : visibleNodes) {
+        for (const auto& [neighbourIndex, cost] : m_adjacencyList[nodeIndex]) {
+            if (m_edgesCache.elementCount() > 100000) {
+                return;
+            }
+
+            m_edgesCache.moveTo(m_nodes[nodeIndex].getPosition());
+            m_edgesCache.lineTo(m_nodes[neighbourIndex].getPosition());
+        }
+    }
+
+    update(m_sceneRect);
+}
+
+void NodeManager::resetAdjacencyList() { m_adjacencyList.clear(); }
+
+void NodeManager::completeUnorientedGraph() {
+    for (NodeIndex_t i = 0; i < m_nodes.size(); ++i) {
+        for (NodeIndex_t j = i + 1; j < m_nodes.size(); ++j) {
+            addEdge(i, j, 0);
+            addEdge(j, i, 0);
+        }
+    }
+
+    updateEdgeCache();
+}
+
+void NodeManager::completeOrientedGraph(bool allowLoops) {
+    m_adjacencyList.reserve(m_nodes.size());
+
+    for (NodeIndex_t i = 0; i < m_nodes.size(); ++i) {
+        auto& neighbors = m_adjacencyList[i];
+        neighbors.reserve(m_nodes.size());
+
+        for (NodeIndex_t j = 0; j < m_nodes.size(); ++j) {
+            if (i == j && !allowLoops) {
+                continue;
+            }
+
+            neighbors.emplace_hint(neighbors.end(), j, 0);
+        }
+    }
+
+    updateEdgeCache();
+}
 
 QRectF NodeManager::boundingRect() const { return m_boundingRect; }
 
 void NodeManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*) {
     const auto lod = option->levelOfDetailFromTransform(painter->worldTransform());
 
-    painter->drawPixmap(mapToScene(0, 0), m_edgesCache);
-
-    int drawnNodes = 0;
     std::unordered_set<NodeIndex_t> visibleNodes;
     m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
 
-    for (const auto& nodeIndex : visibleNodes) {
-        const auto& node = m_nodes[nodeIndex];
+    painter->setPen(Qt::black);
+    painter->drawPath(m_edgesCache);
 
+    for (const auto nodeIndex : visibleNodes) {
+        const auto& node = m_nodes[nodeIndex];
         const auto& rect = node.getBoundingRect();
 
-        ++drawnNodes;
         painter->setPen(QPen{node.getIndex() == m_selectedNodeIndex ? Qt::green : Qt::black, 1.5});
         painter->setBrush(node.getFillColor());
         painter->drawEllipse(rect);
@@ -121,8 +174,6 @@ void NodeManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* optio
             painter->drawText(rect, Qt::AlignCenter, node.m_label);
         }
     }
-
-    qDebug() << drawnNodes << " out of " << m_nodes.size() << '\n';
 
     painter->setBrush(Qt::NoBrush);
     if (lod >= 1.5) {
@@ -133,11 +184,11 @@ void NodeManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* optio
 
 void NodeManager::mousePressEvent(QGraphicsSceneMouseEvent* event) {
     if (event->button() == Qt::LeftButton && !(event->modifiers() & Qt::AltModifier)) {
+        setFlag(ItemIsSelectable);
+
         const auto point = event->pos().toPoint();
         const auto nodeOpt = getNode(point);
         if (nodeOpt.has_value()) {
-            setFlag(ItemIsSelectable);
-
             m_selectedNodeIndex = nodeOpt.value();
             m_dragOffset = getNode(m_selectedNodeIndex).getPosition() - point;
         } else {
@@ -145,7 +196,7 @@ void NodeManager::mousePressEvent(QGraphicsSceneMouseEvent* event) {
                 update(getNode(m_selectedNodeIndex).getBoundingRect());
                 m_selectedNodeIndex = std::numeric_limits<NodeIndex_t>::max();
             } else {
-                addNode(point);
+                m_pressedEmptySpace = true;
             }
         }
     }
@@ -160,6 +211,8 @@ void NodeManager::mouseMoveEvent(QGraphicsSceneMouseEvent* event) {
             const auto desiredPos = event->pos().toPoint() + m_dragOffset;
 
             if (isGoodPosition(desiredPos, m_selectedNodeIndex)) {
+                m_draggingNode = true;
+
                 std::vector<QuadTree*> containingTrees;
                 m_quadTree.getContainingTrees(node, containingTrees);
 
@@ -191,6 +244,13 @@ void NodeManager::mouseMoveEvent(QGraphicsSceneMouseEvent* event) {
 void NodeManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         setFlag(ItemIsSelectable, false);
+        if (m_draggingNode) {
+            updateEdgeCache();
+            m_draggingNode = false;
+        } else if (m_pressedEmptySpace) {
+            addNode(event->pos().toPoint());
+            m_pressedEmptySpace = false;
+        }
     }
 
     QGraphicsObject::mouseReleaseEvent(event);
@@ -198,18 +258,37 @@ void NodeManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
 
 void NodeManager::keyReleaseEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Delete) {
-        removeSelectedNodes();
-    } else if (event->key() == Qt::Key_Space) {
-        updateEdgeCache();
+        removeSelectedNode();
     }
 
     QGraphicsObject::keyReleaseEvent(event);
 }
 
+void NodeManager::drawQuadTree(QPainter* painter, QuadTree* quadTree) const {
+    if (!quadTree || !isVisibleInScene(quadTree->getBoundary())) {
+        return;
+    }
+
+    painter->drawRect(quadTree->getBoundary());
+    if (!quadTree->isSubdivided()) {
+        return;
+    }
+
+    const auto northWest = quadTree->getNorthWest();
+    const auto northEast = quadTree->getNorthEast();
+    const auto southWest = quadTree->getSouthWest();
+    const auto southEast = quadTree->getSouthEast();
+
+    drawQuadTree(painter, northWest);
+    drawQuadTree(painter, northEast);
+    drawQuadTree(painter, southWest);
+    drawQuadTree(painter, southEast);
+}
+
 bool NodeManager::isVisibleInScene(const QRect& rect) const { return m_sceneRect.intersects(rect); }
 
-void NodeManager::removeSelectedNodes() {
-    if (m_selectedNodeIndex == std::numeric_limits<NodeIndex_t>::max()) {
+void NodeManager::removeSelectedNode() {
+    if (m_selectedNodeIndex == INVALID_NODE) {
         return;
     }
 
@@ -217,19 +296,19 @@ void NodeManager::removeSelectedNodes() {
     for (auto it = m_nodes.begin() + m_selectedNodeIndex; it != m_nodes.end();) {
         auto& node = *it;
         if (node.getIndex() == m_selectedNodeIndex) {
-            update(node.getBoundingRect());
-
+            removeEdgesContaining(node.getIndex());
             it = m_nodes.erase(it);
-            m_selectedNodeIndex = std::numeric_limits<NodeIndex_t>::max();
+            m_selectedNodeIndex = INVALID_NODE;
         } else {
-            update(node.getBoundingRect());
-
             node.setIndex(index++);
             ++it;
         }
+
+        update(node.getBoundingRect());
     }
 
     recomputeQuadTree();
+    updateEdgeCache();
 }
 
 void NodeManager::recomputeQuadTree() {
@@ -237,34 +316,4 @@ void NodeManager::recomputeQuadTree() {
     for (const auto& node : m_nodes) {
         m_quadTree.insert(node);
     }
-}
-
-void NodeManager::updateEdgeCache() {
-    if (m_edges.empty()) {
-        return;
-    }
-
-    m_edgesCache = QPixmap(m_boundingRect.size());
-    m_edgesCache.fill(Qt::transparent);
-
-    QPainter p(&m_edgesCache);
-    p.setRenderHint(QPainter::Antialiasing);
-    p.setPen(Qt::black);
-
-    const QPoint offset = m_sceneRect.topLeft();
-
-    std::unordered_set<NodeIndex_t> visibleNodes;
-    m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
-
-    for (const auto& e : m_edges) {
-        if (!visibleNodes.contains(e.m_startNode) && !visibleNodes.contains(e.m_endNode)) {
-            continue;
-        }
-
-        p.drawLine(m_nodes[e.m_startNode].getPosition(), m_nodes[e.m_endNode].getPosition());
-    }
-
-    p.end();
-
-    update();
 }

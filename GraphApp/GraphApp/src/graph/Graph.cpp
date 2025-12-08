@@ -12,7 +12,7 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
 
     setViewport(glWidget);
 
-    m_scene->setSceneRect(0, 0, 100000, 100000);
+    m_scene->setSceneRect(0, 0, 10000, 10000);
     m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
     setScene(m_scene);
 
@@ -29,7 +29,7 @@ Graph::~Graph() { m_scene->deleteLater(); }
 void Graph::onAdjacencyListChanged(const QString& text) {
     QStringList lines = text.split('\n', Qt::SkipEmptyParts);
 
-    resetAdjacencyList();
+    m_nodeManager.resetAdjacencyList();
     for (QString& line : lines) {
         line = line.trimmed();
         if (line.isEmpty()) {
@@ -42,10 +42,10 @@ void Graph::onAdjacencyListChanged(const QString& text) {
         }
 
         bool ok1, ok2;
-        const auto u = parts[0].toULongLong(&ok1);
-        const auto v = parts[1].toULongLong(&ok2);
+        const auto u = parts[0].toUInt(&ok1);
+        const auto v = parts[1].toUInt(&ok2);
 
-        const int cost = [&]() {
+        const auto cost = [&]() {
             if (parts.size() >= 3) {
                 return parts[2].toInt();
             }
@@ -54,45 +54,46 @@ void Graph::onAdjacencyListChanged(const QString& text) {
         }();
 
         if (ok1 && ok2) {
-            /* if (u >= m_nodes.size()) {
-                 QMessageBox::warning(nullptr, "Bad value",
-                                      QString("Node %1 doesn't exist!").arg(u));
-                 break;
-             }
+            if (u >= m_nodeManager.getNodesCount()) {
+                QMessageBox::warning(nullptr, "Bad value",
+                                     QString("Node %1 doesn't exist!").arg(u));
+                break;
+            }
 
-             if (v >= m_nodes.size()) {
-                 QMessageBox::warning(nullptr, "Bad value",
-                                      QString("Node %1 doesn't exist!").arg(v));
-                 break;
-             }
+            if (v >= m_nodeManager.getNodesCount()) {
+                QMessageBox::warning(nullptr, "Bad value",
+                                     QString("Node %1 doesn't exist!").arg(v));
+                break;
+            }
 
-             auto& uNeighbours = m_adjacencyList[m_nodes[u]];
-             if (uNeighbours.contains(m_nodes[v])) {
-                 QMessageBox::warning(nullptr, "Duplicate edge",
-                                      QString("Edge from %1 to %2 already exists!").arg(u).arg(v));
-                 break;
-             }
+            if (m_nodeManager.hasNeighbour(u, v)) {
+                QMessageBox::warning(nullptr, "Duplicate edge",
+                                     QString("Edge from %1 to %2 already exists!").arg(u).arg(v));
+                break;
+            }
 
-             if (!m_allowLoops && u == v) {
-                 QMessageBox::warning(nullptr, "Loop not allowed",
-                                      QString("Loops are not allowed (Node %1)!").arg(u));
-                 break;
-             }
+            if (!m_allowLoops && u == v) {
+                QMessageBox::warning(nullptr, "Loop not allowed",
+                                     QString("Loops are not allowed (Node %1)!").arg(u));
+                break;
+            }
 
-             if (!m_orientedGraph) {
-                 if (m_adjacencyList[m_nodes[v]].contains(m_nodes[u])) {
-                     QMessageBox::warning(nullptr, "Duplicate edge",
-                                          QString("Edge from %1 to %2 already exists!\nBecause this
-             " "is an unoriented graph") .arg(v) .arg(u)); break;
-                 }
+            if (!m_orientedGraph) {
+                if (m_nodeManager.hasNeighbour(v, u)) {
+                    QMessageBox::warning(nullptr, "Duplicate edge",
+                                         QString("Edge from %1 to %2 already exists!\nBecause this"
+                                                 "is an unoriented graph")
+                                             .arg(v)
+                                             .arg(u));
+                    break;
+                }
+            }
 
-                 m_adjacencyList[m_nodes[v]].emplace(m_nodes[u]);
-             }*/
-
-            // uNeighbours.emplace(m_nodes[v]);
             m_nodeManager.addEdge(u, v, cost);
         }
     }
+
+    m_nodeManager.updateEdgeCache();
 }
 
 NodeManager& Graph::getNodeManager() { return m_nodeManager; }
@@ -107,7 +108,7 @@ Node* Graph::getFirstSelectedNode() const {
     return nullptr;
 }
 
-size_t Graph::getNodesCount() const { return m_nodeManager.getNodesCount(); }
+size_t Graph::getNodesCount() const { return 0; }
 
 const std::vector<Node*>& Graph::getNodes() const { return m_nodes; }
 
@@ -368,7 +369,7 @@ size_t Graph::getMaxEdgesCount() {
     return n * (n - 1) / 2;
 }
 
-void Graph::reserveEdges(size_t edges) { m_nodeManager.reserveEdges(edges); }
+void Graph::reserveEdges(size_t edges) {}
 
 void Graph::removeEdgesConnectedToNode(Node* node) {
     for (auto it = m_edges.begin(); it != m_edges.end();) {
@@ -388,11 +389,4 @@ void Graph::onEdgeMarkedForErasure(Edge* edge) {
     edge->deleteLater();
 }
 
-void Graph::resetAdjacencyList() {
-    for (auto edge : m_edges) {
-        edge->markForErasure();
-    }
-
-    m_edges.clear();
-    m_adjacencyList.clear();
-}
+void Graph::resetAdjacencyList() {}

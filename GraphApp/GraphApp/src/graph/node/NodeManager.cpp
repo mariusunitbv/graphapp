@@ -9,7 +9,7 @@ NodeManager::NodeManager() {
         QRect sceneRect = view->mapToScene(view->viewport()->rect()).boundingRect().toRect();
         if (m_sceneRect != sceneRect) {
             m_sceneRect = sceneRect;
-            updateEdgeCache();
+            update(m_sceneRect);
         }
     });
 }
@@ -39,10 +39,15 @@ void NodeManager::setCollisionsCheckEnabled(bool enabled) { m_collisionsCheckEna
 void NodeManager::reset() {
     m_nodes.clear();
     m_quadTree.clear();
-    m_adjacencyList.clear();
+    m_adjacencyMatrix.reset();
+    m_edgesCache.clear();
+
+    m_selectedNodeIndex = INVALID_NODE;
 }
 
 NodeIndex_t NodeManager::getNodesCount() const { return static_cast<NodeIndex_t>(m_nodes.size()); }
+
+void NodeManager::reserveNodes(size_t count) { m_nodes.reserve(count); }
 
 NodeData& NodeManager::getNode(NodeIndex_t index) { return m_nodes[index]; }
 
@@ -51,22 +56,12 @@ std::optional<NodeIndex_t> NodeManager::getNode(const QPoint& pos) {
 }
 
 bool NodeManager::hasNeighbour(NodeIndex_t index, NodeIndex_t neighbour) const {
-    if (!m_adjacencyList.contains(index)) {
+    return m_adjacencyMatrix.hasEdge(index, neighbour);
+}
+
+bool NodeManager::addNode(const QPoint& pos) {
+    if (m_nodes.size() >= NODE_LIMIT || !isGoodPosition(pos)) {
         return false;
-    }
-
-    return m_adjacencyList.at(index).contains(neighbour);
-}
-
-bool NodeManager::hasNeighbours(NodeIndex_t index) const { return m_adjacencyList.contains(index); }
-
-const Neighbours_t& NodeManager::getNeighbours(NodeIndex_t index) const {
-    return m_adjacencyList.at(index);
-}
-
-void NodeManager::addNode(const QPoint& pos) {
-    if (m_nodes.size() > 10000000 || !isGoodPosition(pos)) {
-        return;
     }
 
     NodeData nodeData(m_nodes.size(), pos);
@@ -74,81 +69,102 @@ void NodeManager::addNode(const QPoint& pos) {
     m_quadTree.insert(nodeData);
 
     update(nodeData.getBoundingRect());
+    return true;
 }
 
 void NodeManager::addEdge(NodeIndex_t start, NodeIndex_t end, int cost) {
-    m_adjacencyList[start].emplace(end, cost);
+    m_adjacencyMatrix.setEdge(start, end, cost);
 }
 
 void NodeManager::removeEdgesContaining(NodeIndex_t index) {
-    m_adjacencyList.erase(index);
-    AdjacencyList_t newAdjList;
+    AdjacencyMatrix newMatrix;
+    newMatrix.resize(m_nodes.size() - 1);
 
-    for (const auto& [nodeIdx, neighbours] : m_adjacencyList) {
-        NodeIndex_t newNodeIdx = nodeIdx > index ? nodeIdx - 1 : nodeIdx;
-
-        Neighbours_t newNeighbours;
-        for (const auto& [neighbour, cost] : neighbours) {
-            if (neighbour != index) {
-                NodeIndex_t newNeighbour = neighbour > index ? neighbour - 1 : neighbour;
-                newNeighbours.emplace(newNeighbour, cost);
-            }
+    for (NodeIndex_t i = 0, new_i = 0; i < m_nodes.size(); ++i) {
+        if (i == index) {
+            continue;
         }
 
-        newAdjList[newNodeIdx] = std::move(newNeighbours);
+        for (NodeIndex_t j = 0, new_j = 0; j < m_nodes.size(); ++j) {
+            if (j == index) {
+                continue;
+            }
+
+            if (m_adjacencyMatrix.hasEdge(i, j)) {
+                newMatrix.setEdge(new_i, new_j, m_adjacencyMatrix.getCost(i, j));
+            }
+
+            ++new_j;
+        }
+
+        ++new_i;
     }
 
-    m_adjacencyList = std::move(newAdjList);
+    m_adjacencyMatrix = std::move(newMatrix);
 }
 
+void NodeManager::resizeAdjacencyMatrix(size_t nodeCount) { m_adjacencyMatrix.resize(nodeCount); }
+
 void NodeManager::updateEdgeCache() {
+    if (m_adjacencyMatrix.empty()) {
+        return;
+    }
+
     std::unordered_set<NodeIndex_t> visibleNodes;
     m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
 
     m_edgesCache.clear();
     for (const auto nodeIndex : visibleNodes) {
-        for (const auto& [neighbourIndex, cost] : m_adjacencyList[nodeIndex]) {
-            if (m_edgesCache.elementCount() > 100000) {
-                return;
+        for (NodeIndex_t neighbourIndex = 0; neighbourIndex < m_nodes.size(); ++neighbourIndex) {
+            if (!visibleNodes.contains(neighbourIndex)) {
+                continue;
             }
 
-            m_edgesCache.moveTo(m_nodes[nodeIndex].getPosition());
-            m_edgesCache.lineTo(m_nodes[neighbourIndex].getPosition());
+            if (m_adjacencyMatrix.hasEdge(nodeIndex, neighbourIndex)) {
+                if (m_edgesCache.elementCount() > SHOWN_EDGE_LIMIT) {
+                    update(m_sceneRect);
+                    return;
+                }
+
+                constexpr auto arrowSize = 14.;
+
+                const auto srcCenter = m_nodes[nodeIndex].getPosition();
+                const auto targetCenter = m_nodes[neighbourIndex].getPosition();
+
+                const auto direction = targetCenter - srcCenter;
+                const auto distanceBetweenNodes = std::hypot(direction.x(), direction.y());
+
+                if (distanceBetweenNodes < 0.0001) {
+                    continue;
+                }
+
+                const auto radiusOffset = direction * (NodeData::k_radius / distanceBetweenNodes);
+
+                const auto lineStart = srcCenter + radiusOffset;
+                const auto lineEnd = targetCenter - radiusOffset;
+                const auto angle = std::atan2(-direction.y(), direction.x());
+                const auto arrowP1 = lineEnd - QPoint(sin(angle + M_PI / 3) * arrowSize,
+                                                      cos(angle + M_PI / 3) * arrowSize);
+                const auto arrowP2 = lineEnd - QPoint(sin(angle + M_PI - M_PI / 3) * arrowSize,
+                                                      cos(angle + M_PI - M_PI / 3) * arrowSize);
+                m_edgesCache.moveTo(lineEnd);
+                m_edgesCache.lineTo(arrowP1);
+                m_edgesCache.lineTo(arrowP2);
+                m_edgesCache.lineTo(lineEnd);
+
+                m_edgesCache.moveTo(lineStart);
+                m_edgesCache.lineTo(lineEnd);
+            }
         }
     }
 
     update(m_sceneRect);
 }
 
-void NodeManager::resetAdjacencyList() { m_adjacencyList.clear(); }
+void NodeManager::resetAdjacencyMatrix() { m_adjacencyMatrix.reset(); }
 
-void NodeManager::completeUnorientedGraph() {
-    for (NodeIndex_t i = 0; i < m_nodes.size(); ++i) {
-        for (NodeIndex_t j = i + 1; j < m_nodes.size(); ++j) {
-            addEdge(i, j, 0);
-            addEdge(j, i, 0);
-        }
-    }
-
-    updateEdgeCache();
-}
-
-void NodeManager::completeOrientedGraph(bool allowLoops) {
-    m_adjacencyList.reserve(m_nodes.size());
-
-    for (NodeIndex_t i = 0; i < m_nodes.size(); ++i) {
-        auto& neighbors = m_adjacencyList[i];
-        neighbors.reserve(m_nodes.size());
-
-        for (NodeIndex_t j = 0; j < m_nodes.size(); ++j) {
-            if (i == j && !allowLoops) {
-                continue;
-            }
-
-            neighbors.emplace_hint(neighbors.end(), j, 0);
-        }
-    }
-
+void NodeManager::completeGraph() {
+    m_adjacencyMatrix.complete();
     updateEdgeCache();
 }
 
@@ -248,7 +264,9 @@ void NodeManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
             updateEdgeCache();
             m_draggingNode = false;
         } else if (m_pressedEmptySpace) {
-            addNode(event->pos().toPoint());
+            if (addNode(event->pos().toPoint())) {
+                recomputeAdjacencyMatrix();
+            }
             m_pressedEmptySpace = false;
         }
     }
@@ -259,6 +277,8 @@ void NodeManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
 void NodeManager::keyReleaseEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Delete) {
         removeSelectedNode();
+    } else if (event->key() == Qt::Key_F5) {
+        updateEdgeCache();
     }
 
     QGraphicsObject::keyReleaseEvent(event);
@@ -316,4 +336,60 @@ void NodeManager::recomputeQuadTree() {
     for (const auto& node : m_nodes) {
         m_quadTree.insert(node);
     }
+}
+
+void NodeManager::recomputeAdjacencyMatrix() {
+    AdjacencyMatrix newMatrix;
+    newMatrix.resize(m_nodes.size());
+
+    for (NodeIndex_t i = 0; i < m_nodes.size() - 1; ++i) {
+        for (NodeIndex_t j = 0; j < m_nodes.size() - 1; ++j) {
+            if (m_adjacencyMatrix.hasEdge(i, j)) {
+                newMatrix.setEdge(i, j, m_adjacencyMatrix.getCost(i, j));
+            }
+        }
+    }
+
+    m_adjacencyMatrix = std::move(newMatrix);
+}
+
+AdjacencyMatrix::AdjacencyMatrix(AdjacencyMatrix&& rhs) noexcept
+    : m_nodeCount(rhs.m_nodeCount), m_matrix(std::move(rhs.m_matrix)) {}
+
+AdjacencyMatrix& AdjacencyMatrix::operator=(AdjacencyMatrix&& rhs) noexcept {
+    if (this == &rhs) {
+        return *this;
+    }
+
+    m_nodeCount = rhs.m_nodeCount;
+    m_matrix = std::move(rhs.m_matrix);
+
+    return *this;
+}
+
+void AdjacencyMatrix::resize(size_t nodeCount) {
+    m_nodeCount = static_cast<NodeIndex_t>(nodeCount);
+    m_matrix.resize(nodeCount * nodeCount, 0);
+}
+
+bool AdjacencyMatrix::empty() const { return m_matrix.empty(); }
+
+void AdjacencyMatrix::reset() { std::fill(m_matrix.begin(), m_matrix.end(), 0); }
+
+void AdjacencyMatrix::complete() { std::fill(m_matrix.begin(), m_matrix.end(), 0x80); }
+
+void AdjacencyMatrix::setEdge(NodeIndex_t i, NodeIndex_t j, uint8_t cost) {
+    m_matrix[i * m_nodeCount + j] = encode(cost);
+}
+
+void AdjacencyMatrix::clearEdge(NodeIndex_t i, NodeIndex_t j) { m_matrix[i * m_nodeCount + j] = 0; }
+
+bool AdjacencyMatrix::hasEdge(NodeIndex_t i, NodeIndex_t j) const { return read(i, j) >> 7; }
+
+uint8_t AdjacencyMatrix::getCost(NodeIndex_t i, NodeIndex_t j) const { return read(i, j) & 0x7F; }
+
+uint8_t AdjacencyMatrix::encode(uint8_t cost) { return (1u << 7) | (cost & 0x7F); }
+
+uint8_t AdjacencyMatrix::read(NodeIndex_t i, NodeIndex_t j) const {
+    return m_matrix[i * m_nodeCount + j];
 }

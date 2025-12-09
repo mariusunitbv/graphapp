@@ -12,7 +12,7 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
 
     setViewport(glWidget);
 
-    m_scene->setSceneRect(0, 0, 10000, 10000);
+    m_scene->setSceneRect(0, 0, 30000, 10000);
     m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
     setScene(m_scene);
 
@@ -29,7 +29,7 @@ Graph::~Graph() { m_scene->deleteLater(); }
 void Graph::onAdjacencyListChanged(const QString& text) {
     QStringList lines = text.split('\n', Qt::SkipEmptyParts);
 
-    m_nodeManager.resetAdjacencyList();
+    m_nodeManager.resetAdjacencyMatrix();
     for (QString& line : lines) {
         line = line.trimmed();
         if (line.isEmpty()) {
@@ -108,7 +108,7 @@ Node* Graph::getFirstSelectedNode() const {
     return nullptr;
 }
 
-size_t Graph::getNodesCount() const { return 0; }
+size_t Graph::getNodesCount() const { return m_nodeManager.getNodesCount(); }
 
 const std::vector<Node*>& Graph::getNodes() const { return m_nodes; }
 
@@ -361,7 +361,7 @@ void Graph::addEdge(Node* a, Node* b, int cost) {
 }
 
 size_t Graph::getMaxEdgesCount() {
-    const size_t n = getNodesCount();
+    const size_t n = m_nodeManager.getNodesCount();
     if (m_orientedGraph) {
         return m_allowLoops ? n * n : n * (n - 1);
     }

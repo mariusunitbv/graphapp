@@ -28,14 +28,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
     connect(ui.graph, &Graph::zoomChanged, this, &GraphApp::onZoomChanged);
     connect(ui.graph, &Graph::endedAlgorithm, this, &GraphApp::onEndedAlgorithm);
 
-    connect(ui.actionComplete_Graph, &QAction::triggered, [this]() {
-        auto& nodeManager = ui.graph->getNodeManager();
-        if (ui.graph->getOrientedGraph()) {
-            nodeManager.completeOrientedGraph(ui.graph->getAllowLoops());
-        } else {
-            nodeManager.completeUnorientedGraph();
-        }
-    });
+    connect(ui.actionComplete_Graph, &QAction::triggered,
+            [this]() { ui.graph->getNodeManager().completeGraph(); });
 
     connect(ui.actionRandom_Graph, &QAction::triggered, [this]() {
         bool ok = false;
@@ -359,16 +353,17 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
     });
 
     connect(ui.actionFill_Graph_With_Nodes, &QAction::triggered, [this]() {
-        ui.graph->addNode({Node::k_radius, Node::k_radius});
-        ui.graph->getNodeManager().setCollisionsCheckEnabled(false);
-
-        auto& nodeManager = ui.graph->getNodeManager();
         const auto sceneSize = ui.graph->getGraphSize().toPoint();
+        auto& nodeManager = ui.graph->getNodeManager();
+
+        nodeManager.reserveNodes(NODE_LIMIT);
+        nodeManager.addNode(QPoint(Node::k_radius, Node::k_radius));
+        nodeManager.setCollisionsCheckEnabled(false);
 
         int lastX = Node::k_radius;
         int lastY = Node::k_radius;
 
-        NodeIndex_t lastIndex = -1;
+        NodeIndex_t lastIndex = 0;
         while (lastIndex != nodeManager.getNodesCount()) {
             int newX = lastX + Node::k_radius * 2 + 5.;
             if (newX + Node::k_radius >= sceneSize.x()) {
@@ -384,6 +379,7 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
             lastY = newY;
         }
 
+        nodeManager.resizeAdjacencyMatrix(nodeManager.getNodesCount());
         nodeManager.setCollisionsCheckEnabled(true);
     });
 }

@@ -385,13 +385,13 @@ void NodeData::setIndex(NodeIndex_t index) {
 
 NodeIndex_t NodeData::getIndex() const { return m_index; }
 
+void NodeData::setFillColor(QRgb c) { m_fillColor = c; }
+
+QColor NodeData::getFillColor() const { return QColor::fromRgba(m_fillColor); }
+
 void NodeData::setPosition(const QPoint& position) {
     m_boundingRect.setRect(position.x() - k_radius, position.y() - k_radius, 2 * k_radius,
                            2 * k_radius);
 }
 
 QPoint NodeData::getPosition() const { return m_boundingRect.center(); }
-
-void NodeData::setFillColor(QRgb c) { m_fillColor = c; }
-
-QColor NodeData::getFillColor() const { return QColor::fromRgba(m_fillColor); }

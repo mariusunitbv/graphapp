@@ -98,20 +98,37 @@
      <x>0</x>
      <y>0</y>
      <width>640</width>
-     <height>21</height>
+     <height>20</height>
     </rect>
+   </property>
+   <property name="maximumSize">
+    <size>
+     <width>16777215</width>
+     <height>32</height>
+    </size>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>8</pointsize>
+    </font>
+   </property>
+   <property name="nativeMenuBar">
+    <bool>true</bool>
    </property>
    <widget class="QMenu" name="menuGraph">
     <property name="title">
      <string>Graph</string>
     </property>
     <addaction name="actionComplete_Graph"/>
+    <addaction name="actionFill_Graph_With_Nodes"/>
     <addaction name="actionRandom_Graph"/>
+    <addaction name="actionReset_Graph"/>
+    <addaction name="separator"/>
     <addaction name="actionAnimations"/>
     <addaction name="actionAllow_Loops"/>
     <addaction name="actionOriented_Graph"/>
-    <addaction name="actionReset_Graph"/>
-    <addaction name="actionFill_Graph_With_Nodes"/>
+    <addaction name="separator"/>
+    <addaction name="action_Custom_Load_Map"/>
    </widget>
    <widget class="QMenu" name="menuAlgorithms">
     <property name="title">
@@ -167,7 +184,7 @@
   </action>
   <action name="actionReset_Graph">
    <property name="text">
-    <string>Clear Graph</string>
+    <string>Reset Graph</string>
    </property>
   </action>
   <action name="actionAnimations">
@@ -223,6 +240,11 @@
   <action name="actionFill_Graph_With_Nodes">
    <property name="text">
     <string>Fill Graph With Nodes</string>
+   </property>
+  </action>
+  <action name="action_Custom_Load_Map">
+   <property name="text">
+    <string>[Custom] Load Map</string>
    </property>
   </action>
  </widget>

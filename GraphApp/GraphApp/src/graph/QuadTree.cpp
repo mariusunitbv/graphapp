@@ -66,8 +66,8 @@ void QuadTree::getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>
 
     for (size_t i = 0; i < m_nodesCount; ++i) {
         const auto& nodePos = m_nodes[i].m_position;
-        const QRect nodeArea(nodePos.x() - Node::k_radius, nodePos.y() - Node::k_radius,
-                             2 * Node::k_radius, 2 * Node::k_radius);
+        const QRect nodeArea(nodePos.x() - NodeData::k_radius, nodePos.y() - NodeData::k_radius,
+                             2 * NodeData::k_radius, 2 * NodeData::k_radius);
 
         if (area.intersects(nodeArea)) {
             nodes.emplace(m_nodes[i].m_index);
@@ -150,13 +150,13 @@ QuadTree* QuadTree::getSouthWest() const { return m_southWest; }
 QuadTree* QuadTree::getSouthEast() const { return m_southEast; }
 
 bool QuadTree::intersectsAnotherNode(QPoint pos, NodeIndex_t indexToIgnore) const {
-    return getNodeAtPosition(pos, 2 * Node::k_radius, indexToIgnore).has_value();
+    return getNodeAtPosition(pos, 2 * NodeData::k_radius, indexToIgnore).has_value();
 }
 
 std::optional<NodeIndex_t> QuadTree::getNodeAtPosition(QPoint pos, float minDistance,
                                                        NodeIndex_t indexToIgnore) const {
-    if (!m_boundary.intersects(QRect(pos.x() - Node::k_radius, pos.y() - Node::k_radius,
-                                     2 * Node::k_radius, 2 * Node::k_radius))) {
+    if (!m_boundary.intersects(QRect(pos.x() - NodeData::k_radius, pos.y() - NodeData::k_radius,
+                                     2 * NodeData::k_radius, 2 * NodeData::k_radius))) {
         return std::nullopt;
     }
 

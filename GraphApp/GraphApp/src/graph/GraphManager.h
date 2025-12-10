@@ -1,46 +1,16 @@
 #pragma once
 
-#include "Node.h"
+#include "AdjacencyMatrix.h"
 #include "QuadTree.h"
 
 constexpr size_t NODE_LIMIT = 100000;
 constexpr size_t SHOWN_EDGE_LIMIT = 150000;
 
-class AdjacencyMatrix {
-   public:
-    AdjacencyMatrix() = default;
-
-    AdjacencyMatrix(const AdjacencyMatrix&) = delete;
-    AdjacencyMatrix& operator=(const AdjacencyMatrix&) = delete;
-
-    AdjacencyMatrix(AdjacencyMatrix&& rhs) noexcept;
-    AdjacencyMatrix& operator=(AdjacencyMatrix&& rhs) noexcept;
-
-    void resize(size_t nodeCount);
-    bool empty() const;
-
-    void reset();
-    void complete();
-
-    void setEdge(NodeIndex_t i, NodeIndex_t j, uint8_t cost);
-    void clearEdge(NodeIndex_t i, NodeIndex_t j);
-
-    bool hasEdge(NodeIndex_t i, NodeIndex_t j) const;
-    uint8_t getCost(NodeIndex_t i, NodeIndex_t j) const;
-
-   private:
-    static uint8_t encode(uint8_t cost);
-    uint8_t read(NodeIndex_t i, NodeIndex_t j) const;
-
-    NodeIndex_t m_nodeCount{0};
-    std::vector<uint8_t> m_matrix{};
-};
-
-class NodeManager : public QGraphicsObject {
+class GraphManager : public QGraphicsObject {
     Q_OBJECT
 
    public:
-    NodeManager();
+    GraphManager();
 
     void setSceneDimensions(qreal width, qreal height);
     bool isGoodPosition(const QPoint& pos, NodeIndex_t nodeToIgnore = -1) const;
@@ -56,14 +26,29 @@ class NodeManager : public QGraphicsObject {
     bool hasNeighbour(NodeIndex_t index, NodeIndex_t neighbour) const;
 
     bool addNode(const QPoint& pos);
+    void addEdge(NodeIndex_t start, NodeIndex_t end, int32_t cost);
+    void randomlyAddEdges(size_t edgeCount);
 
-    void addEdge(NodeIndex_t start, NodeIndex_t end, int cost);
-    void removeEdgesContaining(NodeIndex_t index);
+    size_t getMaxEdgesCount() const;
 
     void resizeAdjacencyMatrix(size_t nodeCount);
-    void updateEdgeCache();
+    void updateVisibleEdgeCache();
+    void updateFullEdgeCache();
     void resetAdjacencyMatrix();
     void completeGraph();
+    void fillGraph();
+
+    void enableEditing();
+    void disableEditing();
+
+    void setAnimationsDisabled(bool disabled);
+    bool getAnimationsDisabled() const;
+
+    void setAllowLoops(bool allow);
+    bool getAllowLoops() const;
+
+    void setOrientedGraph(bool oriented);
+    bool getOrientedGraph() const;
 
    protected:
     QRectF boundingRect() const override;
@@ -78,9 +63,11 @@ class NodeManager : public QGraphicsObject {
    private:
     void drawQuadTree(QPainter* painter, QuadTree* quadTree) const;
     bool isVisibleInScene(const QRect& rect) const;
-    void removeSelectedNode();
+    void removeSelectedNodes();
     void recomputeQuadTree();
     void recomputeAdjacencyMatrix();
+    void removeEdgesContainingSelectedNodes();
+    void deselectNodes();
 
     QRect m_boundingRect{};
     QRect m_sceneRect{};
@@ -91,10 +78,16 @@ class NodeManager : public QGraphicsObject {
     QPainterPath m_edgesCache;
     AdjacencyMatrix m_adjacencyMatrix;
 
-    NodeIndex_t m_selectedNodeIndex{INVALID_NODE};
+    std::set<NodeIndex_t, std::greater<NodeIndex_t>> m_selectedNodes{};
+
     bool m_collisionsCheckEnabled{true};
     bool m_draggingNode{false};
     bool m_pressedEmptySpace{false};
+    bool m_animationsDisabled{false};
+    bool m_editingEnabled{false};
+    bool m_allowLoops{false};
+    bool m_orientedGraph{true};
+    bool m_shouldDrawArrows{true};
 
     QPoint m_dragOffset{};
 };

@@ -2,39 +2,28 @@
 
 #include "GraphApp.h"
 
-#include "../random/Random.h"
-
-#include "../graph/algorithms/traversals/GenericTraversal.h"
-#include "../graph/algorithms/traversals/GenericTotalTraversal.h"
-#include "../graph/algorithms/traversals/BreadthTraversal.h"
-#include "../graph/algorithms/traversals/DepthTraversal.h"
-#include "../graph/algorithms/traversals/DepthTotalTraversal.h"
-
-#include "../graph/algorithms/other/ConnectedComponents.h"
-#include "../graph/algorithms/other/StronglyConnectedComponents.h"
-
-#include "../graph/algorithms/paths/Path.h"
-
 #include "intermediate_graph/IntermediateGraph.h"
+
+#include "../dependencies/tinyxml2.h"
 
 GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
     ui.setupUi(this);
 
-    ui.graph->enableEditing();
+    ui.graph->getGraphManager().enableEditing();
 
     connect(ui.textEdit, &QTextEdit::textChanged,
             [this]() { ui.graph->onAdjacencyListChanged(ui.textEdit->toPlainText()); });
-
     connect(ui.graph, &Graph::zoomChanged, this, &GraphApp::onZoomChanged);
-    connect(ui.graph, &Graph::endedAlgorithm, this, &GraphApp::onEndedAlgorithm);
-
     connect(ui.actionComplete_Graph, &QAction::triggered,
-            [this]() { ui.graph->getNodeManager().completeGraph(); });
+            [this]() { ui.graph->getGraphManager().completeGraph(); });
 
     connect(ui.actionRandom_Graph, &QAction::triggered, [this]() {
         bool ok = false;
-        const auto nodesCount = ui.graph->getNodesCount();
-        const auto maxEdges = ui.graph->getMaxEdgesCount();
+
+        auto& graphManager = ui.graph->getGraphManager();
+
+        const auto nodesCount = graphManager.getNodesCount();
+        const auto maxEdges = graphManager.getMaxEdgesCount();
 
         const auto edgeCount = QInputDialog::getInt(
             nullptr, "Edge Count", QString("Number of edges (max %1):").arg(maxEdges), maxEdges / 3,
@@ -44,36 +33,17 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
             return;
         }
 
-        std::vector<std::pair<size_t, size_t>> possibleEdges;
-        for (size_t i = 0; i < nodesCount; ++i) {
-            size_t j = ui.graph->getOrientedGraph() ? 0 : i + 1;
-            for (; j < nodesCount; ++j) {
-                if (i == j && !ui.graph->getAllowLoops()) {
-                    continue;
-                }
-                possibleEdges.push_back({i, j});
-            }
-        }
-
-        std::shuffle(possibleEdges.begin(), possibleEdges.end(), Random::get().getEngine());
-
-        QString out;
-        for (size_t k = 0; k < edgeCount; ++k) {
-            out += QString("%1 %2\n").arg(possibleEdges[k].first).arg(possibleEdges[k].second);
-        }
-
-        ui.graph->reserveEdges(edgeCount);
-        ui.textEdit->setText(out);
+        graphManager.randomlyAddEdges(edgeCount);
     });
 
     connect(ui.actionAnimations, &QAction::toggled,
-            [this](bool checked) { ui.graph->setAnimationsDisabled(!checked); });
+            [this](bool checked) { ui.graph->getGraphManager().setAnimationsDisabled(!checked); });
 
     connect(ui.actionAllow_Loops, &QAction::toggled,
-            [this](bool checked) { ui.graph->setAllowLoops(checked); });
+            [this](bool checked) { ui.graph->getGraphManager().setAllowLoops(checked); });
 
     connect(ui.actionOriented_Graph, &QAction::toggled, [this](bool checked) {
-        ui.graph->setOrientedGraph(checked);
+        ui.graph->getGraphManager().setOrientedGraph(checked);
         ui.actionAllow_Loops->setEnabled(checked);
 
         if (!checked) {
@@ -87,17 +57,12 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
                                  QMessageBox::Yes, QMessageBox::No);
 
         if (response == QMessageBox::Yes) {
-            ui.graph->getNodeManager().reset();
+            ui.graph->getGraphManager().reset();
             ui.textEdit->clear();
         }
     });
 
     connect(ui.actionInverted_Graph, &QAction::triggered, this, [this]() {
-        if (ui.graph->getEdges().empty()) {
-            QMessageBox::warning(this, "No edges", "Cannot invert a graph with no edges.");
-            return;
-        }
-
         Graph* invertedGraph = ui.graph->getInvertedGraph();
         if (!invertedGraph) {
             return;
@@ -109,278 +74,129 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
     });
 
     connect(ui.actionGenericTraversal, &QAction::triggered, [this]() {
-        const auto selectedNode = ui.graph->getFirstSelectedNode();
-        if (!selectedNode) {
-            QMessageBox::warning(this, "No node selected",
-                                 "Please select a starting node for the traversal.");
-            return;
-        }
 
-        const auto response = QMessageBox::information(
-            this, "Confirmation",
-            QString("Begin algorithm from node %1?").arg(selectedNode->getIndex()),
-            QMessageBox::Yes, QMessageBox::No);
-
-        if (response == QMessageBox::Yes) {
-            if (!openStepDurationDialog()) {
-                return;
-            }
-
-            onStartedAlgorithm();
-
-            const auto traversal = new GenericTraversal(ui.graph);
-            connect(traversal, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
-            connect(traversal, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
-
-            traversal->setStartNode(selectedNode);
-            traversal->setStepDelay(m_stepDelay);
-            traversal->showPseudocode();
-            traversal->start();
-        }
     });
 
     connect(ui.actionGeneric_Total_Traversal, &QAction::triggered, [this]() {
-        const auto selectedNode = ui.graph->getFirstSelectedNode();
-        if (!selectedNode) {
-            QMessageBox::warning(this, "No node selected",
-                                 "Please select a starting node for the traversal.");
-            return;
-        }
 
-        const auto response = QMessageBox::information(
-            this, "Confirmation",
-            QString("Begin algorithm from node %1?").arg(selectedNode->getIndex()),
-            QMessageBox::Yes, QMessageBox::No);
-
-        if (response == QMessageBox::Yes) {
-            if (!openStepDurationDialog()) {
-                return;
-            }
-
-            onStartedAlgorithm();
-
-            const auto traversal = new GenericTotalTraversal(ui.graph);
-            connect(traversal, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
-            connect(traversal, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
-
-            traversal->setStartNode(selectedNode);
-            traversal->setStepDelay(m_stepDelay);
-            traversal->showPseudocode();
-            traversal->start();
-        }
     });
 
     connect(ui.actionPath_s_y, &QAction::triggered, [this]() {
-        const auto selectedNode = ui.graph->getFirstSelectedNode();
-        if (!selectedNode) {
-            QMessageBox::warning(this, "No node selected",
-                                 "Please select a starting node for the traversal.");
-            return;
-        }
 
-        const auto response = QMessageBox::information(
-            this, "Information",
-            QString("This algorithm involves a Generic Traversal starting from Node %1\nand "
-                    "reconstructs a random path from an entered node to Node %1.")
-                .arg(selectedNode->getIndex()),
-            QMessageBox::Ok);
-
-        if (response == QMessageBox::Ok) {
-            if (!openPathSourceNodeDialog() || !openStepDurationDialog()) {
-                return;
-            }
-
-            onStartedAlgorithm();
-
-            const auto path = new Path(ui.graph);
-            connect(path, &Path::finished, this, &GraphApp::onFinishedAlgorithm);
-            connect(path, &Path::aborted, this, &GraphApp::onEndedAlgorithm);
-
-            path->setStepDelay(m_stepDelay);
-            path->setSourceNodeIndex(m_sourceNodePath);
-            path->showPseudocode();
-            path->start(selectedNode);
-        }
     });
 
     connect(ui.actionBreadth_Traversal, &QAction::triggered, [this]() {
-        const auto selectedNode = ui.graph->getFirstSelectedNode();
-        if (!selectedNode) {
-            QMessageBox::warning(this, "No node selected",
-                                 "Please select a starting node for the traversal.");
-            return;
-        }
 
-        const auto response = QMessageBox::information(
-            this, "Confirmation",
-            QString("Begin algorithm from node %1?").arg(selectedNode->getIndex()),
-            QMessageBox::Yes, QMessageBox::No);
-
-        if (response == QMessageBox::Yes) {
-            if (!openStepDurationDialog()) {
-                return;
-            }
-
-            onStartedAlgorithm();
-
-            const auto traversal = new BreadthTraversal(ui.graph);
-            connect(traversal, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
-            connect(traversal, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
-
-            traversal->setStartNode(selectedNode);
-            traversal->setStepDelay(m_stepDelay);
-            traversal->showPseudocode();
-            traversal->start();
-        }
     });
 
     connect(ui.actionDepth_Traversal, &QAction::triggered, [this]() {
-        const auto selectedNode = ui.graph->getFirstSelectedNode();
-        if (!selectedNode) {
-            QMessageBox::warning(this, "No node selected",
-                                 "Please select a starting node for the traversal.");
-            return;
-        }
 
-        const auto response = QMessageBox::information(
-            this, "Confirmation",
-            QString("Begin algorithm from node %1?").arg(selectedNode->getIndex()),
-            QMessageBox::Yes, QMessageBox::No);
-
-        if (response == QMessageBox::Yes) {
-            if (!openStepDurationDialog()) {
-                return;
-            }
-
-            onStartedAlgorithm();
-
-            const auto traversal = new DepthTraversal(ui.graph);
-            connect(traversal, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
-            connect(traversal, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
-
-            traversal->setStartNode(selectedNode);
-            traversal->setStepDelay(m_stepDelay);
-            traversal->showPseudocode();
-            traversal->start();
-        }
     });
 
     connect(ui.actionDepth_Total_Traversal, &QAction::triggered, [this]() {
-        const auto selectedNode = ui.graph->getFirstSelectedNode();
-        if (!selectedNode) {
-            QMessageBox::warning(this, "No node selected",
-                                 "Please select a starting node for the traversal.");
-            return;
-        }
 
-        const auto response = QMessageBox::information(
-            this, "Confirmation",
-            QString("Begin algorithm from node %1?").arg(selectedNode->getIndex()),
-            QMessageBox::Yes, QMessageBox::No);
-
-        if (response == QMessageBox::Yes) {
-            if (!openStepDurationDialog()) {
-                return;
-            }
-
-            onStartedAlgorithm();
-
-            const auto traversal = new DepthTotalTraversal(ui.graph);
-            connect(traversal, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
-            connect(traversal, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
-
-            traversal->setStartNode(selectedNode);
-            traversal->setStepDelay(m_stepDelay);
-            traversal->showPseudocode();
-            traversal->start();
-        }
     });
 
     connect(ui.actionConnected_Components, &QAction::triggered, [this]() {
-        if (ui.graph->getNodesCount() == 0) {
-            QMessageBox::warning(this, "No nodes", "The graph has no nodes.");
-            return;
-        }
 
-        if (ui.graph->getOrientedGraph()) {
-            QMessageBox::warning(this, "Oriented graph",
-                                 "Connected Components algorithm is available only for "
-                                 "non-oriented graphs.");
-            return;
-        }
-
-        if (!openStepDurationDialog()) {
-            return;
-        }
-
-        onStartedAlgorithm();
-
-        const auto cc = new ConnectedComponents(ui.graph);
-        connect(cc, &TraversalBase::finished, this, &GraphApp::onFinishedAlgorithm);
-        connect(cc, &TraversalBase::aborted, this, &GraphApp::onEndedAlgorithm);
-
-        cc->setStepDelay(m_stepDelay);
-        cc->showPseudocode();
-        cc->start();
     });
 
     connect(ui.actionStrongly_Connected_Components, &QAction::triggered, [this]() {
-        if (ui.graph->getNodesCount() == 0) {
-            QMessageBox::warning(this, "No nodes", "The graph has no nodes.");
-            return;
-        }
 
-        if (!ui.graph->getOrientedGraph()) {
-            QMessageBox::warning(this, "Unoriented graph",
-                                 "Strongly Connected Components algorithm is available only for "
-                                 "oriented graphs.");
-            return;
-        }
-
-        if (!openStepDurationDialog()) {
-            return;
-        }
-
-        onStartedAlgorithm();
-
-        const auto ctc = new StronglyConnectedComponents(ui.graph);
-        connect(ctc, &StronglyConnectedComponents::finished, this, &GraphApp::onFinishedAlgorithm);
-        connect(ctc, &StronglyConnectedComponents::aborted, this, &GraphApp::onEndedAlgorithm);
-
-        ctc->setStepDelay(m_stepDelay);
-        ctc->showPseudocode();
-        ctc->start();
     });
 
-    connect(ui.actionFill_Graph_With_Nodes, &QAction::triggered, [this]() {
-        const auto sceneSize = ui.graph->getGraphSize().toPoint();
-        auto& nodeManager = ui.graph->getNodeManager();
+    connect(ui.actionFill_Graph_With_Nodes, &QAction::triggered,
+            [this]() { ui.graph->getGraphManager().fillGraph(); });
 
-        nodeManager.reserveNodes(NODE_LIMIT);
-        nodeManager.addNode(QPoint(Node::k_radius, Node::k_radius));
-        nodeManager.setCollisionsCheckEnabled(false);
-
-        int lastX = Node::k_radius;
-        int lastY = Node::k_radius;
-
-        NodeIndex_t lastIndex = 0;
-        while (lastIndex != nodeManager.getNodesCount()) {
-            int newX = lastX + Node::k_radius * 2 + 5.;
-            if (newX + Node::k_radius >= sceneSize.x()) {
-                newX = Node::k_radius;
-                lastY += Node::k_radius * 2 + 5.;
-            }
-            int newY = lastY;
-
-            lastIndex = nodeManager.getNodesCount();
-            nodeManager.addNode({newX, newY});
-
-            lastX = newX;
-            lastY = newY;
+    connect(ui.action_Custom_Load_Map, &QAction::triggered, [this]() {
+        const auto filePath =
+            QFileDialog::getOpenFileName(this, "Open Map File", "", "All Files (*)");
+        if (filePath.isEmpty()) {
+            return;
         }
 
-        nodeManager.resizeAdjacencyMatrix(nodeManager.getNodesCount());
-        nodeManager.setCollisionsCheckEnabled(true);
+        using namespace tinyxml2;
+
+        XMLDocument doc;
+        if (doc.LoadFile(filePath.toStdString().c_str()) != XML_SUCCESS) {
+            QMessageBox::warning(this, "Error", "Failed to load the map file.");
+            return;
+        }
+
+        auto& graphManager = ui.graph->getGraphManager();
+        const auto sceneRect = ui.graph->sceneRect().toRect();
+
+        graphManager.reset();
+        graphManager.setCollisionsCheckEnabled(false);
+
+        std::vector<QPoint> loadedNodes;
+        int minLat = std::numeric_limits<int>::max(), minLon = std::numeric_limits<int>::max();
+        int maxLat = std::numeric_limits<int>::min(), maxLon = std::numeric_limits<int>::min();
+
+        XMLElement* map = doc.FirstChildElement("map");
+        XMLElement* nodesElement = map->FirstChildElement("nodes");
+
+        loadedNodes.reserve(nodesElement->ChildElementCount());
+
+        for (XMLElement* nodeElem = nodesElement->FirstChildElement("node"); nodeElem;
+             nodeElem = nodeElem->NextSiblingElement("node")) {
+            NodeIndex_t id;
+            int lat, lon;
+
+            nodeElem->QueryUnsignedAttribute("id", &id);
+            nodeElem->QueryIntAttribute("latitude", &lat);
+            nodeElem->QueryIntAttribute("longitude", &lon);
+
+            if (lat < minLat) {
+                minLat = lat;
+            }
+
+            if (lat > maxLat) {
+                maxLat = lat;
+            }
+
+            if (lon < minLon) {
+                minLon = lon;
+            }
+
+            if (lon > maxLon) {
+                maxLon = lon;
+            }
+
+            loadedNodes.emplace_back(lat, lon);
+        }
+
+        const int centerX = sceneRect.width() / 2;
+        const int centerY = sceneRect.height() / 2;
+
+        graphManager.reserveNodes(loadedNodes.size());
+        for (const auto& pos : loadedNodes) {
+            const double normX = static_cast<double>(pos.y() - minLon) / (maxLon - minLon);
+            const double normY = static_cast<double>(pos.x() - minLat) / (maxLat - minLat);
+
+            const int x = centerX + (normX - 0.5) * (sceneRect.width() - 2 * NodeData::k_radius);
+            const int y = centerY + (normY - 0.5) * (sceneRect.height() - 2 * NodeData::k_radius);
+
+            graphManager.addNode({x, y});
+        }
+
+        graphManager.resizeAdjacencyMatrix(graphManager.getNodesCount());
+
+        XMLElement* arcsElement = map->FirstChildElement("arcs");
+        for (XMLElement* arcElem = arcsElement->FirstChildElement("arc"); arcElem;
+             arcElem = arcElem->NextSiblingElement("arc")) {
+            NodeIndex_t from, to;
+            int32_t cost;
+
+            arcElem->QueryUnsignedAttribute("from", &from);
+            arcElem->QueryUnsignedAttribute("to", &to);
+            arcElem->QueryIntAttribute("length", &cost);
+
+            graphManager.addEdge(from, to, cost);
+        }
+
+        graphManager.updateVisibleEdgeCache();
+        graphManager.setCollisionsCheckEnabled(true);
     });
 }
 
@@ -391,7 +207,7 @@ void GraphApp::onZoomChanged() {
 void GraphApp::onStartedAlgorithm() {
     ui.menuBar->setEnabled(false);
     ui.textEdit->setEnabled(false);
-    ui.graph->disableEditing();
+    ui.graph->getGraphManager().disableEditing();
 }
 
 void GraphApp::onFinishedAlgorithm() {
@@ -404,22 +220,5 @@ void GraphApp::onFinishedAlgorithm() {
 void GraphApp::onEndedAlgorithm() {
     ui.menuBar->setEnabled(true);
     ui.textEdit->setEnabled(true);
-    ui.graph->enableEditing();
-}
-
-bool GraphApp::openStepDurationDialog() {
-    bool ok = false;
-    m_stepDelay = QInputDialog::getInt(nullptr, "Step Delay", "Enter step delay (ms):", 1000, 0,
-                                       10000, 50, &ok);
-
-    return ok;
-}
-
-bool GraphApp::openPathSourceNodeDialog() {
-    bool ok = false;
-    m_sourceNodePath =
-        QInputDialog::getInt(nullptr, "Source node", "Enter node:", 0, 0,
-                             static_cast<int>(ui.graph->getNodesCount() - 1), 1, &ok);
-
-    return ok;
+    ui.graph->getGraphManager().enableEditing();
 }

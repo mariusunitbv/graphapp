@@ -14,11 +14,5 @@ class GraphApp : public QMainWindow {
     void onFinishedAlgorithm();
     void onEndedAlgorithm();
 
-    bool openStepDurationDialog();
-    bool openPathSourceNodeDialog();
-
     Ui::GraphAppClass ui;
-
-    int m_stepDelay{1000};
-    size_t m_sourceNodePath{std::numeric_limits<size_t>::max()};
 };

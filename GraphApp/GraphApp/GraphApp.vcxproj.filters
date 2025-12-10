@@ -5,53 +5,29 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\pch\pch.cpp" />
     <ClCompile Include="src\graph\Graph.cpp" />
-    <ClCompile Include="src\graph\node\Node.cpp" />
-    <ClCompile Include="src\graph\edge\Edge.cpp" />
+    <ClCompile Include="src\graph\Node.cpp" />
     <ClCompile Include="src\random\Random.cpp" />
-    <ClCompile Include="src\graph\algorithms\traversals\TraversalBase.cpp" />
-    <ClCompile Include="src\graph\algorithms\traversals\GenericTraversal.cpp" />
-    <ClCompile Include="src\graph\algorithms\traversals\GenericTotalTraversal.cpp" />
-    <ClCompile Include="src\graph\algorithms\paths\Path.cpp" />
-    <ClCompile Include="src\graph\algorithms\TimedInteractiveAlgorithm.cpp" />
-    <ClCompile Include="src\graph\algorithm_text\AlgorithmText.cpp" />
-    <ClCompile Include="src\graph\algorithms\traversals\BreadthTraversal.cpp" />
     <ClCompile Include="src\form\pseudocode\PseudocodeForm.cpp" />
-    <ClCompile Include="src\graph\algorithms\traversals\DepthTraversal.cpp" />
-    <ClCompile Include="src\graph\algorithms\other\ConnectedComponents.cpp" />
     <ClCompile Include="src\form\intermediate_graph\IntermediateGraph.cpp" />
-    <ClCompile Include="src\graph\algorithms\traversals\DepthTotalTraversal.cpp" />
-    <ClCompile Include="src\graph\algorithms\other\StronglyConnectedComponents.cpp" />
-    <ClCompile Include="src\graph\algorithms\Algorithm.cpp" />
-    <ClCompile Include="src\graph\node\NodeManager.cpp" />
-    <ClCompile Include="src\graph\node\QuadTree.cpp" />
-    <ClCompile Include="src\graph\edge\EdgeManager.cpp" />
+    <ClCompile Include="src\graph\GraphManager.cpp" />
+    <ClCompile Include="src\graph\QuadTree.cpp" />
+    <ClCompile Include="src\graph\AdjacencyMatrix.cpp" />
+    <ClCompile Include="src\dependencies\tinyxml2.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="src\form\GraphApp.h" />
     <QtMoc Include="src\graph\Graph.h" />
-    <QtMoc Include="src\graph\node\Node.h" />
-    <QtMoc Include="src\graph\edge\Edge.h" />
-    <QtMoc Include="src\graph\algorithms\traversals\TraversalBase.h" />
-    <QtMoc Include="src\graph\algorithms\traversals\GenericTraversal.h" />
-    <QtMoc Include="src\graph\algorithms\traversals\GenericTotalTraversal.h" />
-    <QtMoc Include="src\graph\algorithms\paths\Path.h" />
-    <QtMoc Include="src\graph\algorithms\TimedInteractiveAlgorithm.h" />
-    <QtMoc Include="src\graph\algorithm_text\AlgorithmText.h" />
-    <QtMoc Include="src\graph\algorithms\traversals\BreadthTraversal.h" />
     <QtMoc Include="src\form\pseudocode\PseudocodeForm.h" />
-    <QtMoc Include="src\graph\algorithms\traversals\DepthTraversal.h" />
-    <QtMoc Include="src\graph\algorithms\other\ConnectedComponents.h" />
     <QtMoc Include="src\form\intermediate_graph\IntermediateGraph.h" />
-    <QtMoc Include="src\graph\algorithms\traversals\DepthTotalTraversal.h" />
-    <QtMoc Include="src\graph\algorithms\other\StronglyConnectedComponents.h" />
-    <QtMoc Include="src\graph\algorithms\Algorithm.h" />
-    <QtMoc Include="src\graph\node\NodeManager.h" />
-    <QtMoc Include="src\graph\edge\EdgeManager.h" />
+    <QtMoc Include="src\graph\GraphManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />
     <ClInclude Include="src\random\Random.h" />
-    <ClInclude Include="src\graph\node\QuadTree.h" />
+    <ClInclude Include="src\graph\QuadTree.h" />
+    <ClInclude Include="src\graph\AdjacencyMatrix.h" />
+    <ClInclude Include="src\dependencies\tinyxml2.h" />
+    <ClInclude Include="src\graph\Node.h" />
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="src\form\GraphApp.ui" />

@@ -9,7 +9,7 @@
 GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
     ui.setupUi(this);
 
-    ui.graph->getGraphManager().enableEditing();
+    ui.graph->getGraphManager().setAllowEditing(true);
 
     connect(ui.textEdit, &QTextEdit::textChanged,
             [this]() { ui.graph->onAdjacencyListChanged(ui.textEdit->toPlainText()); });
@@ -36,8 +36,22 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         graphManager.randomlyAddEdges(edgeCount);
     });
 
+    connect(ui.actionBuild_Full_Edge_Cache, &QAction::triggered, [this]() {
+        const auto response = QMessageBox::information(nullptr, "Confirmation",
+                                                       "Building the full edge cache may take a "
+                                                       "long time for large graphs. Do you want "
+                                                       "to proceed?",
+                                                       QMessageBox::Yes, QMessageBox::No);
+        if (response == QMessageBox::Yes) {
+            ui.graph->getGraphManager().buildFullEdgeCache();
+        }
+    });
+
     connect(ui.actionAnimations, &QAction::toggled,
             [this](bool checked) { ui.graph->getGraphManager().setAnimationsDisabled(!checked); });
+
+    connect(ui.actionAllow_Editing, &QAction::toggled,
+            [this](bool checked) { ui.graph->getGraphManager().setAllowEditing(checked); });
 
     connect(ui.actionAllow_Loops, &QAction::toggled,
             [this](bool checked) { ui.graph->getGraphManager().setAllowLoops(checked); });
@@ -58,6 +72,7 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
         if (response == QMessageBox::Yes) {
             ui.graph->getGraphManager().reset();
+            ui.graph->getGraphManager().update();
             ui.textEdit->clear();
         }
     });
@@ -168,14 +183,17 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
         const int centerX = sceneRect.width() / 2;
         const int centerY = sceneRect.height() / 2;
+        constexpr auto scale = 1;
 
         graphManager.reserveNodes(loadedNodes.size());
         for (const auto& pos : loadedNodes) {
             const double normX = static_cast<double>(pos.y() - minLon) / (maxLon - minLon);
             const double normY = static_cast<double>(pos.x() - minLat) / (maxLat - minLat);
 
-            const int x = centerX + (normX - 0.5) * (sceneRect.width() - 2 * NodeData::k_radius);
-            const int y = centerY + (normY - 0.5) * (sceneRect.height() - 2 * NodeData::k_radius);
+            const int x =
+                centerX + (normX - 0.5) * scale * (sceneRect.width() - 2 * NodeData::k_radius);
+            const int y =
+                centerY + (normY - 0.5) * scale * (sceneRect.height() - 2 * NodeData::k_radius);
 
             graphManager.addNode({x, y});
         }
@@ -198,6 +216,15 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         graphManager.updateVisibleEdgeCache();
         graphManager.setCollisionsCheckEnabled(true);
     });
+
+    connect(ui.actionDraw_Nodes, &QAction::toggled,
+            [this](bool checked) { ui.graph->getGraphManager().setDrawNodesEnabled(checked); });
+
+    connect(ui.actionDraw_Edges, &QAction::toggled,
+            [this](bool checked) { ui.graph->getGraphManager().setDrawEdgesEnabled(checked); });
+
+    connect(ui.actionDraw_Quad_Trees, &QAction::toggled,
+            [this](bool checked) { ui.graph->getGraphManager().setDrawQuadTreesEnabled(checked); });
 }
 
 void GraphApp::onZoomChanged() {
@@ -207,7 +234,7 @@ void GraphApp::onZoomChanged() {
 void GraphApp::onStartedAlgorithm() {
     ui.menuBar->setEnabled(false);
     ui.textEdit->setEnabled(false);
-    ui.graph->getGraphManager().disableEditing();
+    ui.graph->getGraphManager().setAllowEditing(false);
 }
 
 void GraphApp::onFinishedAlgorithm() {
@@ -220,5 +247,5 @@ void GraphApp::onFinishedAlgorithm() {
 void GraphApp::onEndedAlgorithm() {
     ui.menuBar->setEnabled(true);
     ui.textEdit->setEnabled(true);
-    ui.graph->getGraphManager().enableEditing();
+    ui.graph->getGraphManager().setAllowEditing(true);
 }

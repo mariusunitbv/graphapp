@@ -98,8 +98,6 @@ GraphManager& Graph::getGraphManager() { return m_graphManager; }
 
 int Graph::getZoomPercentage() { return static_cast<int>(m_currentZoomScale * 100); }
 
-Graph* Graph::getCopy() const { return nullptr; }
-
 Graph* Graph::getInvertedGraph() const {
     if (!m_graphManager.getOrientedGraph()) {
         QMessageBox::warning(nullptr, "Warning", "Cannot invert an unoriented graph",

@@ -13,7 +13,6 @@ class Graph : public QGraphicsView {
     GraphManager& getGraphManager();
     int getZoomPercentage();
 
-    Graph* getCopy() const;
     Graph* getInvertedGraph() const;
 
    signals:

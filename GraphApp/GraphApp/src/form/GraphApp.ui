@@ -122,9 +122,11 @@
     <addaction name="actionComplete_Graph"/>
     <addaction name="actionFill_Graph_With_Nodes"/>
     <addaction name="actionRandom_Graph"/>
+    <addaction name="actionBuild_Full_Edge_Cache"/>
     <addaction name="actionReset_Graph"/>
     <addaction name="separator"/>
     <addaction name="actionAnimations"/>
+    <addaction name="actionAllow_Editing"/>
     <addaction name="actionAllow_Loops"/>
     <addaction name="actionOriented_Graph"/>
     <addaction name="separator"/>
@@ -144,8 +146,17 @@
     <addaction name="actionConnected_Components"/>
     <addaction name="actionStrongly_Connected_Components"/>
    </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionDraw_Nodes"/>
+    <addaction name="actionDraw_Edges"/>
+    <addaction name="actionDraw_Quad_Trees"/>
+   </widget>
    <addaction name="menuGraph"/>
    <addaction name="menuAlgorithms"/>
+   <addaction name="menuView"/>
   </widget>
   <action name="actionGenericTraversal">
    <property name="text">
@@ -245,6 +256,55 @@
   <action name="action_Custom_Load_Map">
    <property name="text">
     <string>[Custom] Load Map</string>
+   </property>
+  </action>
+  <action name="actionAllow_Editing">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Allow Editing</string>
+   </property>
+  </action>
+  <action name="actionDraw_Nodes">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Draw Nodes</string>
+   </property>
+  </action>
+  <action name="actionDraw_Edges">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Draw Edges</string>
+   </property>
+  </action>
+  <action name="actionDraw_Quad_Trees">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Draw Quad Trees</string>
+   </property>
+  </action>
+  <action name="actionBuild_Full_Edge_Cache">
+   <property name="text">
+    <string>Build Full Edge Cache</string>
    </property>
   </action>
  </widget>

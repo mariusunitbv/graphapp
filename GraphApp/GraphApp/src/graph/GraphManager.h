@@ -4,7 +4,9 @@
 #include "QuadTree.h"
 
 constexpr size_t NODE_LIMIT = 100000;
-constexpr size_t SHOWN_EDGE_LIMIT = 150000;
+constexpr size_t SHOWN_EDGE_LIMIT = 200000;
+constexpr uint16_t EDGE_GRID_SIZE = 128;
+constexpr uint16_t MAX_EDGE_DENSITY = 1024;
 
 class GraphManager : public QGraphicsObject {
     Q_OBJECT
@@ -33,13 +35,13 @@ class GraphManager : public QGraphicsObject {
 
     void resizeAdjacencyMatrix(size_t nodeCount);
     void updateVisibleEdgeCache();
-    void updateFullEdgeCache();
+    void buildFullEdgeCache();
     void resetAdjacencyMatrix();
     void completeGraph();
     void fillGraph();
 
-    void enableEditing();
-    void disableEditing();
+    void setAllowEditing(bool enabled);
+    bool getAllowEditing() const;
 
     void setAnimationsDisabled(bool disabled);
     bool getAnimationsDisabled() const;
@@ -49,6 +51,15 @@ class GraphManager : public QGraphicsObject {
 
     void setOrientedGraph(bool oriented);
     bool getOrientedGraph() const;
+
+    void setDrawNodesEnabled(bool enabled);
+    bool getDrawNodesEnabled() const;
+
+    void setDrawEdgesEnabled(bool enabled);
+    bool getDrawEdgesEnabled() const;
+
+    void setDrawQuadTreesEnabled(bool enabled);
+    bool getDrawQuadTreesEnabled() const;
 
    protected:
     QRectF boundingRect() const override;
@@ -68,6 +79,9 @@ class GraphManager : public QGraphicsObject {
     void recomputeAdjacencyMatrix();
     void removeEdgesContainingSelectedNodes();
     void deselectNodes();
+    bool rasterizeEdgeAndCheckDensity(QPoint source, QPoint dest);
+
+    QPointF mapToScreen(QPointF graphPos);
 
     QRect m_boundingRect{};
     QRect m_sceneRect{};
@@ -78,16 +92,20 @@ class GraphManager : public QGraphicsObject {
     QPainterPath m_edgesCache;
     AdjacencyMatrix m_adjacencyMatrix;
 
+    std::array<uint16_t, EDGE_GRID_SIZE * EDGE_GRID_SIZE> m_edgeDensity{};
     std::set<NodeIndex_t, std::greater<NodeIndex_t>> m_selectedNodes{};
 
-    bool m_collisionsCheckEnabled{true};
-    bool m_draggingNode{false};
-    bool m_pressedEmptySpace{false};
-    bool m_animationsDisabled{false};
-    bool m_editingEnabled{false};
-    bool m_allowLoops{false};
-    bool m_orientedGraph{true};
-    bool m_shouldDrawArrows{true};
-
     QPoint m_dragOffset{};
+
+    bool m_collisionsCheckEnabled : 1 {true};
+    bool m_draggingNode : 1 {false};
+    bool m_pressedEmptySpace : 1 {false};
+    bool m_animationsDisabled : 1 {false};
+    bool m_editingEnabled : 1 {false};
+    bool m_allowLoops : 1 {false};
+    bool m_orientedGraph : 1 {true};
+    bool m_shouldDrawArrows : 1 {true};
+    bool m_drawNodes : 1 {true};
+    bool m_drawEdges : 1 {true};
+    bool m_drawQuadTrees : 1 {false};
 };

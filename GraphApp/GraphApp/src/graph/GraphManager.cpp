@@ -2,6 +2,8 @@
 
 #include "GraphManager.h"
 
+#include "../random/Random.h"
+
 GraphManager::GraphManager() {
     setFlag(ItemIsFocusable);
     connect(&m_sceneUpdateTimer, &QTimer::timeout, [this]() {
@@ -90,129 +92,157 @@ size_t GraphManager::getMaxEdgesCount() const {
 void GraphManager::resizeAdjacencyMatrix(size_t nodeCount) { m_adjacencyMatrix.resize(nodeCount); }
 
 void GraphManager::updateVisibleEdgeCache() {
-    if (m_adjacencyMatrix.empty()) {
+    if (m_adjacencyMatrix.empty() || !m_drawEdges) {
         return;
     }
 
     std::unordered_set<NodeIndex_t> visibleNodes;
     m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
 
+    m_edgeDensity.fill(0);
     m_edgesCache.clear();
     for (const auto nodeIndex : visibleNodes) {
-        for (NodeIndex_t neighbourIndex = 0; neighbourIndex < m_nodes.size(); ++neighbourIndex) {
-            if (!visibleNodes.contains(neighbourIndex)) {
+        for (NodeIndex_t neighbourIndex = nodeIndex + 1; neighbourIndex < m_nodes.size();
+             ++neighbourIndex) {
+            const bool hasEdge = m_adjacencyMatrix.hasEdge(nodeIndex, neighbourIndex);
+            const bool hasOppositeEdge = m_adjacencyMatrix.hasEdge(neighbourIndex, nodeIndex);
+
+            if (!hasEdge && !hasOppositeEdge) {
                 continue;
             }
 
-            if (m_adjacencyMatrix.hasEdge(nodeIndex, neighbourIndex)) {
-                if (m_edgesCache.elementCount() > SHOWN_EDGE_LIMIT) {
-                    update(m_sceneRect);
-                    return;
+            if (m_edgesCache.elementCount() > SHOWN_EDGE_LIMIT) {
+                update(m_sceneRect);
+                return;
+            }
+
+            const auto srcCenter = m_nodes[nodeIndex].getPosition();
+            const auto targetCenter = m_nodes[neighbourIndex].getPosition();
+
+            if (!rasterizeEdgeAndCheckDensity(srcCenter, targetCenter)) {
+                continue;
+            }
+
+            const auto direction = targetCenter - srcCenter;
+            const auto distance = std::hypot(direction.x(), direction.y());
+            if (distance < 0.001) {
+                continue;
+            }
+
+            const auto directionNormalized =
+                QPointF{direction.x() / distance, direction.y() / distance};
+
+            const auto offset = (directionNormalized * NodeData::k_radius).toPoint();
+            const auto lineStart = srcCenter + offset;
+            const auto lineEnd = targetCenter - offset;
+
+            if (m_orientedGraph && m_shouldDrawArrows) {
+                const auto drawArrow = [&](QPoint tip, const QPointF& dir) {
+                    static constexpr double arrowLength = 10.0;
+                    static constexpr double arrowWidth = 5.0;
+
+                    static constexpr auto sqrt3 = 1.732f;
+                    static constexpr auto ca = sqrt3 / 2.f;
+                    static constexpr auto sa = 0.5f;
+
+                    QPointF normal(-dir.y(), dir.x());
+
+                    const auto base = tip - dir * arrowLength;
+                    const auto p1 = base + normal * arrowWidth;
+                    const auto p2 = base - normal * arrowWidth;
+
+                    m_edgesCache.moveTo(tip);
+                    m_edgesCache.lineTo(p1);
+                    m_edgesCache.lineTo(p2);
+                    m_edgesCache.closeSubpath();
+                };
+
+                if (hasEdge) {
+                    drawArrow(lineEnd, directionNormalized);
                 }
 
-                constexpr auto arrowSize = 14.;
-
-                const auto srcCenter = m_nodes[nodeIndex].getPosition();
-                const auto targetCenter = m_nodes[neighbourIndex].getPosition();
-
-                const auto direction = targetCenter - srcCenter;
-                const auto distanceBetweenNodes = std::hypot(direction.x(), direction.y());
-
-                if (distanceBetweenNodes < 0.0001) {
-                    continue;
-                }
-
-                const auto radiusOffset = direction * (NodeData::k_radius / distanceBetweenNodes);
-
-                const auto lineStart = srcCenter + radiusOffset;
-                auto lineEnd = targetCenter - radiusOffset;
-                const auto angle = std::atan2(-direction.y(), direction.x());
-                const auto arrowP1 = lineEnd - QPoint(sin(angle + M_PI / 3) * arrowSize,
-                                                      cos(angle + M_PI / 3) * arrowSize);
-                const auto arrowP2 = lineEnd - QPoint(sin(angle + M_PI - M_PI / 3) * arrowSize,
-                                                      cos(angle + M_PI - M_PI / 3) * arrowSize);
-                if (m_shouldDrawArrows && m_orientedGraph) {
-                    m_edgesCache.moveTo(lineEnd);
-                    m_edgesCache.lineTo(arrowP1);
-                    m_edgesCache.lineTo(arrowP2);
-                    m_edgesCache.lineTo(lineEnd);
-                    lineEnd = (arrowP1 + arrowP2) / 2;
-                }
-
-                if (m_orientedGraph) {
-                    const auto directionVec = lineEnd - lineStart;
-                    QPointF normalVec(-directionVec.y(), directionVec.x());
-                    normalVec /= std::hypot(normalVec.x(), normalVec.y());
-
-                    constexpr double curvature = 0.1;
-                    const auto controlPoint =
-                        (lineStart + lineEnd) / 2.0 + normalVec * curvature * distanceBetweenNodes;
-
-                    m_edgesCache.moveTo(lineStart);
-                    m_edgesCache.quadTo(controlPoint, lineEnd);
-                } else {
-                    m_edgesCache.moveTo(lineStart);
-                    m_edgesCache.lineTo(lineEnd);
+                if (hasOppositeEdge) {
+                    drawArrow(lineStart, -directionNormalized);
                 }
             }
+
+            m_edgesCache.moveTo(srcCenter);
+            m_edgesCache.lineTo(targetCenter);
         }
     }
 
     update(m_sceneRect);
 }
 
-void GraphManager::updateFullEdgeCache() {
-    if (m_adjacencyMatrix.empty()) {
+void GraphManager::buildFullEdgeCache() {
+    if (m_adjacencyMatrix.empty() || !m_drawEdges) {
         return;
     }
 
     m_edgesCache.clear();
     for (NodeIndex_t nodeIndex = 0; nodeIndex < m_nodes.size(); ++nodeIndex) {
-        for (NodeIndex_t neighbourIndex = 0; neighbourIndex < m_nodes.size(); ++neighbourIndex) {
-            if (m_adjacencyMatrix.hasEdge(nodeIndex, neighbourIndex)) {
-                constexpr auto arrowSize = 14.;
+        for (NodeIndex_t neighbourIndex = nodeIndex + 1; neighbourIndex < m_nodes.size();
+             ++neighbourIndex) {
+            if (m_edgesCache.elementCount() == std::numeric_limits<int>::max() - 20) {
+                update();
+                return;
+            }
 
-                const auto srcCenter = m_nodes[nodeIndex].getPosition();
-                const auto targetCenter = m_nodes[neighbourIndex].getPosition();
+            const bool hasEdge = m_adjacencyMatrix.hasEdge(nodeIndex, neighbourIndex);
+            const bool hasOppositeEdge = m_adjacencyMatrix.hasEdge(neighbourIndex, nodeIndex);
 
-                const auto direction = targetCenter - srcCenter;
-                const auto distanceBetweenNodes = std::hypot(direction.x(), direction.y());
+            if (!hasEdge && !hasOppositeEdge) {
+                continue;
+            }
 
-                if (distanceBetweenNodes < 0.0001) {
-                    continue;
+            const auto srcCenter = m_nodes[nodeIndex].getPosition();
+            const auto targetCenter = m_nodes[neighbourIndex].getPosition();
+
+            const auto direction = targetCenter - srcCenter;
+            const auto distance = std::hypot(direction.x(), direction.y());
+            if (distance < 0.001) {
+                continue;
+            }
+
+            const auto directionNormalized =
+                QPointF{direction.x() / distance, direction.y() / distance};
+
+            const auto offset = (directionNormalized * NodeData::k_radius).toPoint();
+            const auto lineStart = srcCenter + offset;
+            const auto lineEnd = targetCenter - offset;
+
+            if (m_orientedGraph && m_shouldDrawArrows) {
+                const auto drawArrow = [&](QPoint tip, const QPointF& dir) {
+                    static constexpr double arrowLength = 10.0;
+                    static constexpr double arrowWidth = 5.0;
+
+                    static constexpr auto sqrt3 = 1.732f;
+                    static constexpr auto ca = sqrt3 / 2.f;
+                    static constexpr auto sa = 0.5f;
+
+                    QPointF normal(-dir.y(), dir.x());
+
+                    const auto base = tip - dir * arrowLength;
+                    const auto p1 = base + normal * arrowWidth;
+                    const auto p2 = base - normal * arrowWidth;
+
+                    m_edgesCache.moveTo(tip);
+                    m_edgesCache.lineTo(p1);
+                    m_edgesCache.lineTo(p2);
+                    m_edgesCache.closeSubpath();
+                };
+
+                if (hasEdge) {
+                    drawArrow(lineEnd, directionNormalized);
                 }
 
-                const auto radiusOffset = direction * (NodeData::k_radius / distanceBetweenNodes);
-
-                const auto lineStart = srcCenter + radiusOffset;
-                auto lineEnd = targetCenter - radiusOffset;
-                const auto angle = std::atan2(-direction.y(), direction.x());
-                const auto arrowP1 = lineEnd - QPoint(sin(angle + M_PI / 3) * arrowSize,
-                                                      cos(angle + M_PI / 3) * arrowSize);
-                const auto arrowP2 = lineEnd - QPoint(sin(angle + M_PI - M_PI / 3) * arrowSize,
-                                                      cos(angle + M_PI - M_PI / 3) * arrowSize);
-                if (m_orientedGraph) {
-                    m_edgesCache.moveTo(lineEnd);
-                    m_edgesCache.lineTo(arrowP1);
-                    m_edgesCache.lineTo(arrowP2);
-                    m_edgesCache.lineTo(lineEnd);
-                    lineEnd = (arrowP1 + arrowP2) / 2;
-
-                    const auto directionVec = lineEnd - lineStart;
-                    QPointF normalVec(-directionVec.y(), directionVec.x());
-                    normalVec /= std::hypot(normalVec.x(), normalVec.y());
-
-                    constexpr double curvature = 0.1;
-                    const auto controlPoint =
-                        (lineStart + lineEnd) / 2.0 + normalVec * curvature * distanceBetweenNodes;
-
-                    m_edgesCache.moveTo(lineStart);
-                    m_edgesCache.quadTo(controlPoint, lineEnd);
-                } else {
-                    m_edgesCache.moveTo(lineStart);
-                    m_edgesCache.lineTo(lineEnd);
+                if (hasOppositeEdge) {
+                    drawArrow(lineStart, -directionNormalized);
                 }
             }
+
+            m_edgesCache.moveTo(srcCenter);
+            m_edgesCache.lineTo(targetCenter);
         }
     }
 
@@ -226,11 +256,30 @@ void GraphManager::completeGraph() {
     updateVisibleEdgeCache();
 }
 
-void GraphManager::fillGraph() {}
+void GraphManager::fillGraph() {
+    size_t attempts = 0;
+    const size_t maxAttempts = 100000;
 
-void GraphManager::enableEditing() { m_editingEnabled = true; }
+    reset();
+    reserveNodes(NODE_LIMIT);
+    while (m_nodes.size() < NODE_LIMIT && attempts < maxAttempts) {
+        QPoint pos(Random::get().getInt(0, m_boundingRect.width()),
+                   Random::get().getInt(0, m_boundingRect.height()));
 
-void GraphManager::disableEditing() { m_editingEnabled = false; }
+        if (isGoodPosition(pos)) {
+            addNode(pos);
+            attempts = 0;
+        } else {
+            ++attempts;
+        }
+    }
+
+    resizeAdjacencyMatrix(m_nodes.size());
+}
+
+void GraphManager::setAllowEditing(bool enabled) { m_editingEnabled = enabled; }
+
+bool GraphManager::getAllowEditing() const { return m_editingEnabled; }
 
 void GraphManager::setAnimationsDisabled(bool disabled) { m_animationsDisabled = disabled; }
 
@@ -244,34 +293,64 @@ void GraphManager::setOrientedGraph(bool oriented) { m_orientedGraph = oriented;
 
 bool GraphManager::getOrientedGraph() const { return m_orientedGraph; }
 
+void GraphManager::setDrawNodesEnabled(bool enabled) { m_drawNodes = enabled; }
+
+bool GraphManager::getDrawNodesEnabled() const { return m_drawNodes; }
+
+void GraphManager::setDrawEdgesEnabled(bool enabled) { m_drawEdges = enabled; }
+
+bool GraphManager::getDrawEdgesEnabled() const { return m_drawEdges; }
+
+void GraphManager::setDrawQuadTreesEnabled(bool enabled) { m_drawQuadTrees = enabled; }
+
+bool GraphManager::getDrawQuadTreesEnabled() const { return m_drawQuadTrees; }
+
 QRectF GraphManager::boundingRect() const { return m_boundingRect; }
 
 void GraphManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*) {
     const auto lod = option->levelOfDetailFromTransform(painter->worldTransform());
 
-    std::unordered_set<NodeIndex_t> visibleNodes;
-    m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
+    m_shouldDrawArrows = lod >= 1.25;
+    if (m_drawEdges) {
+        painter->setPen(Qt::black);
+        painter->drawPath(m_edgesCache);
+    }
 
-    m_shouldDrawArrows = lod >= 1;
-    painter->setPen(Qt::black);
-    painter->drawPath(m_edgesCache);
+    if (m_drawNodes) {
+        std::unordered_set<NodeIndex_t> visibleNodes;
+        m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
 
-    for (const auto nodeIndex : visibleNodes) {
-        const auto& node = m_nodes[nodeIndex];
-        const auto& rect = node.getBoundingRect();
+        for (const auto nodeIndex : visibleNodes) {
+            const auto& node = m_nodes[nodeIndex];
+            const auto& rect = node.getBoundingRect();
 
-        painter->setPen(QPen{node.m_selected ? Qt::green : Qt::black, 1.5});
-        painter->setBrush(node.getFillColor());
-        painter->drawEllipse(rect);
-        if (lod >= 1) {
-            painter->drawText(rect, Qt::AlignCenter, node.m_label);
+            painter->setPen(QPen{node.m_selected ? Qt::green : Qt::black, 1.5});
+            painter->setBrush(node.getFillColor());
+            painter->drawEllipse(rect);
+            if (lod >= 1) {
+                painter->drawText(rect, Qt::AlignCenter, node.m_label);
+            }
+        }
+    } else {
+        for (const auto nodeIndex : m_selectedNodes) {
+            const auto& node = m_nodes[nodeIndex];
+            const auto& rect = node.getBoundingRect();
+
+            painter->setPen(QPen{node.m_selected ? Qt::green : Qt::black, 1.5});
+            painter->setBrush(node.getFillColor());
+            painter->drawEllipse(rect);
+            if (lod >= 1) {
+                painter->drawText(rect, Qt::AlignCenter, node.m_label);
+            }
         }
     }
 
-    painter->setBrush(Qt::NoBrush);
-    if (lod >= 1.5) {
-        painter->setPen(Qt::gray);
-        drawQuadTree(painter, &m_quadTree);
+    if (m_drawQuadTrees) {
+        painter->setBrush(Qt::NoBrush);
+        if (lod >= 1.5) {
+            painter->setPen(Qt::gray);
+            drawQuadTree(painter, &m_quadTree);
+        }
     }
 }
 
@@ -344,7 +423,7 @@ void GraphManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
         if (m_draggingNode) {
             m_draggingNode = false;
         } else if (m_pressedEmptySpace) {
-            if (addNode(event->pos().toPoint())) {
+            if (m_editingEnabled && addNode(event->pos().toPoint())) {
                 recomputeAdjacencyMatrix();
             }
             m_pressedEmptySpace = false;
@@ -355,14 +434,10 @@ void GraphManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
 }
 
 void GraphManager::keyReleaseEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Delete) {
+    if (event->key() == Qt::Key_Delete && m_editingEnabled) {
         removeSelectedNodes();
     } else if (event->key() == Qt::Key_F5) {
-        if (event->modifiers() & Qt::ShiftModifier) {
-            updateFullEdgeCache();
-        } else {
-            updateVisibleEdgeCache();
-        }
+        updateVisibleEdgeCache();
     }
 
     QGraphicsObject::keyReleaseEvent(event);
@@ -478,4 +553,56 @@ void GraphManager::deselectNodes() {
     }
 
     m_selectedNodes.clear();
+}
+
+bool GraphManager::rasterizeEdgeAndCheckDensity(QPoint source, QPoint dest) {
+    const auto sourceScreen = mapToScreen(source);
+    const auto destScreen = mapToScreen(dest);
+
+    QPoint gridStart(
+        qBound(0, static_cast<int>(sourceScreen.x() * EDGE_GRID_SIZE), EDGE_GRID_SIZE - 1),
+        qBound(0, static_cast<int>(sourceScreen.y() * EDGE_GRID_SIZE), EDGE_GRID_SIZE - 1));
+
+    QPoint gridEnd(
+        qBound(0, static_cast<int>(destScreen.x() * EDGE_GRID_SIZE), EDGE_GRID_SIZE - 1),
+        qBound(0, static_cast<int>(destScreen.y() * EDGE_GRID_SIZE), EDGE_GRID_SIZE - 1));
+
+    int dx = std::abs(gridEnd.x() - gridStart.x());
+    int dy = std::abs(gridEnd.y() - gridStart.y());
+    int sx = (gridStart.x() < gridEnd.x()) ? 1 : -1;
+    int sy = (gridStart.y() < gridEnd.y()) ? 1 : -1;
+    int err = dx - dy;
+
+    int x = gridStart.x();
+    int y = gridStart.y();
+
+    while (true) {
+        if (m_edgeDensity[y * EDGE_GRID_SIZE + x] >= MAX_EDGE_DENSITY) {
+            return false;
+        }
+
+        ++m_edgeDensity[y * EDGE_GRID_SIZE + x];
+
+        if (x == gridEnd.x() && y == gridEnd.y()) {
+            break;
+        }
+
+        int e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            x += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            y += sy;
+        }
+    }
+
+    return true;
+}
+
+QPointF GraphManager::mapToScreen(QPointF graphPos) {
+    const auto nx = (graphPos.x() - m_sceneRect.left()) / m_sceneRect.width();
+    const auto ny = (graphPos.y() - m_sceneRect.top()) / m_sceneRect.height();
+    return QPointF{nx, ny};
 }

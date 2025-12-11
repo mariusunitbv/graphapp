@@ -61,6 +61,8 @@ class GraphManager : public QGraphicsObject {
     void setDrawQuadTreesEnabled(bool enabled);
     bool getDrawQuadTreesEnabled() const;
 
+    void dijkstra();
+
    protected:
     QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*) override;
@@ -89,7 +91,7 @@ class GraphManager : public QGraphicsObject {
 
     std::vector<NodeData> m_nodes;
     QuadTree m_quadTree;
-    QPainterPath m_edgesCache;
+    QPainterPath m_edgesCache, m_algorithmPath;
     AdjacencyMatrix m_adjacencyMatrix;
 
     std::array<uint16_t, EDGE_GRID_SIZE * EDGE_GRID_SIZE> m_edgeDensity{};

@@ -8,7 +8,7 @@ GraphManager::GraphManager() {
     setFlag(ItemIsFocusable);
     connect(&m_sceneUpdateTimer, &QTimer::timeout, [this]() {
         QGraphicsView* view = scene()->views().first();
-        QRect sceneRect = view->mapToScene(view->viewport()->rect()).boundingRect().toRect();
+        const QRect sceneRect = view->mapToScene(view->viewport()->rect()).boundingRect().toRect();
         if (m_sceneRect != sceneRect) {
             m_sceneRect = sceneRect;
             update(m_sceneRect);
@@ -305,6 +305,74 @@ void GraphManager::setDrawQuadTreesEnabled(bool enabled) { m_drawQuadTrees = ena
 
 bool GraphManager::getDrawQuadTreesEnabled() const { return m_drawQuadTrees; }
 
+void GraphManager::dijkstra() {
+    if (m_selectedNodes.size() != 2) {
+        QMessageBox::warning(nullptr, "Dijkstra Error",
+                             "Please select exactly two nodes to run Dijkstra's algorithm.");
+        return;
+    }
+
+    m_algorithmPath.clear();
+
+    std::vector<int32_t> minDistances(m_nodes.size(), std::numeric_limits<int32_t>::max());
+    std::vector<NodeIndex_t> previousNodes(m_nodes.size(), -1);
+
+    NodeIndex_t startNode = *m_selectedNodes.rbegin(), endNode = *m_selectedNodes.begin();
+    if (m_nodes[startNode].getSelectTime() > m_nodes[endNode].getSelectTime()) {
+        std::swap(startNode, endNode);
+    }
+
+    minDistances[startNode] = 0;
+
+    using QueueElement = std::pair<int32_t, NodeIndex_t>;
+    std::priority_queue<QueueElement, std::vector<QueueElement>, std::greater<QueueElement>>
+        priorityQueue;
+    priorityQueue.emplace(0, startNode);
+
+    while (!priorityQueue.empty()) {
+        const auto [currentDistance, currentNode] = priorityQueue.top();
+        priorityQueue.pop();
+
+        if (currentNode == endNode) {
+            break;
+        }
+
+        if (currentDistance > minDistances[currentNode]) {
+            continue;
+        }
+
+        for (NodeIndex_t neighbour = 0; neighbour < m_nodes.size(); ++neighbour) {
+            if (!m_adjacencyMatrix.hasEdge(currentNode, neighbour)) {
+                continue;
+            }
+
+            const auto edgeCost = m_adjacencyMatrix.getCost(currentNode, neighbour);
+            const auto newDistance = currentDistance + edgeCost;
+            if (newDistance < minDistances[neighbour]) {
+                minDistances[neighbour] = newDistance;
+                previousNodes[neighbour] = currentNode;
+                priorityQueue.emplace(newDistance, neighbour);
+            }
+        }
+    }
+
+    if (minDistances[endNode] == std::numeric_limits<int32_t>::max()) {
+        QMessageBox::information(nullptr, "Dijkstra Result",
+                                 "No path found between the selected nodes.");
+        return;
+    }
+
+    for (NodeIndex_t at = endNode; at != -1; at = previousNodes[at]) {
+        const auto nextNode = previousNodes[at];
+        if (nextNode != -1) {
+            m_algorithmPath.moveTo(m_nodes[nextNode].getPosition());
+            m_algorithmPath.lineTo(m_nodes[at].getPosition());
+        }
+
+        m_nodes[at].setFillColor(qRgb(255, 255, 0));
+    }
+}
+
 QRectF GraphManager::boundingRect() const { return m_boundingRect; }
 
 void GraphManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*) {
@@ -316,6 +384,9 @@ void GraphManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
         painter->drawPath(m_edgesCache);
     }
 
+    painter->setPen(QPen{Qt::yellow, 2.f});
+    painter->drawPath(m_algorithmPath);
+
     if (m_drawNodes) {
         std::unordered_set<NodeIndex_t> visibleNodes;
         m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
@@ -324,11 +395,11 @@ void GraphManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
             const auto& node = m_nodes[nodeIndex];
             const auto& rect = node.getBoundingRect();
 
-            painter->setPen(QPen{node.m_selected ? Qt::green : Qt::black, 1.5});
+            painter->setPen(QPen{node.isSelected() ? Qt::green : Qt::black, 1.5});
             painter->setBrush(node.getFillColor());
             painter->drawEllipse(rect);
             if (lod >= 1) {
-                painter->drawText(rect, Qt::AlignCenter, node.m_label);
+                painter->drawText(rect, Qt::AlignCenter, node.getLabel());
             }
         }
     } else {
@@ -336,11 +407,11 @@ void GraphManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
             const auto& node = m_nodes[nodeIndex];
             const auto& rect = node.getBoundingRect();
 
-            painter->setPen(QPen{node.m_selected ? Qt::green : Qt::black, 1.5});
+            painter->setPen(QPen{node.isSelected() ? Qt::green : Qt::black, 1.5});
             painter->setBrush(node.getFillColor());
             painter->drawEllipse(rect);
             if (lod >= 1) {
-                painter->drawText(rect, Qt::AlignCenter, node.m_label);
+                painter->drawText(rect, Qt::AlignCenter, node.getLabel());
             }
         }
     }
@@ -366,8 +437,14 @@ void GraphManager::mousePressEvent(QGraphicsSceneMouseEvent* event) {
             }
 
             const auto nodeIndex = nodeOpt.value();
-            m_nodes[nodeIndex].m_selected = true;
-            m_selectedNodes.emplace(nodeIndex);
+            if (m_nodes[nodeIndex].isSelected()) {
+                m_nodes[nodeIndex].setSelected(false, 0);
+                m_selectedNodes.erase(nodeIndex);
+            } else {
+                m_nodes[nodeIndex].setSelected(true, m_nodes.size());
+                m_selectedNodes.emplace(nodeIndex);
+            }
+
             m_dragOffset = getNode(nodeIndex).getPosition() - point;
         } else {
             if (!m_selectedNodes.empty()) {
@@ -548,7 +625,7 @@ void GraphManager::deselectNodes() {
     for (const auto nodeIndex : m_selectedNodes) {
         auto& node = m_nodes[nodeIndex];
 
-        node.m_selected = false;
+        node.setSelected(false, 0);
         update(node.getBoundingRect());
     }
 

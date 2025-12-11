@@ -120,6 +120,9 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
     });
 
+    connect(ui.actionDijkstra_s_algorithm, &QAction::triggered,
+            [this]() { ui.graph->getGraphManager().dijkstra(); });
+
     connect(ui.actionFill_Graph_With_Nodes, &QAction::triggered,
             [this]() { ui.graph->getGraphManager().fillGraph(); });
 

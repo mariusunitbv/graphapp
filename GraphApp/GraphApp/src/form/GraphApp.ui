@@ -145,6 +145,7 @@
     <addaction name="actionDepth_Total_Traversal"/>
     <addaction name="actionConnected_Components"/>
     <addaction name="actionStrongly_Connected_Components"/>
+    <addaction name="actionDijkstra_s_algorithm"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -305,6 +306,11 @@
   <action name="actionBuild_Full_Edge_Cache">
    <property name="text">
     <string>Build Full Edge Cache</string>
+   </property>
+  </action>
+  <action name="actionDijkstra_s_algorithm">
+   <property name="text">
+    <string>Dijkstra's algorithm</string>
    </property>
   </action>
  </widget>

@@ -12,6 +12,7 @@ class Graph : public QGraphicsView {
     void onAdjacencyListChanged(const QString& text);
     GraphManager& getGraphManager();
     int getZoomPercentage();
+    void toggleDarkMode();
 
     Graph* getInvertedGraph() const;
 
@@ -33,6 +34,7 @@ class Graph : public QGraphicsView {
     GraphManager m_graphManager;
 
     bool m_isDragging{false};
+    bool m_darkMode{false};
     double m_currentZoomScale{1.};
 
     static constexpr double k_minScale = 0.25;

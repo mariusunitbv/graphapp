@@ -25,20 +25,24 @@ bool AdjacencyMatrix::empty() const { return m_matrix.empty(); }
 
 void AdjacencyMatrix::reset() { std::fill(m_matrix.begin(), m_matrix.end(), 0); }
 
-void AdjacencyMatrix::complete() { std::fill(m_matrix.begin(), m_matrix.end(), 0x80); }
+void AdjacencyMatrix::complete() { std::fill(m_matrix.begin(), m_matrix.end(), FLAG_BIT); }
 
-void AdjacencyMatrix::setEdge(NodeIndex_t i, NodeIndex_t j, int8_t cost) {
+void AdjacencyMatrix::setEdge(NodeIndex_t i, NodeIndex_t j, CostType_t cost) {
     m_matrix[i * m_nodeCount + j] = encode(cost);
 }
 
 void AdjacencyMatrix::clearEdge(NodeIndex_t i, NodeIndex_t j) { m_matrix[i * m_nodeCount + j] = 0; }
 
-bool AdjacencyMatrix::hasEdge(NodeIndex_t i, NodeIndex_t j) const { return read(i, j) >> 7; }
+bool AdjacencyMatrix::hasEdge(NodeIndex_t i, NodeIndex_t j) const { return read(i, j) & FLAG_BIT; }
 
-int8_t AdjacencyMatrix::getCost(NodeIndex_t i, NodeIndex_t j) const { return read(i, j) & 0x7F; }
+CostType_t AdjacencyMatrix::getCost(NodeIndex_t i, NodeIndex_t j) const {
+    return read(i, j) & COST_MASK;
+}
 
-uint8_t AdjacencyMatrix::encode(uint8_t cost) { return (1u << 7) | (cost & 0x7F); }
+AdjacencyMatrix::UnsignedCostType_t AdjacencyMatrix::encode(CostType_t cost) {
+    return FLAG_BIT | (cost & COST_MASK);
+}
 
-uint8_t AdjacencyMatrix::read(NodeIndex_t i, NodeIndex_t j) const {
+AdjacencyMatrix::UnsignedCostType_t AdjacencyMatrix::read(NodeIndex_t i, NodeIndex_t j) const {
     return m_matrix[i * m_nodeCount + j];
 }

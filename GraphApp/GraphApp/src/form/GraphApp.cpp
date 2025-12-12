@@ -133,90 +133,131 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
             return;
         }
 
-        using namespace tinyxml2;
-
-        XMLDocument doc;
-        if (doc.LoadFile(filePath.toStdString().c_str()) != XML_SUCCESS) {
-            QMessageBox::warning(this, "Error", "Failed to load the map file.");
-            return;
-        }
-
         auto& graphManager = ui.graph->getGraphManager();
         const auto sceneRect = ui.graph->sceneRect().toRect();
 
         graphManager.reset();
         graphManager.setCollisionsCheckEnabled(false);
 
-        std::vector<QPoint> loadedNodes;
-        int minLat = std::numeric_limits<int>::max(), minLon = std::numeric_limits<int>::max();
-        int maxLat = std::numeric_limits<int>::min(), maxLon = std::numeric_limits<int>::min();
+        ui.actionAllow_Editing->setChecked(false);
 
-        XMLElement* map = doc.FirstChildElement("map");
-        XMLElement* nodesElement = map->FirstChildElement("nodes");
+        try {
+            qreal minLat = std::numeric_limits<qreal>::max(),
+                  minLon = std::numeric_limits<qreal>::max();
+            qreal maxLat = std::numeric_limits<qreal>::min(),
+                  maxLon = std::numeric_limits<qreal>::min();
 
-        loadedNodes.reserve(nodesElement->ChildElementCount());
+            using nlohmann::json;
+            const auto j = json::parse(std::ifstream(filePath.toStdString()));
 
-        for (XMLElement* nodeElem = nodesElement->FirstChildElement("node"); nodeElem;
-             nodeElem = nodeElem->NextSiblingElement("node")) {
-            NodeIndex_t id;
-            int lat, lon;
+            for (const auto& feature : j["features"]) {
+                if (feature["geometry"]["type"] != "LineString") {
+                    continue;
+                }
 
-            nodeElem->QueryUnsignedAttribute("id", &id);
-            nodeElem->QueryIntAttribute("latitude", &lat);
-            nodeElem->QueryIntAttribute("longitude", &lon);
+                const auto& coords = feature["geometry"]["coordinates"];
+                for (const auto& coord : coords) {
+                    const qreal lon = coord[0];
+                    const qreal lat = coord[1];
 
-            if (lat < minLat) {
-                minLat = lat;
+                    if (lat < minLat) {
+                        minLat = lat;
+                    }
+
+                    if (lat > maxLat) {
+                        maxLat = lat;
+                    }
+
+                    if (lon < minLon) {
+                        minLon = lon;
+                    }
+
+                    if (lon > maxLon) {
+                        maxLon = lon;
+                    }
+                }
             }
 
-            if (lat > maxLat) {
-                maxLat = lat;
+            const int centerX = sceneRect.width() / 2;
+            const int centerY = sceneRect.height() / 2;
+            constexpr auto scale = 1;
+
+            QHash<QPoint, NodeIndex_t> loadedNodes;
+            for (const auto& feature : j["features"]) {
+                if (feature["geometry"]["type"] != "LineString") {
+                    continue;
+                }
+
+                const auto& coords = feature["geometry"]["coordinates"];
+                for (const auto& coord : coords) {
+                    const double lon = coord[0];
+                    const double lat = coord[1];
+
+                    const double normLon = (lon - minLon) / (maxLon - minLon);
+                    const double normLat = (lat - minLat) / (maxLat - minLat);
+
+                    const int x = centerX + (normLon - 0.5) * scale *
+                                                (sceneRect.width() - 2 * NodeData::k_radius);
+                    const int y = centerY + (0.5 - normLat) * scale *
+                                                (sceneRect.height() - 2 * NodeData::k_radius);
+
+                    if (!loadedNodes.contains({x, y})) {
+                        graphManager.addNode({x, y});
+                        loadedNodes[{x, y}] = graphManager.getNodesCount() - 1;
+                    }
+                }
             }
 
-            if (lon < minLon) {
-                minLon = lon;
-            }
+            graphManager.resizeAdjacencyMatrix(graphManager.getNodesCount());
 
-            if (lon > maxLon) {
-                maxLon = lon;
-            }
+            for (const auto& feature : j["features"]) {
+                if (feature["geometry"]["type"] != "LineString") {
+                    continue;
+                }
 
-            loadedNodes.emplace_back(lat, lon);
+                const bool oneWay = feature["properties"].value("oneway", "no") == "yes";
+
+                NodeIndex_t prevNodeIndex = INVALID_NODE;
+                const auto& coords = feature["geometry"]["coordinates"];
+                for (const auto& coord : coords) {
+                    const double lon = coord[0];
+                    const double lat = coord[1];
+
+                    const double normLon = (lon - minLon) / (maxLon - minLon);
+                    const double normLat = (lat - minLat) / (maxLat - minLat);
+
+                    const int x = centerX + (normLon - 0.5) * scale *
+                                                (sceneRect.width() - 2 * NodeData::k_radius);
+                    const int y = centerY + (0.5 - normLat) * scale *
+                                                (sceneRect.height() - 2 * NodeData::k_radius);
+
+                    const auto nodeIndex = loadedNodes.value({x, y}, INVALID_NODE);
+                    if (nodeIndex == INVALID_NODE) {
+                        throw std::runtime_error("Node not found during edge creation.");
+                    }
+
+                    if (prevNodeIndex == INVALID_NODE) {
+                        prevNodeIndex = nodeIndex;
+                        continue;
+                    }
+
+                    const auto currentNodeIndex = nodeIndex;
+                    graphManager.addEdge(prevNodeIndex, currentNodeIndex, 1);
+                    if (!oneWay) {
+                        graphManager.addEdge(currentNodeIndex, prevNodeIndex, 1);
+                    }
+
+                    prevNodeIndex = currentNodeIndex;
+                }
+            }
+        } catch (const std::exception& e) {
+            QMessageBox::warning(this, "Error",
+                                 QString("Failed to load the map file:\n%1").arg(e.what()));
+            graphManager.reset();
+            return;
         }
 
-        const int centerX = sceneRect.width() / 2;
-        const int centerY = sceneRect.height() / 2;
-        constexpr auto scale = 1;
-
-        graphManager.reserveNodes(loadedNodes.size());
-        for (const auto& pos : loadedNodes) {
-            const double normX = static_cast<double>(pos.y() - minLon) / (maxLon - minLon);
-            const double normY = static_cast<double>(pos.x() - minLat) / (maxLat - minLat);
-
-            const int x =
-                centerX + (normX - 0.5) * scale * (sceneRect.width() - 2 * NodeData::k_radius);
-            const int y =
-                centerY + (normY - 0.5) * scale * (sceneRect.height() - 2 * NodeData::k_radius);
-
-            graphManager.addNode({x, y});
-        }
-
-        graphManager.resizeAdjacencyMatrix(graphManager.getNodesCount());
-
-        XMLElement* arcsElement = map->FirstChildElement("arcs");
-        for (XMLElement* arcElem = arcsElement->FirstChildElement("arc"); arcElem;
-             arcElem = arcElem->NextSiblingElement("arc")) {
-            NodeIndex_t from, to;
-            int32_t cost;
-
-            arcElem->QueryUnsignedAttribute("from", &from);
-            arcElem->QueryUnsignedAttribute("to", &to);
-            arcElem->QueryIntAttribute("length", &cost);
-
-            graphManager.addEdge(from, to, cost);
-        }
-
-        graphManager.updateVisibleEdgeCache();
+        graphManager.buildFullEdgeCache();
         graphManager.setCollisionsCheckEnabled(true);
     });
 
@@ -228,6 +269,9 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
     connect(ui.actionDraw_Quad_Trees, &QAction::toggled,
             [this](bool checked) { ui.graph->getGraphManager().setDrawQuadTreesEnabled(checked); });
+
+    connect(ui.actionToggle_Light_Dark_Mode, &QAction::triggered,
+            [this]() { ui.graph->toggleDarkMode(); });
 }
 
 void GraphApp::onZoomChanged() {

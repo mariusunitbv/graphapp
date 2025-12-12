@@ -7,7 +7,7 @@ class NodeData {
    public:
     NodeData(size_t index, const QPoint& position);
 
-    const QRect& getBoundingRect() const;
+    QRect getBoundingRect() const;
 
     void setIndex(NodeIndex_t index);
     NodeIndex_t getIndex() const;
@@ -27,14 +27,14 @@ class NodeData {
 
    private:
     NodeIndex_t m_index{INVALID_NODE};
-    QRgb m_fillColor{qRgb(255, 255, 255)};
+    QRgb m_fillColor{};
 
-    QRect m_boundingRect{};
+    QPoint m_position{};
     QString m_label{};
 
     bool m_selected{false};
     uint32_t m_selectTime{0};
 
    public:
-    static constexpr float k_radius{24.f};
+    static constexpr auto k_radius{24};
 };

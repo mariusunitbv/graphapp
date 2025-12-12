@@ -3,7 +3,8 @@
 #include "Graph.h"
 
 Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScene()) {
-    setBackgroundBrush(Qt::white);
+    setFrameStyle(QFrame::NoFrame);
+    toggleDarkMode();
 
     QOpenGLWidget* glWidget = new QOpenGLWidget(this);
     glWidget->setFormat(QSurfaceFormat::defaultFormat());
@@ -97,6 +98,24 @@ void Graph::onAdjacencyListChanged(const QString& text) {
 GraphManager& Graph::getGraphManager() { return m_graphManager; }
 
 int Graph::getZoomPercentage() { return static_cast<int>(m_currentZoomScale * 100); }
+
+void Graph::toggleDarkMode() {
+    constexpr auto black = qRgb(20, 20, 20);
+    constexpr auto white = qRgb(255, 255, 255);
+
+    if (m_darkMode) {
+        setBackgroundBrush(QColor::fromRgb(white));
+        m_graphManager.setNodeDefaultColor(white);
+        m_graphManager.setNodeOutlineDefaultColor(black);
+
+    } else {
+        setBackgroundBrush(QColor::fromRgb(black));
+        m_graphManager.setNodeDefaultColor(black);
+        m_graphManager.setNodeOutlineDefaultColor(white);
+    }
+
+    m_darkMode = !m_darkMode;
+}
 
 Graph* Graph::getInvertedGraph() const {
     if (!m_graphManager.getOrientedGraph()) {

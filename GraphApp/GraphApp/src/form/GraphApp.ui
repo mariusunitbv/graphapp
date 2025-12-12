@@ -154,6 +154,7 @@
     <addaction name="actionDraw_Nodes"/>
     <addaction name="actionDraw_Edges"/>
     <addaction name="actionDraw_Quad_Trees"/>
+    <addaction name="actionToggle_Light_Dark_Mode"/>
    </widget>
    <addaction name="menuGraph"/>
    <addaction name="menuAlgorithms"/>
@@ -311,6 +312,11 @@
   <action name="actionDijkstra_s_algorithm">
    <property name="text">
     <string>Dijkstra's algorithm</string>
+   </property>
+  </action>
+  <action name="actionToggle_Light_Dark_Mode">
+   <property name="text">
+    <string>Toggle Light/Dark Mode</string>
    </property>
   </action>
  </widget>

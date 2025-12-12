@@ -4,9 +4,9 @@
 #include "QuadTree.h"
 
 constexpr size_t NODE_LIMIT = 100000;
-constexpr size_t SHOWN_EDGE_LIMIT = 200000;
+constexpr size_t SHOWN_EDGE_LIMIT = 400000;
 constexpr uint16_t EDGE_GRID_SIZE = 128;
-constexpr uint16_t MAX_EDGE_DENSITY = 1024;
+constexpr uint16_t MAX_EDGE_DENSITY = 2000;
 
 class GraphManager : public QGraphicsObject {
     Q_OBJECT
@@ -34,7 +34,7 @@ class GraphManager : public QGraphicsObject {
     size_t getMaxEdgesCount() const;
 
     void resizeAdjacencyMatrix(size_t nodeCount);
-    void updateVisibleEdgeCache();
+    void buildVisibleEdgeCache();
     void buildFullEdgeCache();
     void resetAdjacencyMatrix();
     void completeGraph();
@@ -61,6 +61,9 @@ class GraphManager : public QGraphicsObject {
     void setDrawQuadTreesEnabled(bool enabled);
     bool getDrawQuadTreesEnabled() const;
 
+    void setNodeDefaultColor(QRgb color);
+    void setNodeOutlineDefaultColor(QRgb color);
+
     void dijkstra();
 
    protected:
@@ -78,8 +81,8 @@ class GraphManager : public QGraphicsObject {
     bool isVisibleInScene(const QRect& rect) const;
     void removeSelectedNodes();
     void recomputeQuadTree();
-    void recomputeAdjacencyMatrix();
-    void removeEdgesContainingSelectedNodes();
+    void recomputeAdjacencyMatrixAfterAddingNode();
+    void recomputeAdjacencyMatrixBeforeRemovingNodes();
     void deselectNodes();
     bool rasterizeEdgeAndCheckDensity(QPoint source, QPoint dest);
 
@@ -99,6 +102,9 @@ class GraphManager : public QGraphicsObject {
 
     QPoint m_dragOffset{};
 
+    QFuture<QPainterPath> m_edgeFuture;
+    QFutureWatcher<QPainterPath> m_edgeWatcher;
+
     bool m_collisionsCheckEnabled : 1 {true};
     bool m_draggingNode : 1 {false};
     bool m_pressedEmptySpace : 1 {false};
@@ -110,4 +116,7 @@ class GraphManager : public QGraphicsObject {
     bool m_drawNodes : 1 {true};
     bool m_drawEdges : 1 {true};
     bool m_drawQuadTrees : 1 {false};
+
+    QRgb m_nodeDefaultColor{qRgb(255, 255, 255)};
+    QRgb m_nodeOutlineDefaultColor{qRgb(255, 255, 255)};
 };

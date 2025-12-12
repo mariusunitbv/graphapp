@@ -7,7 +7,9 @@ NodeData::NodeData(size_t index, const QPoint& position) {
     setPosition(position);
 }
 
-const QRect& NodeData::getBoundingRect() const { return m_boundingRect; }
+QRect NodeData::getBoundingRect() const {
+    return QRect{m_position.x() - k_radius, m_position.y() - k_radius, 2 * k_radius, 2 * k_radius};
+}
 
 void NodeData::setIndex(NodeIndex_t index) {
     m_index = index;
@@ -24,12 +26,9 @@ void NodeData::setLabel(const QString& label) { m_label = label; }
 
 const QString& NodeData::getLabel() const { return m_label; }
 
-void NodeData::setPosition(const QPoint& position) {
-    m_boundingRect.setRect(position.x() - k_radius, position.y() - k_radius, 2 * k_radius,
-                           2 * k_radius);
-}
+void NodeData::setPosition(const QPoint& position) { m_position = position; }
 
-QPoint NodeData::getPosition() const { return m_boundingRect.center(); }
+QPoint NodeData::getPosition() const { return m_position; }
 
 void NodeData::setSelected(bool selected, uint32_t selectTime) {
     m_selected = selected;

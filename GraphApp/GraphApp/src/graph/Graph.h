@@ -37,7 +37,7 @@ class Graph : public QGraphicsView {
     bool m_darkMode{false};
     double m_currentZoomScale{1.};
 
-    static constexpr double k_minScale = 0.25;
+    static constexpr double k_minScale = 0.1;
     static constexpr double k_maxScale = 5.;
-    static constexpr double k_zoomStep = 0.25;
+    static constexpr double k_zoomStep = 0.1;
 };

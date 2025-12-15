@@ -11,16 +11,17 @@ class QuadTree {
 
     void insert(const NodeData& node);
     void getContainingTrees(const NodeData& node, std::vector<QuadTree*>& trees);
-    void getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>& nodes);
+    void getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>& nodes) const;
 
     // NON-RECURSIVE METHODS
-    bool needsReinserting(const NodeData& node);
+    bool needsReinserting(const NodeData& node) const;
     void update(const NodeData& node);
     void remove(const NodeData& node);
     void clear();
 
     void subdivide();
     bool isSubdivided() const;
+    bool canSubdivide() const;
 
     QuadTree* getNorthWest() const;
     QuadTree* getNorthEast() const;
@@ -33,9 +34,14 @@ class QuadTree {
 
    private:
     struct TreeNode {
+        TreeNode(NodeIndex_t index, QPoint position) : m_index(index), m_position(position) {}
+
         NodeIndex_t m_index;
         QPoint m_position;
     };
+
+    std::optional<std::pair<NodeIndex_t, uint64_t>> getClosestNodeHelper(
+        QPoint pos, uint64_t minDistanceSquared, NodeIndex_t indexToIgnore) const;
 
     QRect m_boundary{};
 
@@ -44,8 +50,7 @@ class QuadTree {
     QuadTree* m_southWest{nullptr};
     QuadTree* m_southEast{nullptr};
 
-    static constexpr size_t k_maxCapacity{4};
+    std::vector<TreeNode> m_nodes{};
 
-    std::array<TreeNode, k_maxCapacity> m_nodes{};
-    NodeIndex_t m_nodesCount{0};
+    static constexpr auto k_maxSoftCapacity{4};
 };

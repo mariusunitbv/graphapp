@@ -1,8 +1,6 @@
 #pragma once
 
-#include "Node.h"
-
-using CostType_t = int8_t;
+#include "IGraphStorage.h"
 
 /**
  * @class AdjacencyMatrix
@@ -22,27 +20,30 @@ using CostType_t = int8_t;
  * This design allows querying edge existence and retrieving cost in a single
  * memory access, improving cache efficiency for graph algorithms.
  */
-class AdjacencyMatrix {
+class AdjacencyMatrix : public IGraphStorage {
    public:
-    AdjacencyMatrix() = default;
+    Type type() const override;
 
-    AdjacencyMatrix(const AdjacencyMatrix&) = delete;
-    AdjacencyMatrix& operator=(const AdjacencyMatrix&) = delete;
+    void resize(size_t nodeCount) override;
 
-    AdjacencyMatrix(AdjacencyMatrix&& rhs) noexcept;
-    AdjacencyMatrix& operator=(AdjacencyMatrix&& rhs) noexcept;
+    void addEdge(NodeIndex_t start, NodeIndex_t end, CostType_t cost) override;
+    void removeEdge(NodeIndex_t start, NodeIndex_t end) override;
 
-    void resize(size_t nodeCount);
-    bool empty() const;
+    bool hasEdge(NodeIndex_t start, NodeIndex_t end) const override;
+    CostType_t getCost(NodeIndex_t start, NodeIndex_t end) const override;
 
-    void reset();
+    void forEachOutgoingEdge(
+        NodeIndex_t node,
+        const std::function<void(NodeIndex_t, CostType_t)>& callback) const override;
+
+    void recomputeBeforeRemovingNodes(
+        size_t oldNodeCount,
+        const std::set<NodeIndex_t, std::greater<NodeIndex_t>>& selectedNodes) override;
+    void recomputeAfterAddingNode(size_t newNodeCount) override;
+
+    size_t getMemoryUsage() const override;
+
     void complete();
-
-    void setEdge(NodeIndex_t i, NodeIndex_t j, CostType_t cost);
-    void clearEdge(NodeIndex_t i, NodeIndex_t j);
-
-    bool hasEdge(NodeIndex_t i, NodeIndex_t j) const;
-    CostType_t getCost(NodeIndex_t i, NodeIndex_t j) const;
 
    private:
     using UnsignedCostType_t = std::make_unsigned<CostType_t>::type;
@@ -53,7 +54,7 @@ class AdjacencyMatrix {
     static UnsignedCostType_t encode(CostType_t cost);
     UnsignedCostType_t read(NodeIndex_t i, NodeIndex_t j) const;
 
-    NodeIndex_t m_nodeCount{0};
+    size_t m_nodeCount{0};
     std::vector<UnsignedCostType_t> m_matrix{};
 };
 

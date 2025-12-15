@@ -257,7 +257,7 @@
   </action>
   <action name="action_Custom_Load_Map">
    <property name="text">
-    <string>[Custom] Load Map</string>
+    <string>Load GeoJSON</string>
    </property>
   </action>
   <action name="actionAllow_Editing">

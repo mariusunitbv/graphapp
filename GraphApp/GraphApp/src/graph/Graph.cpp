@@ -11,7 +11,7 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
 
     setViewport(glWidget);
 
-    m_scene->setSceneRect(0, 0, 50000, 50000);
+    m_scene->setSceneRect(0, 0, 30720, 17280);
     m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
     setScene(m_scene);
 
@@ -138,7 +138,7 @@ void Graph::wheelEvent(QWheelEvent* event) {
 
     newScale = qBound(k_minScale, newScale, k_maxScale);
 
-    double factor = newScale / m_currentZoomScale;
+    const auto factor = newScale / m_currentZoomScale;
 
     scale(factor, factor);
     m_currentZoomScale = newScale;

@@ -11,8 +11,10 @@
     <ClCompile Include="src\form\intermediate_graph\IntermediateGraph.cpp" />
     <ClCompile Include="src\graph\GraphManager.cpp" />
     <ClCompile Include="src\graph\QuadTree.cpp" />
-    <ClCompile Include="src\graph\AdjacencyMatrix.cpp" />
-    <ClCompile Include="src\dependencies\tinyxml2.cpp" />
+    <ClCompile Include="src\graph\storage\AdjacencyMatrix.cpp" />
+    <ClCompile Include="src\graph\geojson\GeoJSONLoader.cpp" />
+    <ClCompile Include="src\graph\storage\AdjacencyList.cpp" />
+    <ClCompile Include="src\form\loading_screen\LoadingScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="src\form\GraphApp.h" />
@@ -20,19 +22,23 @@
     <QtMoc Include="src\form\pseudocode\PseudocodeForm.h" />
     <QtMoc Include="src\form\intermediate_graph\IntermediateGraph.h" />
     <QtMoc Include="src\graph\GraphManager.h" />
+    <QtMoc Include="src\form\loading_screen\LoadingScreen.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />
     <ClInclude Include="src\random\Random.h" />
     <ClInclude Include="src\graph\QuadTree.h" />
-    <ClInclude Include="src\graph\AdjacencyMatrix.h" />
-    <ClInclude Include="src\dependencies\tinyxml2.h" />
+    <ClInclude Include="src\graph\storage\AdjacencyMatrix.h" />
     <ClInclude Include="src\graph\Node.h" />
-    <ClInclude Include="src\dependencies\json.hpp" />
+    <ClInclude Include="src\graph\geojson\GeoJSONLoader.h" />
+    <ClInclude Include="src\graph\storage\IGraphStorage.h" />
+    <ClInclude Include="src\graph\storage\AdjacencyList.h" />
+    <ClInclude Include="src\tracker\MemoryTracker.h" />
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="src\form\GraphApp.ui" />
     <QtUic Include="src\form\pseudocode\PseudocodeForm.ui" />
     <QtUic Include="src\form\intermediate_graph\IntermediateGraph.ui" />
+    <QtUic Include="src\form\loading_screen\LoadingScreen.ui" />
   </ItemGroup>
 </Project>

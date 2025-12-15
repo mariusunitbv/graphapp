@@ -1,6 +1,8 @@
 #pragma once
 
+#include <execution>
 #include <fstream>
+#include <ranges>
 #include <queue>
 #include <stack>
 
@@ -8,4 +10,5 @@
 #include <QtConcurrent>
 #include <QtWidgets>
 
-#include "../dependencies/json.hpp"
+// External
+#include <simdjson.h>

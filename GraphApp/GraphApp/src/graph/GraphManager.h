@@ -1,12 +1,15 @@
 #pragma once
 
-#include "AdjacencyMatrix.h"
+#include "../form/loading_screen/LoadingScreen.h"
+
+#include "storage/IGraphStorage.h"
+
 #include "QuadTree.h"
 
-constexpr size_t NODE_LIMIT = 100000;
-constexpr size_t SHOWN_EDGE_LIMIT = 400000;
+constexpr size_t NODE_LIMIT = 1'000'000;
+constexpr size_t SHOWN_EDGE_LIMIT = 400'000;
 constexpr uint16_t EDGE_GRID_SIZE = 128;
-constexpr uint16_t MAX_EDGE_DENSITY = 2000;
+constexpr uint16_t MAX_EDGE_DENSITY = 2'000;
 
 class GraphManager : public QGraphicsObject {
     Q_OBJECT
@@ -19,11 +22,11 @@ class GraphManager : public QGraphicsObject {
     void setCollisionsCheckEnabled(bool enabled);
     void reset();
 
-    NodeIndex_t getNodesCount() const;
+    size_t getNodesCount() const;
     void reserveNodes(size_t count);
 
     NodeData& getNode(NodeIndex_t index);
-    std::optional<NodeIndex_t> getNode(const QPoint& pos);
+    std::optional<NodeIndex_t> getNode(const QPoint& pos, float minDistance = NodeData::k_radius);
 
     bool hasNeighbour(NodeIndex_t index, NodeIndex_t neighbour) const;
 
@@ -34,9 +37,11 @@ class GraphManager : public QGraphicsObject {
     size_t getMaxEdgesCount() const;
 
     void resizeAdjacencyMatrix(size_t nodeCount);
+    void resetAdjacencyMatrix();
+
     void buildVisibleEdgeCache();
     void buildFullEdgeCache();
-    void resetAdjacencyMatrix();
+
     void completeGraph();
     void fillGraph();
 
@@ -66,8 +71,9 @@ class GraphManager : public QGraphicsObject {
 
     void dijkstra();
 
-   protected:
     QRectF boundingRect() const override;
+
+   protected:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*) override;
 
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
@@ -77,13 +83,23 @@ class GraphManager : public QGraphicsObject {
     void keyReleaseEvent(QKeyEvent* event) override;
 
    private:
-    void drawQuadTree(QPainter* painter, QuadTree* quadTree) const;
+    void drawEdgeCache(QPainter* painter, qreal lod) const;
+    void drawNodes(QPainter* painter, qreal lod) const;
+    void drawQuadTree(QPainter* painter, QuadTree* quadTree, qreal lod) const;
+
+    void addArrowToPath(QPainterPath& path, QPoint tip, const QPointF& dir) const;
+    void addEdgeToPath(QPainterPath& edgePath, NodeIndex_t nodeIndex, NodeIndex_t neighbourIndex,
+                       CostType_t cost) const;
+
     bool isVisibleInScene(const QRect& rect) const;
-    void removeSelectedNodes();
+
     void recomputeQuadTree();
-    void recomputeAdjacencyMatrixAfterAddingNode();
-    void recomputeAdjacencyMatrixBeforeRemovingNodes();
+
+    void switchToOptimalAdjacencyContainerIfNeeded();
+
+    void removeSelectedNodes();
     void deselectNodes();
+
     bool rasterizeEdgeAndCheckDensity(QPoint source, QPoint dest);
 
     QPointF mapToScreen(QPointF graphPos);
@@ -95,7 +111,7 @@ class GraphManager : public QGraphicsObject {
     std::vector<NodeData> m_nodes;
     QuadTree m_quadTree;
     QPainterPath m_edgesCache, m_algorithmPath;
-    AdjacencyMatrix m_adjacencyMatrix;
+    std::unique_ptr<IGraphStorage> m_graphStorage{};
 
     std::array<uint16_t, EDGE_GRID_SIZE * EDGE_GRID_SIZE> m_edgeDensity{};
     std::set<NodeIndex_t, std::greater<NodeIndex_t>> m_selectedNodes{};
@@ -119,4 +135,6 @@ class GraphManager : public QGraphicsObject {
 
     QRgb m_nodeDefaultColor{qRgb(255, 255, 255)};
     QRgb m_nodeOutlineDefaultColor{qRgb(255, 255, 255)};
+
+    QPointer<LoadingScreen> m_loadingScreen{};
 };

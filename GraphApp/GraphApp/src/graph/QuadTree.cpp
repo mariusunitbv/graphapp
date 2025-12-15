@@ -20,12 +20,14 @@ void QuadTree::insert(const NodeData& node) {
         return;
     }
 
-    if (m_nodesCount < k_maxCapacity) {
-        m_nodes[m_nodesCount].m_index = node.getIndex();
-        m_nodes[m_nodesCount].m_position = node.getPosition();
-        m_nodesCount++;
-
+    if (m_nodes.size() < k_maxSoftCapacity) {
+        m_nodes.emplace_back(node.getIndex(), node.getPosition());
         return;
+    } else {
+        if (!isSubdivided() && !canSubdivide()) {
+            m_nodes.emplace_back(node.getIndex(), node.getPosition());
+            return;
+        }
     }
 
     if (!isSubdivided()) {
@@ -43,7 +45,7 @@ void QuadTree::getContainingTrees(const NodeData& node, std::vector<QuadTree*>& 
         return;
     }
 
-    for (size_t i = 0; i < m_nodesCount; ++i) {
+    for (size_t i = 0; i < m_nodes.size(); ++i) {
         if (m_nodes[i].m_index == node.getIndex()) {
             return trees.push_back(this);
         }
@@ -59,12 +61,12 @@ void QuadTree::getContainingTrees(const NodeData& node, std::vector<QuadTree*>& 
     m_southEast->getContainingTrees(node, trees);
 }
 
-void QuadTree::getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>& nodes) {
+void QuadTree::getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>& nodes) const {
     if (!m_boundary.intersects(area)) {
         return;
     }
 
-    for (size_t i = 0; i < m_nodesCount; ++i) {
+    for (size_t i = 0; i < m_nodes.size(); ++i) {
         const auto& nodePos = m_nodes[i].m_position;
         const QRect nodeArea(nodePos.x() - NodeData::k_radius, nodePos.y() - NodeData::k_radius,
                              2 * NodeData::k_radius, 2 * NodeData::k_radius);
@@ -84,12 +86,12 @@ void QuadTree::getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>
     m_southEast->getNodesInArea(area, nodes);
 }
 
-bool QuadTree::needsReinserting(const NodeData& node) {
+bool QuadTree::needsReinserting(const NodeData& node) const {
     return !m_boundary.intersects(node.getBoundingRect());
 }
 
 void QuadTree::update(const NodeData& node) {
-    for (size_t i = 0; i < m_nodesCount; ++i) {
+    for (size_t i = 0; i < m_nodes.size(); ++i) {
         if (m_nodes[i].m_index == node.getIndex()) {
             m_nodes[i].m_position = node.getPosition();
             return;
@@ -98,18 +100,17 @@ void QuadTree::update(const NodeData& node) {
 }
 
 void QuadTree::remove(const NodeData& node) {
-    for (size_t i = 0; i < m_nodesCount; ++i) {
+    for (size_t i = 0; i < m_nodes.size(); ++i) {
         if (m_nodes[i].m_index == node.getIndex()) {
-            m_nodes[i] = m_nodes[m_nodesCount - 1];
-            --m_nodesCount;
+            m_nodes[i] = m_nodes[m_nodes.size() - 1];
+            m_nodes.pop_back();
             return;
         }
     }
 }
 
 void QuadTree::clear() {
-    m_nodesCount = 0;
-
+    m_nodes.clear();
     if (isSubdivided()) {
         delete m_northWest;
         delete m_northEast;
@@ -126,6 +127,10 @@ void QuadTree::subdivide() {
     const auto w = m_boundary.width() / 2;
     const auto h = m_boundary.height() / 2;
 
+    if (!canSubdivide()) {
+        throw std::runtime_error("Cannot subdivide QuadTree further.");
+    }
+
     m_northWest = new QuadTree();
     m_northWest->setBoundary(QRect(x, y, w, h));
 
@@ -141,6 +146,10 @@ void QuadTree::subdivide() {
 
 bool QuadTree::isSubdivided() const { return m_northWest; }
 
+bool QuadTree::canSubdivide() const {
+    return m_boundary.width() / 2 > 0 && m_boundary.height() / 2 > 0;
+}
+
 QuadTree* QuadTree::getNorthWest() const { return m_northWest; }
 
 QuadTree* QuadTree::getNorthEast() const { return m_northEast; }
@@ -155,47 +164,68 @@ bool QuadTree::intersectsAnotherNode(QPoint pos, NodeIndex_t indexToIgnore) cons
 
 std::optional<NodeIndex_t> QuadTree::getNodeAtPosition(QPoint pos, float minDistance,
                                                        NodeIndex_t indexToIgnore) const {
+    const auto minDistanceSquared = static_cast<uint64_t>(minDistance * minDistance);
+    const auto closestNode = getClosestNodeHelper(pos, minDistanceSquared, indexToIgnore);
+    if (closestNode) {
+        return closestNode->first;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<std::pair<NodeIndex_t, uint64_t>> QuadTree::getClosestNodeHelper(
+    QPoint pos, uint64_t minDistanceSquared, NodeIndex_t indexToIgnore) const {
     if (!m_boundary.intersects(QRect(pos.x() - NodeData::k_radius, pos.y() - NodeData::k_radius,
                                      2 * NodeData::k_radius, 2 * NodeData::k_radius))) {
         return std::nullopt;
     }
 
-    for (size_t i = 0; i < m_nodesCount; ++i) {
+    NodeIndex_t closestNode = INVALID_NODE;
+    for (size_t i = 0; i < m_nodes.size(); ++i) {
         if (m_nodes[i].m_index == indexToIgnore) {
             continue;
         }
 
         const auto nodePos = m_nodes[i].m_position;
+        const auto dx = static_cast<int64_t>(nodePos.x()) - pos.x();
+        const auto dy = static_cast<int64_t>(nodePos.y()) - pos.y();
+        const auto distanceSq = static_cast<uint64_t>(dx) * dx + static_cast<uint64_t>(dy) * dy;
 
-        const int64_t dx = nodePos.x() - pos.x();
-        const int64_t dy = nodePos.y() - pos.y();
-
-        if (dx * dx + dy * dy < (minDistance * minDistance)) {
-            return m_nodes[i].m_index;
+        if (distanceSq < minDistanceSquared) {
+            closestNode = m_nodes[i].m_index;
+            minDistanceSquared = distanceSq;
         }
     }
 
     if (isSubdivided()) {
-        auto value = m_northWest->getNodeAtPosition(pos, minDistance, indexToIgnore);
-        if (value) {
-            return value;
+        auto value = m_northWest->getClosestNodeHelper(pos, minDistanceSquared, indexToIgnore);
+        if (value && value->second < minDistanceSquared) {
+            minDistanceSquared = value->second;
+            closestNode = value->first;
         }
 
-        value = m_northEast->getNodeAtPosition(pos, minDistance, indexToIgnore);
-        if (value) {
-            return value;
+        value = m_northEast->getClosestNodeHelper(pos, minDistanceSquared, indexToIgnore);
+        if (value && value->second < minDistanceSquared) {
+            minDistanceSquared = value->second;
+            closestNode = value->first;
         }
 
-        value = m_southWest->getNodeAtPosition(pos, minDistance, indexToIgnore);
-        if (value) {
-            return value;
+        value = m_southWest->getClosestNodeHelper(pos, minDistanceSquared, indexToIgnore);
+        if (value && value->second < minDistanceSquared) {
+            minDistanceSquared = value->second;
+            closestNode = value->first;
         }
 
-        value = m_southEast->getNodeAtPosition(pos, minDistance, indexToIgnore);
-        if (value) {
-            return value;
+        value = m_southEast->getClosestNodeHelper(pos, minDistanceSquared, indexToIgnore);
+        if (value && value->second < minDistanceSquared) {
+            minDistanceSquared = value->second;
+            closestNode = value->first;
         }
     }
 
-    return std::nullopt;
+    if (closestNode == INVALID_NODE) {
+        return std::nullopt;
+    }
+
+    return std::make_pair(closestNode, minDistanceSquared);
 }

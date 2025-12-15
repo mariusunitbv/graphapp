@@ -4,7 +4,7 @@
 
 #include "intermediate_graph/IntermediateGraph.h"
 
-#include "../dependencies/tinyxml2.h"
+#include "../graph/geojson/GeoJSONLoader.h"
 
 GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
     ui.setupUi(this);
@@ -22,9 +22,7 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
         auto& graphManager = ui.graph->getGraphManager();
 
-        const auto nodesCount = graphManager.getNodesCount();
         const auto maxEdges = graphManager.getMaxEdgesCount();
-
         const auto edgeCount = QInputDialog::getInt(
             nullptr, "Edge Count", QString("Number of edges (max %1):").arg(maxEdges), maxEdges / 3,
             0, maxEdges, 1, &ok);
@@ -36,16 +34,8 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         graphManager.randomlyAddEdges(edgeCount);
     });
 
-    connect(ui.actionBuild_Full_Edge_Cache, &QAction::triggered, [this]() {
-        const auto response = QMessageBox::information(nullptr, "Confirmation",
-                                                       "Building the full edge cache may take a "
-                                                       "long time for large graphs. Do you want "
-                                                       "to proceed?",
-                                                       QMessageBox::Yes, QMessageBox::No);
-        if (response == QMessageBox::Yes) {
-            ui.graph->getGraphManager().buildFullEdgeCache();
-        }
-    });
+    connect(ui.actionBuild_Full_Edge_Cache, &QAction::triggered,
+            [this]() { ui.graph->getGraphManager().buildFullEdgeCache(); });
 
     connect(ui.actionAnimations, &QAction::toggled,
             [this](bool checked) { ui.graph->getGraphManager().setAnimationsDisabled(!checked); });
@@ -128,137 +118,15 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
     connect(ui.action_Custom_Load_Map, &QAction::triggered, [this]() {
         const auto filePath =
-            QFileDialog::getOpenFileName(this, "Open Map File", "", "All Files (*)");
+            QFileDialog::getOpenFileName(this, "Open Map File", "", "GeoJSON Files (*.geojson)");
         if (filePath.isEmpty()) {
             return;
         }
 
-        auto& graphManager = ui.graph->getGraphManager();
-        const auto sceneRect = ui.graph->sceneRect().toRect();
+        GeoJSONLoader loader(&ui.graph->getGraphManager(), filePath);
+        loader.tryLoad();
 
-        graphManager.reset();
-        graphManager.setCollisionsCheckEnabled(false);
-
-        ui.actionAllow_Editing->setChecked(false);
-
-        try {
-            qreal minLat = std::numeric_limits<qreal>::max(),
-                  minLon = std::numeric_limits<qreal>::max();
-            qreal maxLat = std::numeric_limits<qreal>::min(),
-                  maxLon = std::numeric_limits<qreal>::min();
-
-            using nlohmann::json;
-            const auto j = json::parse(std::ifstream(filePath.toStdString()));
-
-            for (const auto& feature : j["features"]) {
-                if (feature["geometry"]["type"] != "LineString") {
-                    continue;
-                }
-
-                const auto& coords = feature["geometry"]["coordinates"];
-                for (const auto& coord : coords) {
-                    const qreal lon = coord[0];
-                    const qreal lat = coord[1];
-
-                    if (lat < minLat) {
-                        minLat = lat;
-                    }
-
-                    if (lat > maxLat) {
-                        maxLat = lat;
-                    }
-
-                    if (lon < minLon) {
-                        minLon = lon;
-                    }
-
-                    if (lon > maxLon) {
-                        maxLon = lon;
-                    }
-                }
-            }
-
-            const int centerX = sceneRect.width() / 2;
-            const int centerY = sceneRect.height() / 2;
-            constexpr auto scale = 1;
-
-            QHash<QPoint, NodeIndex_t> loadedNodes;
-            for (const auto& feature : j["features"]) {
-                if (feature["geometry"]["type"] != "LineString") {
-                    continue;
-                }
-
-                const auto& coords = feature["geometry"]["coordinates"];
-                for (const auto& coord : coords) {
-                    const double lon = coord[0];
-                    const double lat = coord[1];
-
-                    const double normLon = (lon - minLon) / (maxLon - minLon);
-                    const double normLat = (lat - minLat) / (maxLat - minLat);
-
-                    const int x = centerX + (normLon - 0.5) * scale *
-                                                (sceneRect.width() - 2 * NodeData::k_radius);
-                    const int y = centerY + (0.5 - normLat) * scale *
-                                                (sceneRect.height() - 2 * NodeData::k_radius);
-
-                    if (!loadedNodes.contains({x, y})) {
-                        graphManager.addNode({x, y});
-                        loadedNodes[{x, y}] = graphManager.getNodesCount() - 1;
-                    }
-                }
-            }
-
-            graphManager.resizeAdjacencyMatrix(graphManager.getNodesCount());
-
-            for (const auto& feature : j["features"]) {
-                if (feature["geometry"]["type"] != "LineString") {
-                    continue;
-                }
-
-                const bool oneWay = feature["properties"].value("oneway", "no") == "yes";
-
-                NodeIndex_t prevNodeIndex = INVALID_NODE;
-                const auto& coords = feature["geometry"]["coordinates"];
-                for (const auto& coord : coords) {
-                    const double lon = coord[0];
-                    const double lat = coord[1];
-
-                    const double normLon = (lon - minLon) / (maxLon - minLon);
-                    const double normLat = (lat - minLat) / (maxLat - minLat);
-
-                    const int x = centerX + (normLon - 0.5) * scale *
-                                                (sceneRect.width() - 2 * NodeData::k_radius);
-                    const int y = centerY + (0.5 - normLat) * scale *
-                                                (sceneRect.height() - 2 * NodeData::k_radius);
-
-                    const auto nodeIndex = loadedNodes.value({x, y}, INVALID_NODE);
-                    if (nodeIndex == INVALID_NODE) {
-                        throw std::runtime_error("Node not found during edge creation.");
-                    }
-
-                    if (prevNodeIndex == INVALID_NODE) {
-                        prevNodeIndex = nodeIndex;
-                        continue;
-                    }
-
-                    const auto currentNodeIndex = nodeIndex;
-                    graphManager.addEdge(prevNodeIndex, currentNodeIndex, 1);
-                    if (!oneWay) {
-                        graphManager.addEdge(currentNodeIndex, prevNodeIndex, 1);
-                    }
-
-                    prevNodeIndex = currentNodeIndex;
-                }
-            }
-        } catch (const std::exception& e) {
-            QMessageBox::warning(this, "Error",
-                                 QString("Failed to load the map file:\n%1").arg(e.what()));
-            graphManager.reset();
-            return;
-        }
-
-        graphManager.buildFullEdgeCache();
-        graphManager.setCollisionsCheckEnabled(true);
+        ui.actionAllow_Editing->setChecked(ui.graph->getGraphManager().getAllowEditing());
     });
 
     connect(ui.actionDraw_Nodes, &QAction::toggled,

@@ -46,10 +46,8 @@ void GeoJSONLoader::tryLoad() {
 }
 
 QPointF GeoJSONLoader::toMercator(qreal lat, qreal lon) const {
-    static constexpr auto R = 6378137.0;
-
-    const auto x = R * lon * M_PI / 180.0;
-    const auto y = R * std::log(std::tan(M_PI / 4.0 + lat * M_PI / 360.0));
+    const auto x = EARTH_RADIUS_METERS * lon * M_PI / 180.0;
+    const auto y = EARTH_RADIUS_METERS * std::log(std::tan(M_PI / 4.0 + lat * M_PI / 360.0));
 
     return {x, y};
 }
@@ -65,6 +63,19 @@ QPoint GeoJSONLoader::mercatorToGraphPosition(const QPointF& mercatorPos) const 
     const auto y = padding + (1.0 - ny) * (graphSize.height() - 2 * padding);
 
     return QPointF{x, y}.toPoint();
+}
+
+qreal GeoJSONLoader::haversineDistanceKm(qreal lat1, qreal lat2, qreal lon1, qreal lon2) const {
+    const auto phi1 = qDegreesToRadians(lat1);
+    const auto phi2 = qDegreesToRadians(lat2);
+    const auto dPhi = qDegreesToRadians(lat2 - lat1);
+    const auto dLambda = qDegreesToRadians(lon2 - lon1);
+
+    const auto havTheta = qSin(dPhi / 2) * qSin(dPhi / 2) +
+                          qCos(phi1) * qCos(phi2) * qSin(dLambda / 2) * qSin(dLambda / 2);
+    const auto theta = 2 * qAsin(qSqrt(havTheta));
+
+    return EARTH_RADIUS_METERS * theta;
 }
 
 void GeoJSONLoader::parseAndComputeBounds() {
@@ -101,12 +112,22 @@ void GeoJSONLoader::parseAndComputeBounds() {
         ondemand::array coords = geometry["coordinates"];
         wayData.m_mercatorPoints.reserve(coords.count_elements());
 
+        qreal lastLon{}, lastLat{};
         for (auto coord : coords) {
             auto it = coord.begin();
             const qreal lon = *it, lat = *(++it);
             const auto mercatorPos = toMercator(lat, lon);
 
-            wayData.m_mercatorPoints.push_back(mercatorPos);
+            auto& mercatorPoints = wayData.m_mercatorPoints;
+            if (mercatorPoints.empty()) {
+                mercatorPoints.emplace_back(mercatorPos, 0);
+            } else {
+                mercatorPoints.emplace_back(mercatorPos,
+                                            haversineDistanceKm(lastLat, lat, lastLon, lon));
+            }
+
+            lastLon = lon;
+            lastLat = lat;
 
             m_minX = std::min(m_minX, mercatorPos.x());
             m_maxX = std::max(m_maxX, mercatorPos.x());
@@ -121,12 +142,17 @@ void GeoJSONLoader::parseAndComputeBounds() {
 void GeoJSONLoader::addNodesToGraph() {
     size_t addedNodes{};
 
-    for (const auto& [points, oneWay] : m_ways) {
-        for (const auto& mercatorPos : points) {
+    for (const auto& [points, _] : m_ways) {
+        for (const auto& [mercatorPos, _] : points) {
             const auto screenPos = mercatorToGraphPosition(mercatorPos);
+
+            if (m_screenToNodes.contains(screenPos)) {
+                continue;
+            }
 
             const auto nearestNode = m_graphManager->getNode(screenPos, m_accuracy);
             if (nearestNode.has_value()) {
+                m_screenToNodes.emplace(screenPos, nearestNode.value());
                 continue;
             }
 
@@ -138,6 +164,8 @@ void GeoJSONLoader::addNodesToGraph() {
             if (++addedNodes % 50000 == 0) {
                 m_loadingScreen->setText(QString("Added %1 nodes").arg(addedNodes));
             }
+
+            m_screenToNodes.emplace(screenPos, m_graphManager->getNodesCount() - 1);
         }
     }
 }
@@ -148,23 +176,22 @@ void GeoJSONLoader::connectNodes() {
 
     for (const auto& [points, oneWay] : m_ways) {
         NodeIndex_t prevNodeIndex = INVALID_NODE;
-        for (const auto& mercatorPos : points) {
+        for (const auto& [mercatorPos, distance] : points) {
             const auto screenPos = mercatorToGraphPosition(mercatorPos);
 
-            const auto nodeIndexOpt = m_graphManager->getNode(screenPos, m_accuracy);
-            if (!nodeIndexOpt.has_value()) {
-                throw std::runtime_error("Internal error: Node not found in graph.");
+            const auto nodeIndex = m_screenToNodes.value(screenPos, INVALID_NODE);
+            if (nodeIndex == INVALID_NODE) {
+                throw std::runtime_error("Failed to find node for way connection.");
             }
 
-            const auto nodeIndex = nodeIndexOpt.value();
             if (prevNodeIndex == INVALID_NODE || prevNodeIndex == nodeIndex) {
                 prevNodeIndex = nodeIndex;
                 continue;
             }
 
-            m_graphManager->addEdge(prevNodeIndex, nodeIndex, 1);
+            m_graphManager->addEdge(prevNodeIndex, nodeIndex, distance);
             if (!oneWay) {
-                m_graphManager->addEdge(nodeIndex, prevNodeIndex, 1);
+                m_graphManager->addEdge(nodeIndex, prevNodeIndex, distance);
             }
 
             prevNodeIndex = nodeIndex;

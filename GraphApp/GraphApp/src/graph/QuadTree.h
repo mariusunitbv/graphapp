@@ -52,5 +52,5 @@ class QuadTree {
 
     std::vector<TreeNode> m_nodes{};
 
-    static constexpr auto k_maxSoftCapacity{4};
+    static constexpr auto k_maxSoftCapacity{8};
 };

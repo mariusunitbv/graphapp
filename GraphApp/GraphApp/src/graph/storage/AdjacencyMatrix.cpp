@@ -32,6 +32,15 @@ void AdjacencyMatrix::forEachOutgoingEdge(
     }
 }
 
+void AdjacencyMatrix::forEachOutgoingEdgeWithOpposites(
+    NodeIndex_t node, const std::function<void(NodeIndex_t, CostType_t)>& callback) const {
+    for (NodeIndex_t i = 0; i < m_nodeCount; ++i) {
+        if (hasEdge(node, i)) {
+            callback(i, getCost(node, i));
+        }
+    }
+}
+
 void AdjacencyMatrix::recomputeBeforeRemovingNodes(
     size_t oldNodeCount, const std::set<NodeIndex_t, std::greater<NodeIndex_t>>& selectedNodes) {
     size_t newNodeCount = m_nodeCount - selectedNodes.size();

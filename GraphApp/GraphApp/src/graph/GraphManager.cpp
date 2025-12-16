@@ -282,7 +282,7 @@ void GraphManager::setNodeDefaultColor(QRgb color) {
 void GraphManager::setNodeOutlineDefaultColor(QRgb color) { m_nodeOutlineDefaultColor = color; }
 
 void GraphManager::dijkstra() {
-    /*if (m_selectedNodes.size() != 2) {
+    if (m_selectedNodes.size() != 2) {
         QMessageBox::warning(nullptr, "Dijkstra Error",
                              "Please select exactly two nodes to run Dijkstra's algorithm.");
         return;
@@ -317,19 +317,20 @@ void GraphManager::dijkstra() {
             continue;
         }
 
-        for (NodeIndex_t neighbour = 0; neighbour < m_nodes.size(); ++neighbour) {
-            if (!m_adjacencyMatrix.hasEdge(currentNode, neighbour)) {
-                continue;
-            }
+        m_graphStorage->forEachOutgoingEdgeWithOpposites(
+            currentNode, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
+                if (cost < 0) {
+                    throw std::runtime_error(
+                        "Dijkstra's algorithm does not support graphs with negative edge weights.");
+                }
 
-            const auto edgeCost = m_adjacencyMatrix.getCost(currentNode, neighbour);
-            const auto newDistance = currentDistance + edgeCost;
-            if (newDistance < minDistances[neighbour]) {
-                minDistances[neighbour] = newDistance;
-                previousNodes[neighbour] = currentNode;
-                priorityQueue.emplace(newDistance, neighbour);
-            }
-        }
+                const auto newDistance = currentDistance + cost;
+                if (newDistance < minDistances[neighbourIndex]) {
+                    minDistances[neighbourIndex] = newDistance;
+                    previousNodes[neighbourIndex] = currentNode;
+                    priorityQueue.emplace(newDistance, neighbourIndex);
+                }
+            });
     }
 
     if (minDistances[endNode] == std::numeric_limits<int32_t>::max()) {
@@ -338,15 +339,20 @@ void GraphManager::dijkstra() {
         return;
     }
 
+    uint64_t totalCost = 0;
     for (NodeIndex_t at = endNode; at != -1; at = previousNodes[at]) {
         const auto nextNode = previousNodes[at];
         if (nextNode != -1) {
             m_algorithmPath.moveTo(m_nodes[nextNode].getPosition());
             m_algorithmPath.lineTo(m_nodes[at].getPosition());
+            totalCost += static_cast<uint64_t>(m_graphStorage->getCost(nextNode, at));
         }
 
         m_nodes[at].setFillColor(qRgb(255, 255, 0));
-    }*/
+    }
+
+    QMessageBox::information(nullptr, "Dijkstra Result",
+                             QString("Path found with total cost: %1").arg(totalCost));
 }
 
 QRectF GraphManager::boundingRect() const { return m_boundingRect; }
@@ -506,68 +512,57 @@ void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
         const auto& node = m_nodes[nodeIndex];
         const auto& rect = node.getBoundingRect();
 
-        /*if (lod >= 1 && !m_adjacencyMatrix.empty()) {
-            for (const auto neighbourIndex : visibleNodes) {
-                if (neighbourIndex >= nodeIndex) {
-                    continue;
-                }
+        if (lod >= 1) {
+            m_graphStorage->forEachOutgoingEdge(
+                nodeIndex, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
+                    const bool hasOppositeEdge = m_graphStorage->hasEdge(neighbourIndex, nodeIndex);
+                    const auto oppositeCost =
+                        hasOppositeEdge ? m_graphStorage->getCost(neighbourIndex, nodeIndex) : 0;
 
-                const bool hasEdge = m_adjacencyMatrix.hasEdge(nodeIndex, neighbourIndex);
-                const bool hasOppositeEdge = m_adjacencyMatrix.hasEdge(neighbourIndex, nodeIndex);
+                    if (cost == 0 && oppositeCost == 0) {
+                        return;
+                    }
 
-                if (!hasEdge && !hasOppositeEdge) {
-                    continue;
-                }
+                    const auto& neighbour = m_nodes[neighbourIndex];
+                    const auto mid = (node.getPosition() + neighbour.getPosition()) * 0.5f;
+                    const auto direction = neighbour.getPosition() - node.getPosition();
 
-                const auto cost = m_adjacencyMatrix.getCost(nodeIndex, neighbourIndex);
-                const auto oppositeCost = m_adjacencyMatrix.getCost(neighbourIndex, nodeIndex);
+                    QPointF normal(-direction.y(), direction.x());
+                    const auto length = std::hypot(normal.x(), normal.y());
+                    if (length > 0.0) {
+                        normal /= length;
+                    }
 
-                if (cost == 0 && oppositeCost == 0) {
-                    continue;
-                }
+                    if (normal.y() > 0) {
+                        normal = -normal;
+                    }
 
-                const auto& neighbour = m_nodes[neighbourIndex];
-                const auto mid = (node.getPosition() + neighbour.getPosition()) * 0.5f;
-                const auto direction = neighbour.getPosition() - node.getPosition();
+                    const QFontMetrics fm(painter->font());
+                    constexpr auto costOffset = 12.;
 
-                QPointF normal(-direction.y(), direction.x());
-                const auto length = std::hypot(normal.x(), normal.y());
-                if (length > 0.0) {
-                    normal /= length;
-                }
+                    if (cost != 0) {
+                        const auto costPos = mid + normal * costOffset;
+                        const auto costText = QString::number(cost);
+                        const auto textWidth = fm.horizontalAdvance(costText);
+                        const auto textHeight = fm.height();
 
-                if (normal.y() > 0) {
-                    normal = -normal;
-                }
+                        QRectF textRect(costPos.x() - textWidth / 2.0,
+                                        costPos.y() - textHeight / 2.0, textWidth, textHeight);
+                        painter->drawText(textRect, Qt::AlignCenter, costText);
+                    }
 
-                const QFontMetrics fm(painter->font());
-                constexpr auto costOffset = 12.;
+                    if (hasOppositeEdge && oppositeCost != 0) {
+                        const auto costPos = mid - normal * costOffset;
+                        const auto costText = QString::number(oppositeCost);
+                        const auto textWidth = fm.horizontalAdvance(costText);
+                        const auto textHeight = fm.height();
 
-                if (hasEdge && cost != 0) {
-                    const auto costPos = mid + normal * costOffset;
-                    const auto costText =
-                        QString::number(m_adjacencyMatrix.getCost(nodeIndex, neighbourIndex));
-                    const auto textWidth = fm.horizontalAdvance(costText);
-                    const auto textHeight = fm.height();
-
-                    QRectF textRect(costPos.x() - textWidth / 2.0, costPos.y() - textHeight / 2.0,
-                                    textWidth, textHeight);
-                    painter->drawText(textRect, Qt::AlignCenter, costText);
-                }
-
-                if (hasOppositeEdge && oppositeCost != 0) {
-                    const auto costPos = mid - normal * costOffset;
-                    const auto costText =
-                        QString::number(m_adjacencyMatrix.getCost(neighbourIndex, nodeIndex));
-                    const auto textWidth = fm.horizontalAdvance(costText);
-                    const auto textHeight = fm.height();
-
-                    QRectF textRect(costPos.x() - textWidth / 2.0, costPos.y() - textHeight / 2.0,
-                                    textWidth, textHeight);
-                    painter->drawText(textRect, Qt::AlignCenter, costText);
-                }
-            }
-        }*/
+                        QRectF textRect(costPos.x() - textWidth / 2.0,
+                                        costPos.y() - textHeight / 2.0, textWidth, textHeight);
+                        painter->drawText(textRect, Qt::AlignCenter, costText);
+                    }
+                });
+        }
 
         painter->setPen(QPen{node.isSelected() ? Qt::green : outlineColor, 1.5});
         painter->setBrush(node.getFillColor());
@@ -688,15 +683,8 @@ void GraphManager::switchToOptimalAdjacencyContainerIfNeeded() {
                     newStorage->addEdge(i, i, m_graphStorage->getCost(i, i));
                 }
 
-                m_graphStorage->forEachOutgoingEdge(i, [&](NodeIndex_t j, CostType_t cost) {
-                    const auto hasOppositeEdge = m_graphStorage->hasEdge(j, i);
-
-                    if (hasOppositeEdge) {
-                        newStorage->addEdge(j, i, m_graphStorage->getCost(j, i));
-                    }
-
-                    newStorage->addEdge(i, j, cost);
-                });
+                m_graphStorage->forEachOutgoingEdgeWithOpposites(
+                    i, [&](NodeIndex_t j, CostType_t cost) { newStorage->addEdge(i, j, cost); });
             }
 
             m_graphStorage = std::move(newStorage);

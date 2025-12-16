@@ -6,7 +6,7 @@
 
 #include "QuadTree.h"
 
-constexpr size_t NODE_LIMIT = 1'000'000;
+constexpr size_t NODE_LIMIT = 10'000'000;
 constexpr size_t SHOWN_EDGE_LIMIT = 400'000;
 constexpr uint16_t EDGE_GRID_SIZE = 128;
 constexpr uint16_t MAX_EDGE_DENSITY = 2'000;

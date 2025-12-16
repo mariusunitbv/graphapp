@@ -2,7 +2,7 @@
 
 #include "../Node.h"
 
-using CostType_t = int8_t;
+using CostType_t = int16_t;
 
 class IGraphStorage {
    public:
@@ -21,6 +21,8 @@ class IGraphStorage {
     virtual CostType_t getCost(NodeIndex_t start, NodeIndex_t end) const = 0;
 
     virtual void forEachOutgoingEdge(
+        NodeIndex_t node, const std::function<void(NodeIndex_t, CostType_t)>& callback) const = 0;
+    virtual void forEachOutgoingEdgeWithOpposites(
         NodeIndex_t node, const std::function<void(NodeIndex_t, CostType_t)>& callback) const = 0;
 
     virtual void recomputeBeforeRemovingNodes(

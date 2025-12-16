@@ -68,6 +68,17 @@ void AdjacencyList::forEachOutgoingEdge(
     }
 }
 
+void AdjacencyList::forEachOutgoingEdgeWithOpposites(
+    NodeIndex_t node, const std::function<void(NodeIndex_t, CostType_t)>& callback) const {
+    if (!m_adjacencyList.contains(node)) {
+        return;
+    }
+
+    for (const auto& [neighbour, cost] : m_adjacencyList.at(node)) {
+        callback(neighbour, cost);
+    }
+}
+
 void AdjacencyList::recomputeBeforeRemovingNodes(
     size_t oldNodeCount, const std::set<NodeIndex_t, std::greater<NodeIndex_t>>& selectedNodes) {
     std::vector<NodeIndex_t> indexRemap(oldNodeCount, INVALID_NODE);

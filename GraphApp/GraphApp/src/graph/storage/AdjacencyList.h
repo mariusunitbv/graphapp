@@ -29,6 +29,9 @@ class AdjacencyList final : public IGraphStorage {
     void forEachOutgoingEdge(
         NodeIndex_t node,
         const std::function<void(NodeIndex_t, CostType_t)>& callback) const override;
+    void forEachOutgoingEdgeWithOpposites(
+        NodeIndex_t node,
+        const std::function<void(NodeIndex_t, CostType_t)>& callback) const override;
 
     void recomputeBeforeRemovingNodes(
         size_t oldNodeCount,

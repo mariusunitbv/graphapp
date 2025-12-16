@@ -12,7 +12,7 @@
     <ClCompile Include="src\graph\GraphManager.cpp" />
     <ClCompile Include="src\graph\QuadTree.cpp" />
     <ClCompile Include="src\graph\storage\AdjacencyMatrix.cpp" />
-    <ClCompile Include="src\graph\geojson\GeoJSONLoader.cpp" />
+    <ClCompile Include="src\graph\pbf\PBFLoader.cpp" />
     <ClCompile Include="src\graph\storage\AdjacencyList.cpp" />
     <ClCompile Include="src\form\loading_screen\LoadingScreen.cpp" />
   </ItemGroup>
@@ -30,7 +30,7 @@
     <ClInclude Include="src\graph\QuadTree.h" />
     <ClInclude Include="src\graph\storage\AdjacencyMatrix.h" />
     <ClInclude Include="src\graph\Node.h" />
-    <ClInclude Include="src\graph\geojson\GeoJSONLoader.h" />
+    <ClInclude Include="src\graph\pbf\PBFLoader.h" />
     <ClInclude Include="src\graph\storage\IGraphStorage.h" />
     <ClInclude Include="src\graph\storage\AdjacencyList.h" />
     <ClInclude Include="src\tracker\MemoryTracker.h" />

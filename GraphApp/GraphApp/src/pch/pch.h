@@ -11,4 +11,8 @@
 #include <QtWidgets>
 
 // External
-#include <simdjson.h>
+#include <osmium/io/pbf_input.hpp>
+#include <osmium/visitor.hpp>
+
+#include <osmium/handler/node_locations_for_ways.hpp>
+#include <osmium/index/map/sparse_mem_array.hpp>

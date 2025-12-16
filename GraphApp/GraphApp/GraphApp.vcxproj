@@ -93,7 +93,7 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
-      <PreprocessorDefinitions>SIMDJSON_USING_LIBRARY;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <Link>
@@ -112,7 +112,7 @@
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <PreprocessorDefinitions>SIMDJSON_USING_LIBRARY;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalDependencies>
@@ -162,7 +162,7 @@
     <QtMoc Include="src\form\GraphApp.h" />
     <ClCompile Include="src\form\loading_screen\LoadingScreen.cpp" />
     <ClCompile Include="src\graph\storage\AdjacencyList.cpp" />
-    <ClCompile Include="src\graph\geojson\GeoJSONLoader.cpp" />
+    <ClCompile Include="src\graph\pbf\PBFLoader.cpp" />
     <ClCompile Include="src\graph\storage\AdjacencyMatrix.cpp" />
     <ClCompile Include="src\graph\QuadTree.cpp" />
     <ClCompile Include="src\form\intermediate_graph\IntermediateGraph.cpp" />
@@ -178,7 +178,7 @@
     <ClInclude Include="src\tracker\MemoryTracker.h" />
     <ClInclude Include="src\graph\storage\AdjacencyList.h" />
     <ClInclude Include="src\graph\storage\IGraphStorage.h" />
-    <ClInclude Include="src\graph\geojson\GeoJSONLoader.h" />
+    <ClInclude Include="src\graph\pbf\PBFLoader.h" />
     <ClInclude Include="src\graph\Node.h" />
     <QtMoc Include="src\form\pseudocode\PseudocodeForm.h" />
     <QtMoc Include="src\form\intermediate_graph\IntermediateGraph.h" />

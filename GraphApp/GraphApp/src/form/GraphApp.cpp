@@ -4,7 +4,7 @@
 
 #include "intermediate_graph/IntermediateGraph.h"
 
-#include "../graph/geojson/GeoJSONLoader.h"
+#include "../graph/pbf/PBFLoader.h"
 
 GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
     ui.setupUi(this);
@@ -118,12 +118,12 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
     connect(ui.action_Custom_Load_Map, &QAction::triggered, [this]() {
         const auto filePath =
-            QFileDialog::getOpenFileName(this, "Open Map File", "", "GeoJSON Files (*.geojson)");
+            QFileDialog::getOpenFileName(this, "Open Map File", "", "PBF Files (*.pbf)");
         if (filePath.isEmpty()) {
             return;
         }
 
-        GeoJSONLoader loader(&ui.graph->getGraphManager(), filePath);
+        PBFLoader loader(&ui.graph->getGraphManager(), filePath);
         loader.tryLoad();
 
         ui.actionAllow_Editing->setChecked(ui.graph->getGraphManager().getAllowEditing());

@@ -25,7 +25,11 @@ CostType_t AdjacencyMatrix::getCost(NodeIndex_t i, NodeIndex_t j) const {
 
 void AdjacencyMatrix::forEachOutgoingEdge(
     NodeIndex_t node, const std::function<void(NodeIndex_t, CostType_t)>& callback) const {
-    for (NodeIndex_t i = node + 1; i < m_nodeCount; ++i) {
+    for (NodeIndex_t i = 0; i < m_nodeCount; ++i) {
+        if (node >= i && hasEdge(i, node)) {
+            continue;
+        }
+
         if (hasEdge(node, i)) {
             callback(i, getCost(node, i));
         }

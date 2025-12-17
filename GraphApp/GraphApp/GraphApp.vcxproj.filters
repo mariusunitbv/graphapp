@@ -15,6 +15,8 @@
     <ClCompile Include="src\graph\pbf\PBFLoader.cpp" />
     <ClCompile Include="src\graph\storage\AdjacencyList.cpp" />
     <ClCompile Include="src\form\loading_screen\LoadingScreen.cpp" />
+    <ClCompile Include="src\form\adjacency_list\AdjacencyListBuilder.cpp" />
+    <ClCompile Include="src\form\scene_size\SceneSizeInput.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="src\form\GraphApp.h" />
@@ -23,6 +25,8 @@
     <QtMoc Include="src\form\intermediate_graph\IntermediateGraph.h" />
     <QtMoc Include="src\graph\GraphManager.h" />
     <QtMoc Include="src\form\loading_screen\LoadingScreen.h" />
+    <QtMoc Include="src\form\adjacency_list\AdjacencyListBuilder.h" />
+    <QtMoc Include="src\form\scene_size\SceneSizeInput.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />
@@ -40,5 +44,7 @@
     <QtUic Include="src\form\pseudocode\PseudocodeForm.ui" />
     <QtUic Include="src\form\intermediate_graph\IntermediateGraph.ui" />
     <QtUic Include="src\form\loading_screen\LoadingScreen.ui" />
+    <QtUic Include="src\form\adjacency_list\AdjacencyListBuilder.ui" />
+    <QtUic Include="src\form\scene_size\SceneSizeInput.ui" />
   </ItemGroup>
 </Project>

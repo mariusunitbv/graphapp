@@ -360,7 +360,7 @@ QRectF GraphManager::boundingRect() const { return m_boundingRect; }
 void GraphManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*) {
     const auto lod = option->levelOfDetailFromTransform(painter->worldTransform());
 
-    m_shouldDrawArrows = lod >= 1.25;
+    m_shouldDrawArrows = lod >= 1.2;
     drawEdgeCache(painter, lod);
     drawNodes(painter, lod);
     drawQuadTree(painter, &m_quadTree, lod);
@@ -415,6 +415,7 @@ void GraphManager::mouseMoveEvent(QGraphicsSceneMouseEvent* event) {
 
         if (isGoodPosition(desiredPos, selectedIndex)) {
             m_draggingNode = true;
+            setCursor(Qt::ClosedHandCursor);
 
             std::vector<QuadTree*> containingTrees;
             m_quadTree.getContainingTrees(node, containingTrees);
@@ -448,6 +449,7 @@ void GraphManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
         setFlag(ItemIsSelectable, false);
         if (m_draggingNode) {
             m_draggingNode = false;
+            setCursor(Qt::ArrowCursor);
         } else if (m_pressedEmptySpace && !(event->modifiers() & Qt::ControlModifier)) {
             if (m_editingEnabled && addNode(event->pos().toPoint())) {
                 m_graphStorage->recomputeAfterAddingNode(m_nodes.size());
@@ -462,12 +464,6 @@ void GraphManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
 void GraphManager::keyReleaseEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Delete && m_editingEnabled) {
         removeSelectedNodes();
-    } else if (event->key() == Qt::Key_F5) {
-        if (event->modifiers() & Qt::ShiftModifier) {
-            buildFullEdgeCache();
-        } else {
-            buildVisibleEdgeCache();
-        }
     }
 
     QGraphicsObject::keyReleaseEvent(event);

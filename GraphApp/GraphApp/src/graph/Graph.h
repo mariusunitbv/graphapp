@@ -9,15 +9,16 @@ class Graph : public QGraphicsView {
     Graph(QWidget* parent = nullptr);
     ~Graph();
 
-    void onAdjacencyListChanged(const QString& text);
+    void buildFromAdjacencyListString(const QString& text);
     GraphManager& getGraphManager();
-    int getZoomPercentage();
     void toggleDarkMode();
+
+    void setSceneSize(QSize size);
+    QSize getSceneSize() const;
 
     Graph* getInvertedGraph() const;
 
    signals:
-    void zoomChanged();
     void spacePressed();
     void escapePressed();
 
@@ -29,12 +30,20 @@ class Graph : public QGraphicsView {
 
     void keyPressEvent(QKeyEvent* event) final;
 
+    void drawForeground(QPainter* painter, const QRectF& rect) final;
+
    private:
+    int getZoomPercentage();
+
+    QSize m_sceneSize{30720, 17280};
     QGraphicsScene* m_scene;
     GraphManager m_graphManager;
 
     bool m_isDragging{false};
     bool m_darkMode{false};
+    bool m_shouldDrawZoom{false};
+
+    QTimer m_zoomTextStopTimer;
     double m_currentZoomScale{1.};
 
     static constexpr double k_minScale = 0.1;

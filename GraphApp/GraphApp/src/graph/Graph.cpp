@@ -11,23 +11,28 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
 
     setViewport(glWidget);
 
-    m_scene->setSceneRect(0, 0, 30720, 17280);
     m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
     setScene(m_scene);
+    setSceneSize(m_sceneSize);
 
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     m_scene->addItem(&m_graphManager);
-    m_graphManager.setSceneDimensions(m_scene->width(), m_scene->height());
     m_graphManager.setPos(0, 0);
 
     centerOn(m_scene->width() / 2, m_scene->height() / 2);
+
+    connect(&m_zoomTextStopTimer, &QTimer::timeout, [this]() {
+        m_shouldDrawZoom = false;
+        m_zoomTextStopTimer.stop();
+        viewport()->update();
+    });
 }
 
 Graph::~Graph() { m_scene->deleteLater(); }
 
-void Graph::onAdjacencyListChanged(const QString& text) {
+void Graph::buildFromAdjacencyListString(const QString& text) {
     QStringList lines = text.split('\n', Qt::SkipEmptyParts);
 
     m_graphManager.resetAdjacencyMatrix();
@@ -97,8 +102,6 @@ void Graph::onAdjacencyListChanged(const QString& text) {
 
 GraphManager& Graph::getGraphManager() { return m_graphManager; }
 
-int Graph::getZoomPercentage() { return static_cast<int>(m_currentZoomScale * 100); }
-
 void Graph::toggleDarkMode() {
     constexpr auto black = qRgb(20, 20, 20);
     constexpr auto white = qRgb(255, 255, 255);
@@ -116,6 +119,16 @@ void Graph::toggleDarkMode() {
 
     m_darkMode = !m_darkMode;
 }
+
+void Graph::setSceneSize(QSize size) {
+    m_graphManager.reset();
+    m_graphManager.setSceneDimensions(size.width(), size.height());
+
+    m_scene->setSceneRect(0, 0, size.width(), size.height());
+    m_sceneSize = size;
+}
+
+QSize Graph::getSceneSize() const { return m_sceneSize; }
 
 Graph* Graph::getInvertedGraph() const {
     if (!m_graphManager.getOrientedGraph()) {
@@ -143,7 +156,9 @@ void Graph::wheelEvent(QWheelEvent* event) {
     scale(factor, factor);
     m_currentZoomScale = newScale;
 
-    emit zoomChanged();
+    m_shouldDrawZoom = true;
+    m_zoomTextStopTimer.stop();
+    m_zoomTextStopTimer.start(1500);
 }
 
 void Graph::mousePressEvent(QMouseEvent* event) {
@@ -173,3 +188,38 @@ void Graph::keyPressEvent(QKeyEvent* event) {
 
     QGraphicsView::keyPressEvent(event);
 }
+
+void Graph::drawForeground(QPainter* painter, const QRectF& rect) {
+    if (m_shouldDrawZoom) {
+        painter->save();
+        painter->resetTransform();
+
+        const QString zoomText = QString("Zoom: %1%").arg(getZoomPercentage());
+
+        QFont font = painter->font();
+        font.setPixelSize(20);
+        painter->setFont(font);
+
+        QFontMetrics fm(font);
+        const int padding = 5;
+
+        const QSize textSize(fm.horizontalAdvance(zoomText), fm.height());
+        const auto viewRect = viewport()->rect();
+        const QRect textRect(viewRect.right() - textSize.width() - padding * 2 - 10,
+                             viewRect.top() + 10, textSize.width() + padding * 2,
+                             textSize.height() + padding * 2);
+
+        painter->setPen(Qt::black);
+        painter->setBrush(QColor(255, 255, 255, 200));
+
+        painter->drawRect(textRect);
+        painter->drawText(textRect.adjusted(padding, padding, -padding, -padding), Qt::AlignCenter,
+                          zoomText);
+
+        painter->restore();
+    }
+
+    QGraphicsView::drawForeground(painter, rect);
+}
+
+int Graph::getZoomPercentage() { return static_cast<int>(std::round(m_currentZoomScale * 100)); }

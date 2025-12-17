@@ -36,39 +36,7 @@
     <property name="spacing">
      <number>0</number>
     </property>
-    <item row="0" column="0" alignment="Qt::AlignmentFlag::AlignLeft">
-     <widget class="QTextEdit" name="textEdit">
-      <property name="minimumSize">
-       <size>
-        <width>200</width>
-        <height>0</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>200</width>
-        <height>16777215</height>
-       </size>
-      </property>
-      <property name="toolTip">
-       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Example:&lt;/p&gt;&lt;p&gt;2 5 4 (Node 2 connects to Node 5 with a cost of 4)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-      </property>
-      <property name="whatsThis">
-       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-      </property>
-      <property name="placeholderText">
-       <string>sourceNode, dstNode, [cost]</string>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="0">
-     <widget class="QLabel" name="zoomScaleText">
-      <property name="text">
-       <string>Graph scale: 100%</string>
-      </property>
-     </widget>
-    </item>
-    <item row="0" column="1" rowspan="2">
+    <item row="0" column="0" rowspan="2">
      <widget class="Graph" name="graph">
       <property name="styleSheet">
        <string notr="true">background-color: rgb(255, 255, 255);</string>
@@ -121,7 +89,9 @@
     </property>
     <addaction name="actionComplete_Graph"/>
     <addaction name="actionFill_Graph_With_Nodes"/>
+    <addaction name="actionBuild_Adjacency_List"/>
     <addaction name="actionRandom_Graph"/>
+    <addaction name="actionBuild_Visible_Edge_Cache"/>
     <addaction name="actionBuild_Full_Edge_Cache"/>
     <addaction name="actionReset_Graph"/>
     <addaction name="separator"/>
@@ -130,6 +100,7 @@
     <addaction name="actionAllow_Loops"/>
     <addaction name="actionOriented_Graph"/>
     <addaction name="separator"/>
+    <addaction name="actionChange_Scene_Dimensions"/>
     <addaction name="action_Custom_Load_Map"/>
    </widget>
    <widget class="QMenu" name="menuAlgorithms">
@@ -154,6 +125,7 @@
     <addaction name="actionDraw_Nodes"/>
     <addaction name="actionDraw_Edges"/>
     <addaction name="actionDraw_Quad_Trees"/>
+    <addaction name="actionCenter_on_Node"/>
     <addaction name="actionToggle_Light_Dark_Mode"/>
    </widget>
    <addaction name="menuGraph"/>
@@ -198,6 +170,9 @@
   <action name="actionReset_Graph">
    <property name="text">
     <string>Reset Graph</string>
+   </property>
+   <property name="shortcut">
+    <string>Home</string>
    </property>
   </action>
   <action name="actionAnimations">
@@ -308,6 +283,9 @@
    <property name="text">
     <string>Build Full Edge Cache</string>
    </property>
+   <property name="shortcut">
+    <string>Shift+F5</string>
+   </property>
   </action>
   <action name="actionDijkstra_s_algorithm">
    <property name="text">
@@ -317,6 +295,38 @@
   <action name="actionToggle_Light_Dark_Mode">
    <property name="text">
     <string>Toggle Light/Dark Mode</string>
+   </property>
+  </action>
+  <action name="actionCenter_on_Node">
+   <property name="text">
+    <string>Center on Node</string>
+   </property>
+   <property name="shortcut">
+    <string>G</string>
+   </property>
+  </action>
+  <action name="actionBuild_Visible_Edge_Cache">
+   <property name="text">
+    <string>Build Visible Edge Cache</string>
+   </property>
+   <property name="shortcut">
+    <string>F5</string>
+   </property>
+  </action>
+  <action name="actionBuild_Adjacency_List">
+   <property name="text">
+    <string>Adjacency List Builder</string>
+   </property>
+   <property name="shortcut">
+    <string>A</string>
+   </property>
+  </action>
+  <action name="actionChange_Scene_Dimensions">
+   <property name="text">
+    <string>Change Scene Dimensions</string>
+   </property>
+   <property name="shortcut">
+    <string>S</string>
    </property>
   </action>
  </widget>

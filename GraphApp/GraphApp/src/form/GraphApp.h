@@ -9,7 +9,6 @@ class GraphApp : public QMainWindow {
     GraphApp(QWidget* parent = nullptr);
 
    private:
-    void onZoomChanged();
     void onStartedAlgorithm();
     void onFinishedAlgorithm();
     void onEndedAlgorithm();

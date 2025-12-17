@@ -11,8 +11,9 @@ void PBFLoader::tryLoad() {
     bool ok = false;
     const auto accuracy = QInputDialog::getDouble(
         nullptr, "Accuracy",
-        "A smaller accuracy will merge near nodes.\nBut a bigger accuracy "
-        "may crash the app if loading a bigger map!\nEntered accuracy (1 -> 25):",
+        "A smaller accuracy will merge near nodes, but a bigger accuracy\n"
+        "may crash the app if loading a bigger map!\nAlso the scene dimensions are also affecting "
+        "the accuracy.\n\nEntered accuracy (1 -> 25):",
         5, 1, 25, 1, &ok);
     if (!ok) {
         return;
@@ -85,7 +86,7 @@ QPoint PBFLoader::mercatorToGraphPosition(const QPointF& mercatorPos) const {
     return QPointF{x, y}.toPoint();
 }
 
-qreal PBFLoader::haversineDistanceKm(qreal lat1, qreal lat2, qreal lon1, qreal lon2) const {
+qreal PBFLoader::haversineDistance(qreal lat1, qreal lat2, qreal lon1, qreal lon2) const {
     const auto phi1 = qDegreesToRadians(lat1);
     const auto phi2 = qDegreesToRadians(lat2);
     const auto dPhi = qDegreesToRadians(lat2 - lat1);
@@ -138,7 +139,7 @@ void PBFLoader::parseAndComputeBounds() {
                     mercatorPoints.emplace_back(mercatorPos, 0);
                 } else {
                     mercatorPoints.emplace_back(mercatorPos,
-                                                haversineDistanceKm(lastLat, lat, lastLon, lon));
+                                                haversineDistance(lastLat, lat, lastLon, lon));
                 }
 
                 if (++parsedNodes % 100000 == 0) {

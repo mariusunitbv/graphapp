@@ -12,7 +12,7 @@ class PBFLoader {
    private:
     QPointF toMercator(qreal lat, qreal lon) const;
     QPoint mercatorToGraphPosition(const QPointF& mercatorPos) const;
-    qreal haversineDistanceKm(qreal lat1, qreal lat2, qreal lon1, qreal lon2) const;
+    qreal haversineDistance(qreal lat1, qreal lat2, qreal lon1, qreal lon2) const;
 
     void parseAndComputeBounds();
     void addNodesToGraph();

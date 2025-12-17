@@ -158,9 +158,12 @@
     </QtMoc>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <QtUic Include="src\form\adjacency_list\AdjacencyListBuilder.ui" />
     <QtUic Include="src\form\GraphApp.ui" />
     <QtMoc Include="src\form\GraphApp.h" />
+    <ClCompile Include="src\form\adjacency_list\AdjacencyListBuilder.cpp" />
     <ClCompile Include="src\form\loading_screen\LoadingScreen.cpp" />
+    <ClCompile Include="src\form\scene_size\SceneSizeInput.cpp" />
     <ClCompile Include="src\graph\storage\AdjacencyList.cpp" />
     <ClCompile Include="src\graph\pbf\PBFLoader.cpp" />
     <ClCompile Include="src\graph\storage\AdjacencyMatrix.cpp" />
@@ -175,6 +178,8 @@
     <ClCompile Include="src\main.cpp" />
     <QtMoc Include="src\graph\Graph.h" />
     <QtMoc Include="src\form\loading_screen\LoadingScreen.h" />
+    <QtMoc Include="src\form\adjacency_list\AdjacencyListBuilder.h" />
+    <QtMoc Include="src\form\scene_size\SceneSizeInput.h" />
     <ClInclude Include="src\tracker\MemoryTracker.h" />
     <ClInclude Include="src\graph\storage\AdjacencyList.h" />
     <ClInclude Include="src\graph\storage\IGraphStorage.h" />
@@ -194,6 +199,7 @@
     <QtUic Include="src\form\intermediate_graph\IntermediateGraph.ui" />
     <QtUic Include="src\form\loading_screen\LoadingScreen.ui" />
     <QtUic Include="src\form\pseudocode\PseudocodeForm.ui" />
+    <QtUic Include="src\form\scene_size\SceneSizeInput.ui" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

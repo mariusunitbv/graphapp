@@ -29,6 +29,4 @@ class IGraphStorage {
         size_t oldNodeCount,
         const std::set<NodeIndex_t, std::greater<NodeIndex_t>>& selectedNodes) = 0;
     virtual void recomputeAfterAddingNode(size_t newNodeCount) = 0;
-
-    virtual size_t getMemoryUsage() const = 0;
 };

@@ -2,6 +2,9 @@
 
 #include "Graph.h"
 
+#include "storage/AdjacencyList.h"
+#include "storage/AdjacencyMatrix.h"
+
 Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScene()) {
     setFrameStyle(QFrame::NoFrame);
     toggleDarkMode();
@@ -13,7 +16,7 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
 
     m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
     setScene(m_scene);
-    setSceneSize(m_sceneSize);
+    setSceneSize({30720, 17280});
 
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -32,10 +35,14 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
 
 Graph::~Graph() { m_scene->deleteLater(); }
 
-void Graph::buildFromAdjacencyListString(const QString& text) {
+bool Graph::buildFromAdjacencyListString(const QString& text) {
     QStringList lines = text.split('\n', Qt::SkipEmptyParts);
 
     m_graphManager.resetAdjacencyMatrix();
+    m_graphManager.resizeAdjacencyMatrix(m_graphManager.getNodesCount());
+
+    m_graphManager.evaluateStorageStrategy(lines.size());
+
     for (QString& line : lines) {
         line = line.trimmed();
         if (line.isEmpty()) {
@@ -63,41 +70,46 @@ void Graph::buildFromAdjacencyListString(const QString& text) {
             if (u >= m_graphManager.getNodesCount()) {
                 QMessageBox::warning(nullptr, "Bad value",
                                      QString("Node %1 doesn't exist!").arg(u));
-                break;
+                return false;
             }
 
             if (v >= m_graphManager.getNodesCount()) {
                 QMessageBox::warning(nullptr, "Bad value",
                                      QString("Node %1 doesn't exist!").arg(v));
-                break;
+                return false;
             }
 
             if (m_graphManager.hasNeighbour(u, v)) {
                 QMessageBox::warning(nullptr, "Duplicate edge",
                                      QString("Edge from %1 to %2 already exists!").arg(u).arg(v));
-                break;
+                return false;
             }
 
             if (!m_graphManager.getAllowLoops() && u == v) {
                 QMessageBox::warning(nullptr, "Loop not allowed",
                                      QString("Loops are not allowed (Node %1)!").arg(u));
-                break;
+                return false;
             }
 
             if (!m_graphManager.getOrientedGraph()) {
                 if (m_graphManager.hasNeighbour(v, u)) {
                     QMessageBox::warning(nullptr, "Duplicate edge",
-                                         QString("Edge from %1 to %2 already exists!\nBecause this"
+                                         QString("Edge from %1 to %2 already exists!\nBecause this "
                                                  "is an unoriented graph")
                                              .arg(v)
                                              .arg(u));
-                    break;
+                    return false;
                 }
             }
 
             m_graphManager.addEdge(u, v, cost);
+            if (!m_graphManager.getOrientedGraph()) {
+                m_graphManager.addEdge(v, u, cost);
+            }
         }
     }
+
+    return true;
 }
 
 GraphManager& Graph::getGraphManager() { return m_graphManager; }
@@ -122,22 +134,54 @@ void Graph::toggleDarkMode() {
 
 void Graph::setSceneSize(QSize size) {
     m_graphManager.reset();
-    m_graphManager.setSceneDimensions(size.width(), size.height());
+    m_graphManager.setSceneDimensions(size);
 
     m_scene->setSceneRect(0, 0, size.width(), size.height());
-    m_sceneSize = size;
 }
 
-QSize Graph::getSceneSize() const { return m_sceneSize; }
+QSize Graph::getSceneSize() const { return m_scene->sceneRect().size().toSize(); }
 
 Graph* Graph::getInvertedGraph() const {
-    if (!m_graphManager.getOrientedGraph()) {
-        QMessageBox::warning(nullptr, "Warning", "Cannot invert an unoriented graph",
+    if (m_graphManager.getNodesCount() == 0) {
+        QMessageBox::warning(nullptr, "Error", "Cannot invert a graph without nodes.",
                              QMessageBox::Ok);
         return nullptr;
     }
 
-    return nullptr;
+    if (!m_graphManager.getOrientedGraph()) {
+        QMessageBox::warning(nullptr, "Warning", "Cannot invert an unoriented graph.",
+                             QMessageBox::Ok);
+        return nullptr;
+    }
+
+    Graph* invertedGraph = new Graph();
+    if (!m_darkMode) {
+        invertedGraph->toggleDarkMode();
+    }
+
+    invertedGraph->m_scene->setSceneRect(m_scene->sceneRect());
+
+    auto& invertedGraphManager = invertedGraph->m_graphManager;
+    invertedGraphManager.setSceneDimensions(m_scene->sceneRect().size().toSize());
+
+    const auto storageType = m_graphManager.getGraphStorage()->type();
+    if (storageType == IGraphStorage::Type::ADJACENCY_LIST) {
+        invertedGraphManager.m_graphStorage = std::make_unique<AdjacencyList>();
+    } else if (storageType == IGraphStorage::Type::ADJACENCY_MATRIX) {
+        invertedGraphManager.m_graphStorage = std::make_unique<AdjacencyMatrix>();
+    }
+
+    invertedGraphManager.m_nodes = m_graphManager.m_nodes;
+    invertedGraphManager.m_quadTree = m_graphManager.m_quadTree;
+    invertedGraphManager.resizeAdjacencyMatrix(m_graphManager.m_nodes.size());
+    for (NodeIndex_t nodeIndex = 0; nodeIndex < m_graphManager.m_nodes.size(); ++nodeIndex) {
+        m_graphManager.m_graphStorage->forEachOutgoingEdgeWithOpposites(
+            nodeIndex, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
+                invertedGraphManager.m_graphStorage->addEdge(neighbourIndex, nodeIndex, cost);
+            });
+    }
+
+    return invertedGraph;
 }
 
 void Graph::wheelEvent(QWheelEvent* event) {
@@ -190,36 +234,61 @@ void Graph::keyPressEvent(QKeyEvent* event) {
 }
 
 void Graph::drawForeground(QPainter* painter, const QRectF& rect) {
-    if (m_shouldDrawZoom) {
-        painter->save();
-        painter->resetTransform();
+    painter->save();
+    painter->resetTransform();
 
-        const QString zoomText = QString("Zoom: %1%").arg(getZoomPercentage());
+    drawZoomText(painter);
+    drawWatermark(painter);
 
-        QFont font = painter->font();
-        font.setPixelSize(20);
-        painter->setFont(font);
-
-        QFontMetrics fm(font);
-        const int padding = 5;
-
-        const QSize textSize(fm.horizontalAdvance(zoomText), fm.height());
-        const auto viewRect = viewport()->rect();
-        const QRect textRect(viewRect.right() - textSize.width() - padding * 2 - 10,
-                             viewRect.top() + 10, textSize.width() + padding * 2,
-                             textSize.height() + padding * 2);
-
-        painter->setPen(Qt::black);
-        painter->setBrush(QColor(255, 255, 255, 200));
-
-        painter->drawRect(textRect);
-        painter->drawText(textRect.adjusted(padding, padding, -padding, -padding), Qt::AlignCenter,
-                          zoomText);
-
-        painter->restore();
-    }
+    painter->restore();
 
     QGraphicsView::drawForeground(painter, rect);
 }
 
 int Graph::getZoomPercentage() { return static_cast<int>(std::round(m_currentZoomScale * 100)); }
+
+void Graph::drawZoomText(QPainter* painter) {
+    if (!m_shouldDrawZoom) {
+        return;
+    }
+
+    const QString zoomText = QString("Zoom: %1%").arg(getZoomPercentage());
+
+    QFont font = painter->font();
+    font.setPixelSize(20);
+    painter->setFont(font);
+
+    QFontMetrics fm(font);
+    const int padding = 5;
+
+    const QSize textSize(fm.horizontalAdvance(zoomText), fm.height());
+    const auto viewRect = viewport()->rect();
+    const QRect textRect(viewRect.right() - textSize.width() - padding * 2 - 10,
+                         viewRect.top() + 10, textSize.width() + padding * 2,
+                         textSize.height() + padding * 2);
+
+    painter->setPen(Qt::black);
+    painter->setBrush(QColor(255, 255, 255, 200));
+
+    painter->drawRect(textRect);
+    painter->drawText(textRect.adjusted(padding, padding, -padding, -padding), Qt::AlignCenter,
+                      zoomText);
+}
+
+void Graph::drawWatermark(QPainter* painter) {
+    static const auto watermarkText = QStringLiteral("github.com/mariusunitbv/graphapp");
+
+    QFont font = painter->font();
+    font.setPixelSize(10);
+    painter->setFont(font);
+
+    QFontMetrics fm(font);
+
+    const QSize textSize(fm.horizontalAdvance(watermarkText), fm.height());
+    const auto viewRect = viewport()->rect();
+    const QRect textRect(viewRect.left() + 10, viewRect.bottom() - textSize.height() - 10,
+                         textSize.width(), textSize.height());
+
+    painter->setPen(m_darkMode ? Qt::white : Qt::black);
+    painter->drawText(textRect, Qt::AlignCenter, watermarkText);
+}

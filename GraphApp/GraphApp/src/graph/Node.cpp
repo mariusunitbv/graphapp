@@ -30,11 +30,10 @@ void NodeData::setPosition(const QPoint& position) { m_position = position; }
 
 QPoint NodeData::getPosition() const { return m_position; }
 
-void NodeData::setSelected(bool selected, uint32_t selectTime) {
-    m_selected = selected;
-    m_selectTime = selectTime;
-}
+void NodeData::select(uint32_t selectOrder) { m_selectOrder = selectOrder; }
 
-bool NodeData::isSelected() const { return m_selected; }
+void NodeData::deselect() { m_selectOrder = -1; }
 
-uint32_t NodeData::getSelectTime() const { return m_selectTime; }
+bool NodeData::isSelected() const { return m_selectOrder != -1; }
+
+uint32_t NodeData::getSelectOrder() const { return m_selectOrder; }

@@ -8,7 +8,6 @@
     <ClCompile Include="src\graph\Node.cpp" />
     <ClCompile Include="src\random\Random.cpp" />
     <ClCompile Include="src\form\pseudocode\PseudocodeForm.cpp" />
-    <ClCompile Include="src\form\intermediate_graph\IntermediateGraph.cpp" />
     <ClCompile Include="src\graph\GraphManager.cpp" />
     <ClCompile Include="src\graph\QuadTree.cpp" />
     <ClCompile Include="src\graph\storage\AdjacencyMatrix.cpp" />
@@ -22,7 +21,6 @@
     <QtMoc Include="src\form\GraphApp.h" />
     <QtMoc Include="src\graph\Graph.h" />
     <QtMoc Include="src\form\pseudocode\PseudocodeForm.h" />
-    <QtMoc Include="src\form\intermediate_graph\IntermediateGraph.h" />
     <QtMoc Include="src\graph\GraphManager.h" />
     <QtMoc Include="src\form\loading_screen\LoadingScreen.h" />
     <QtMoc Include="src\form\adjacency_list\AdjacencyListBuilder.h" />
@@ -37,12 +35,10 @@
     <ClInclude Include="src\graph\pbf\PBFLoader.h" />
     <ClInclude Include="src\graph\storage\IGraphStorage.h" />
     <ClInclude Include="src\graph\storage\AdjacencyList.h" />
-    <ClInclude Include="src\tracker\MemoryTracker.h" />
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="src\form\GraphApp.ui" />
     <QtUic Include="src\form\pseudocode\PseudocodeForm.ui" />
-    <QtUic Include="src\form\intermediate_graph\IntermediateGraph.ui" />
     <QtUic Include="src\form\loading_screen\LoadingScreen.ui" />
     <QtUic Include="src\form\adjacency_list\AdjacencyListBuilder.ui" />
     <QtUic Include="src\form\scene_size\SceneSizeInput.ui" />

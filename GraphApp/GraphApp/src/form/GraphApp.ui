@@ -87,10 +87,10 @@
     <property name="title">
      <string>Graph</string>
     </property>
-    <addaction name="actionComplete_Graph"/>
-    <addaction name="actionFill_Graph_With_Nodes"/>
     <addaction name="actionBuild_Adjacency_List"/>
     <addaction name="actionRandom_Graph"/>
+    <addaction name="actionComplete_Graph"/>
+    <addaction name="actionFill_Graph_With_Nodes"/>
     <addaction name="actionBuild_Visible_Edge_Cache"/>
     <addaction name="actionBuild_Full_Edge_Cache"/>
     <addaction name="actionReset_Graph"/>

@@ -168,7 +168,6 @@
     <ClCompile Include="src\graph\pbf\PBFLoader.cpp" />
     <ClCompile Include="src\graph\storage\AdjacencyMatrix.cpp" />
     <ClCompile Include="src\graph\QuadTree.cpp" />
-    <ClCompile Include="src\form\intermediate_graph\IntermediateGraph.cpp" />
     <ClCompile Include="src\form\pseudocode\PseudocodeForm.cpp" />
     <ClCompile Include="src\graph\GraphManager.cpp" />
     <ClCompile Include="src\random\Random.cpp" />
@@ -180,13 +179,11 @@
     <QtMoc Include="src\form\loading_screen\LoadingScreen.h" />
     <QtMoc Include="src\form\adjacency_list\AdjacencyListBuilder.h" />
     <QtMoc Include="src\form\scene_size\SceneSizeInput.h" />
-    <ClInclude Include="src\tracker\MemoryTracker.h" />
     <ClInclude Include="src\graph\storage\AdjacencyList.h" />
     <ClInclude Include="src\graph\storage\IGraphStorage.h" />
     <ClInclude Include="src\graph\pbf\PBFLoader.h" />
     <ClInclude Include="src\graph\Node.h" />
     <QtMoc Include="src\form\pseudocode\PseudocodeForm.h" />
-    <QtMoc Include="src\form\intermediate_graph\IntermediateGraph.h" />
     <QtMoc Include="src\graph\GraphManager.h" />
     <ClInclude Include="src\graph\storage\AdjacencyMatrix.h" />
     <ClInclude Include="src\graph\QuadTree.h" />
@@ -196,7 +193,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <QtUic Include="src\form\intermediate_graph\IntermediateGraph.ui" />
     <QtUic Include="src\form\loading_screen\LoadingScreen.ui" />
     <QtUic Include="src\form\pseudocode\PseudocodeForm.ui" />
     <QtUic Include="src\form\scene_size\SceneSizeInput.ui" />

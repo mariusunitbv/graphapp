@@ -10,7 +10,12 @@
 GraphManager::GraphManager() : m_graphStorage(std::make_unique<AdjacencyList>()) {
     setFlag(ItemIsFocusable);
     connect(&m_sceneUpdateTimer, &QTimer::timeout, [this]() {
-        QGraphicsView* view = scene()->views().first();
+        QGraphicsScene* scene = this->scene();
+        if (!scene) {
+            return;
+        }
+
+        QGraphicsView* view = scene->views().first();
         const QRect sceneRect = view->mapToScene(view->viewport()->rect()).boundingRect().toRect();
         if (m_sceneRect != sceneRect) {
             m_sceneRect = sceneRect;
@@ -30,9 +35,13 @@ GraphManager::GraphManager() : m_graphStorage(std::make_unique<AdjacencyList>())
     });
 }
 
-void GraphManager::setSceneDimensions(qreal width, qreal height) {
-    m_boundingRect.setCoords(0, 0, width, height);
-    m_quadTree.setBoundary(QRect(0, 0, width, height));
+const std::unique_ptr<IGraphStorage>& GraphManager::getGraphStorage() const {
+    return m_graphStorage;
+}
+
+void GraphManager::setSceneDimensions(QSize size) {
+    m_boundingRect.setCoords(0, 0, size.width(), size.height());
+    m_quadTree.setBoundary(QRect(0, 0, size.width(), size.height()));
 
     m_sceneUpdateTimer.start(200);
 }
@@ -94,8 +103,6 @@ void GraphManager::addEdge(NodeIndex_t start, NodeIndex_t end, int32_t cost) {
     constexpr auto numBits = sizeof(CostType_t) * 8 - 1;
     constexpr auto maxCost = (1 << (numBits - 1)) - 1;
     constexpr auto minCost = -(1 << (numBits - 1));
-
-    switchToOptimalAdjacencyContainerIfNeeded();
 
     cost = std::clamp(cost, minCost, maxCost);
     m_graphStorage->addEdge(start, end, cost);
@@ -281,6 +288,66 @@ void GraphManager::setNodeDefaultColor(QRgb color) {
 
 void GraphManager::setNodeOutlineDefaultColor(QRgb color) { m_nodeOutlineDefaultColor = color; }
 
+void GraphManager::evaluateStorageStrategy(size_t edgeCount) {
+    auto switchStorageToType = [this](IGraphStorage::Type type) {
+        std::unique_ptr<IGraphStorage> newStorage;
+        switch (type) {
+            case IGraphStorage::Type::ADJACENCY_LIST:
+                newStorage = std::make_unique<AdjacencyList>();
+                break;
+            case IGraphStorage::Type::ADJACENCY_MATRIX:
+                newStorage = std::make_unique<AdjacencyMatrix>();
+                break;
+        }
+
+        newStorage->resize(m_nodes.size());
+
+        for (const auto& nodeData : m_nodes) {
+            const NodeIndex_t i = nodeData.getIndex();
+            if (m_graphStorage->hasEdge(i, i)) {
+                newStorage->addEdge(i, i, m_graphStorage->getCost(i, i));
+            }
+
+            m_graphStorage->forEachOutgoingEdgeWithOpposites(
+                i, [&](NodeIndex_t j, CostType_t cost) { newStorage->addEdge(i, j, cost); });
+        }
+
+        m_graphStorage = std::move(newStorage);
+    };
+
+    const auto listUsage = sizeof(AdjacencyList) +
+                           m_nodes.size() * sizeof(AdjacencyList::Neighbours_t) +
+                           edgeCount * sizeof(AdjacencyList::Neighbour_t);
+    const auto matrixUsage =
+        sizeof(AdjacencyMatrix) + m_nodes.size() * m_nodes.size() * sizeof(CostType_t);
+
+    const bool switchToMatrix =
+        listUsage > matrixUsage && m_graphStorage->type() == IGraphStorage::Type::ADJACENCY_LIST;
+    const bool switchToList =
+        matrixUsage > listUsage && m_graphStorage->type() == IGraphStorage::Type::ADJACENCY_MATRIX;
+
+    if (!switchToMatrix && !switchToList) {
+        return;
+    }
+
+    QMessageBox::information(nullptr, "Memory Usage",
+                             QString("Program has detected that by changing\nthe graph storage to "
+                                     "adjacency %1, memory usage will be better.\n\nPredicted "
+                                     "usage with list: %2 bytes.\nPredicted usage with "
+                                     "matrix: %3 bytes.\nEdge count: %4")
+                                 .arg(switchToMatrix ? "matrix" : "list")
+                                 .arg(listUsage)
+                                 .arg(matrixUsage)
+                                 .arg(edgeCount),
+                             QMessageBox::Ok);
+
+    if (switchToMatrix) {
+        switchStorageToType(IGraphStorage::Type::ADJACENCY_MATRIX);
+    } else if (switchToList) {
+        switchStorageToType(IGraphStorage::Type::ADJACENCY_LIST);
+    }
+}
+
 void GraphManager::dijkstra() {
     if (m_selectedNodes.size() != 2) {
         QMessageBox::warning(nullptr, "Dijkstra Error",
@@ -294,7 +361,7 @@ void GraphManager::dijkstra() {
     std::vector<NodeIndex_t> previousNodes(m_nodes.size(), -1);
 
     NodeIndex_t startNode = *m_selectedNodes.rbegin(), endNode = *m_selectedNodes.begin();
-    if (m_nodes[startNode].getSelectTime() > m_nodes[endNode].getSelectTime()) {
+    if (m_nodes[startNode].getSelectOrder() > m_nodes[endNode].getSelectOrder()) {
         std::swap(startNode, endNode);
     }
 
@@ -385,10 +452,10 @@ void GraphManager::mousePressEvent(QGraphicsSceneMouseEvent* event) {
 
             const auto nodeIndex = nodeOpt.value();
             if (m_nodes[nodeIndex].isSelected()) {
-                m_nodes[nodeIndex].setSelected(false, 0);
+                m_nodes[nodeIndex].deselect();
                 m_selectedNodes.erase(nodeIndex);
             } else {
-                m_nodes[nodeIndex].setSelected(true, static_cast<uint32_t>(m_selectedNodes.size()));
+                m_nodes[nodeIndex].select(static_cast<uint32_t>(m_selectedNodes.size()));
                 m_selectedNodes.emplace(nodeIndex);
             }
 
@@ -464,6 +531,8 @@ void GraphManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
 void GraphManager::keyReleaseEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Delete && m_editingEnabled) {
         removeSelectedNodes();
+    } else if (event->key() == Qt::Key_Escape) {
+        deselectNodes();
     }
 
     QGraphicsObject::keyReleaseEvent(event);
@@ -511,7 +580,8 @@ void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
         if (lod >= 1) {
             m_graphStorage->forEachOutgoingEdge(
                 nodeIndex, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
-                    const bool hasOppositeEdge = m_graphStorage->hasEdge(neighbourIndex, nodeIndex);
+                    const bool hasOppositeEdge =
+                        m_orientedGraph && m_graphStorage->hasEdge(neighbourIndex, nodeIndex);
                     const auto oppositeCost =
                         hasOppositeEdge ? m_graphStorage->getCost(neighbourIndex, nodeIndex) : 0;
 
@@ -615,7 +685,8 @@ void GraphManager::addArrowToPath(QPainterPath& path, QPoint tip, const QPointF&
 
 void GraphManager::addEdgeToPath(QPainterPath& edgePath, NodeIndex_t nodeIndex,
                                  NodeIndex_t neighbourIndex, CostType_t cost) const {
-    const bool hasOppositeEdge = m_graphStorage->hasEdge(neighbourIndex, nodeIndex);
+    const bool hasOppositeEdge =
+        m_orientedGraph && m_graphStorage->hasEdge(neighbourIndex, nodeIndex);
 
     const auto srcCenter = m_nodes[nodeIndex].getPosition();
     const auto targetCenter = m_nodes[neighbourIndex].getPosition();
@@ -654,40 +725,6 @@ void GraphManager::recomputeQuadTree() {
     }
 }
 
-void GraphManager::switchToOptimalAdjacencyContainerIfNeeded() {
-    const auto currentUsage = m_graphStorage->getMemoryUsage();
-    if (m_graphStorage->type() == IGraphStorage::Type::ADJACENCY_LIST) {
-        const auto matrixUsage =
-            sizeof(AdjacencyMatrix) + m_nodes.size() * m_nodes.size() * sizeof(CostType_t);
-
-        if (currentUsage > matrixUsage) {
-            QMessageBox::information(
-                nullptr, "Memory Usage",
-                QString("Program has detected that by using an\nadjacency matrix "
-                        "memory usage will be better.\n\nCurrent usage with list: "
-                        "%1 bytes.\nPredicted usage with matrix: %2 bytes.")
-                    .arg(currentUsage)
-                    .arg(matrixUsage),
-                QMessageBox::Ok);
-
-            auto newStorage = std::make_unique<AdjacencyMatrix>();
-            newStorage->resize(m_nodes.size());
-
-            for (const auto& nodeData : m_nodes) {
-                const NodeIndex_t i = nodeData.getIndex();
-                if (m_graphStorage->hasEdge(i, i)) {
-                    newStorage->addEdge(i, i, m_graphStorage->getCost(i, i));
-                }
-
-                m_graphStorage->forEachOutgoingEdgeWithOpposites(
-                    i, [&](NodeIndex_t j, CostType_t cost) { newStorage->addEdge(i, j, cost); });
-            }
-
-            m_graphStorage = std::move(newStorage);
-        }
-    }
-}
-
 void GraphManager::removeSelectedNodes() {
     if (m_selectedNodes.empty()) {
         return;
@@ -718,7 +755,7 @@ void GraphManager::deselectNodes() {
     for (const auto nodeIndex : m_selectedNodes) {
         auto& node = m_nodes[nodeIndex];
 
-        node.setSelected(false, 0);
+        node.deselect();
         update(node.getBoundingRect());
     }
 

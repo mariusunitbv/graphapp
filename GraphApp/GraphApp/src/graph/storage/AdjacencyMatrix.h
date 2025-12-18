@@ -20,7 +20,7 @@
  * This design allows querying edge existence and retrieving cost in a single
  * memory access, improving cache efficiency for graph algorithms.
  */
-class AdjacencyMatrix : public IGraphStorage {
+class AdjacencyMatrix final : public IGraphStorage {
    public:
     Type type() const override;
 
@@ -43,8 +43,6 @@ class AdjacencyMatrix : public IGraphStorage {
         size_t oldNodeCount,
         const std::set<NodeIndex_t, std::greater<NodeIndex_t>>& selectedNodes) override;
     void recomputeAfterAddingNode(size_t newNodeCount) override;
-
-    size_t getMemoryUsage() const override;
 
     void complete();
 

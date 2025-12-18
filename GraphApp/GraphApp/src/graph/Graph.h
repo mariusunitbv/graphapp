@@ -9,7 +9,7 @@ class Graph : public QGraphicsView {
     Graph(QWidget* parent = nullptr);
     ~Graph();
 
-    void buildFromAdjacencyListString(const QString& text);
+    bool buildFromAdjacencyListString(const QString& text);
     GraphManager& getGraphManager();
     void toggleDarkMode();
 
@@ -35,7 +35,9 @@ class Graph : public QGraphicsView {
    private:
     int getZoomPercentage();
 
-    QSize m_sceneSize{30720, 17280};
+    void drawZoomText(QPainter* painter);
+    void drawWatermark(QPainter* painter);
+
     QGraphicsScene* m_scene;
     GraphManager m_graphManager;
 

@@ -21,9 +21,10 @@ class NodeData {
     void setPosition(const QPoint& position);
     QPoint getPosition() const;
 
-    void setSelected(bool selected, uint32_t selectTime);
+    void select(uint32_t selectOrder);
+    void deselect();
     bool isSelected() const;
-    uint32_t getSelectTime() const;
+    uint32_t getSelectOrder() const;
 
    private:
     NodeIndex_t m_index{INVALID_NODE};
@@ -32,8 +33,7 @@ class NodeData {
     QPoint m_position{};
     QString m_label{};
 
-    bool m_selected{false};
-    uint32_t m_selectTime{0};
+    uint32_t m_selectOrder = -1;
 
    public:
     static constexpr auto k_radius{24};

@@ -24,11 +24,3 @@ void LoadingScreen::forceShow() {
         QApplication::processEvents();
     }
 }
-
-void LoadingScreen::paintEvent(QPaintEvent* event) {
-    QPainter painter(this);
-
-    painter.fillRect(rect(), QColor{80, 80, 80});
-
-    Q_UNUSED(event);
-}

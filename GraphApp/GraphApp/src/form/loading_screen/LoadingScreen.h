@@ -11,9 +11,6 @@ class LoadingScreen : public QMainWindow {
     void setText(const QString& text);
     void forceShow();
 
-   protected:
-    void paintEvent(QPaintEvent* event);
-
    private:
     Ui::LoadingScreenClass ui;
 };

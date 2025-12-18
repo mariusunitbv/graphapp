@@ -97,10 +97,6 @@ void AdjacencyMatrix::recomputeAfterAddingNode(size_t newNodeCount) {
     m_matrix = std::move(newMatrix);
 }
 
-size_t AdjacencyMatrix::getMemoryUsage() const {
-    return sizeof(AdjacencyMatrix) + m_nodeCount * m_nodeCount * sizeof(CostType_t);
-}
-
 void AdjacencyMatrix::complete() { std::fill(m_matrix.begin(), m_matrix.end(), FLAG_BIT); }
 
 AdjacencyMatrix::UnsignedCostType_t AdjacencyMatrix::encode(CostType_t cost) {

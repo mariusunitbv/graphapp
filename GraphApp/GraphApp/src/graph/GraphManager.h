@@ -15,9 +15,13 @@ class GraphManager : public QGraphicsObject {
     Q_OBJECT
 
    public:
+    friend class Graph;
+
     GraphManager();
 
-    void setSceneDimensions(qreal width, qreal height);
+    const std::unique_ptr<IGraphStorage>& getGraphStorage() const;
+
+    void setSceneDimensions(QSize size);
     bool isGoodPosition(const QPoint& pos, NodeIndex_t nodeToIgnore = -1) const;
     void setCollisionsCheckEnabled(bool enabled);
     void reset();
@@ -69,6 +73,8 @@ class GraphManager : public QGraphicsObject {
     void setNodeDefaultColor(QRgb color);
     void setNodeOutlineDefaultColor(QRgb color);
 
+    void evaluateStorageStrategy(size_t edgeCount);
+
     void dijkstra();
 
     QRectF boundingRect() const override;
@@ -94,8 +100,6 @@ class GraphManager : public QGraphicsObject {
     bool isVisibleInScene(const QRect& rect) const;
 
     void recomputeQuadTree();
-
-    void switchToOptimalAdjacencyContainerIfNeeded();
 
     void removeSelectedNodes();
     void deselectNodes();

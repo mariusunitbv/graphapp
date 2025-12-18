@@ -4,7 +4,6 @@
 
 #include "scene_size/SceneSizeInput.h"
 #include "adjacency_list/AdjacencyListBuilder.h"
-#include "intermediate_graph/IntermediateGraph.h"
 
 #include "../graph/pbf/PBFLoader.h"
 
@@ -12,33 +11,57 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
     ui.setupUi(this);
     ui.graph->getGraphManager().setAllowEditing(true);
 
-    connect(ui.actionComplete_Graph, &QAction::triggered,
-            [this]() { ui.graph->getGraphManager().completeGraph(); });
-
     connect(ui.actionBuild_Adjacency_List, &QAction::triggered, [this]() {
-        AdjacencyListBuilder dialog(this);
+        auto& graphManager = ui.graph->getGraphManager();
+        if (graphManager.getNodesCount() == 0) {
+            QMessageBox::warning(this, "Adjacency Builder", "There are no nodes in the graph!");
+            return;
+        }
+
+        if (!graphManager.getAllowEditing()) {
+            QMessageBox::warning(this, "Adjacency Builder",
+                                 "Graph editing is disabled! Enable it to build adjacency list.");
+            return;
+        }
+
+        AdjacencyListBuilder dialog(ui.graph, this);
         if (dialog.exec() == QDialog::Accepted) {
-            ui.graph->buildFromAdjacencyListString(dialog.getAdjacencyListText());
-            ui.graph->getGraphManager().buildVisibleEdgeCache();
+            graphManager.buildVisibleEdgeCache();
         }
     });
 
     connect(ui.actionRandom_Graph, &QAction::triggered, [this]() {
-        bool ok = false;
-
         auto& graphManager = ui.graph->getGraphManager();
+        if (graphManager.getNodesCount() == 0) {
+            QMessageBox::warning(this, "Random Fill Adjacency List",
+                                 "There are no nodes in the graph!");
+            return;
+        }
 
+        if (!graphManager.getAllowEditing()) {
+            QMessageBox::warning(this, "Random Fill Adjacency List",
+                                 "Graph editing is disabled! Enable it to build adjacency list.");
+            return;
+        }
+
+        bool ok = false;
         const auto maxEdges = graphManager.getMaxEdgesCount();
         const auto edgeCount = QInputDialog::getInt(
             nullptr, "Edge Count", QString("Number of edges (max %1):").arg(maxEdges), maxEdges / 3,
-            0, maxEdges, 1, &ok);
+            1, maxEdges, 1, &ok);
 
-        if (!ok || edgeCount == 0) {
+        if (!ok) {
             return;
         }
 
         graphManager.randomlyAddEdges(edgeCount);
     });
+
+    connect(ui.actionComplete_Graph, &QAction::triggered,
+            [this]() { ui.graph->getGraphManager().completeGraph(); });
+
+    connect(ui.actionFill_Graph_With_Nodes, &QAction::triggered,
+            [this]() { ui.graph->getGraphManager().fillGraph(); });
 
     connect(ui.actionBuild_Visible_Edge_Cache, &QAction::triggered,
             [this]() { ui.graph->getGraphManager().buildVisibleEdgeCache(); });
@@ -81,8 +104,9 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
             return;
         }
 
-        const auto window = new IntermediateGraph(invertedGraph, this);
+        const auto window = new GraphApp(nullptr);
         window->setAttribute(Qt::WA_DeleteOnClose);
+        window->setGraph(invertedGraph);
         window->show();
     });
 
@@ -120,9 +144,6 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
     connect(ui.actionDijkstra_s_algorithm, &QAction::triggered,
             [this]() { ui.graph->getGraphManager().dijkstra(); });
-
-    connect(ui.actionFill_Graph_With_Nodes, &QAction::triggered,
-            [this]() { ui.graph->getGraphManager().fillGraph(); });
 
     connect(ui.actionChange_Scene_Dimensions, &QAction::triggered, [this]() {
         SceneSizeInput dialog(ui.graph->getSceneSize(), this);
@@ -176,6 +197,16 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
     connect(ui.actionToggle_Light_Dark_Mode, &QAction::triggered,
             [this]() { ui.graph->toggleDarkMode(); });
+}
+
+void GraphApp::setGraph(Graph* graph) {
+    delete ui.graph;
+    graph->setParent(this);
+    ui.gridLayout->addWidget(graph);
+    ui.graph = graph;
+    ui.actionAllow_Editing->setChecked(graph->getGraphManager().getAllowEditing());
+
+    QTimer::singleShot(500, [this]() { ui.graph->getGraphManager().buildVisibleEdgeCache(); });
 }
 
 void GraphApp::onStartedAlgorithm() {

@@ -26,7 +26,7 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
         AdjacencyListBuilder dialog(ui.graph, this);
         if (dialog.exec() == QDialog::Accepted) {
-            graphManager.buildVisibleEdgeCache();
+            graphManager.buildEdgeCache();
         }
     });
 
@@ -46,31 +46,36 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
         bool ok = false;
         const auto maxEdges = graphManager.getMaxEdgesCount();
-        const auto edgeCount = QInputDialog::getInt(
-            nullptr, "Edge Count", QString("Number of edges (max %1):").arg(maxEdges), maxEdges / 3,
-            1, maxEdges, 1, &ok);
 
+        const auto edgeCount = QInputDialog::getText(
+            nullptr, "Edge Count", QString("Number of edges (max %1):").arg(maxEdges),
+            QLineEdit::Normal, QString::number(maxEdges / 3), &ok);
         if (!ok) {
             return;
         }
 
-        graphManager.randomlyAddEdges(edgeCount);
-    });
+        const auto edgeCountInt = edgeCount.toULongLong(&ok);
+        if (!ok || edgeCountInt < 1 || static_cast<qulonglong>(edgeCountInt) > maxEdges) {
+            QMessageBox::warning(this, "Invalid Input", "The entered edge count is invalid.");
+            return;
+        }
 
-    connect(ui.actionComplete_Graph, &QAction::triggered,
-            [this]() { ui.graph->getGraphManager().completeGraph(); });
+        if (edgeCountInt == maxEdges) {
+            return graphManager.completeGraph();
+        }
+
+        graphManager.resetAdjacencyMatrix();
+        graphManager.resizeAdjacencyMatrix(graphManager.getNodesCount());
+
+        graphManager.evaluateStorageStrategy(edgeCountInt);
+        graphManager.randomlyAddEdges(edgeCountInt);
+    });
 
     connect(ui.actionFill_Graph_With_Nodes, &QAction::triggered,
             [this]() { ui.graph->getGraphManager().fillGraph(); });
 
     connect(ui.actionBuild_Visible_Edge_Cache, &QAction::triggered,
-            [this]() { ui.graph->getGraphManager().buildVisibleEdgeCache(); });
-
-    connect(ui.actionBuild_Full_Edge_Cache, &QAction::triggered,
-            [this]() { ui.graph->getGraphManager().buildFullEdgeCache(); });
-
-    connect(ui.actionAnimations, &QAction::toggled,
-            [this](bool checked) { ui.graph->getGraphManager().setAnimationsDisabled(!checked); });
+            [this]() { ui.graph->getGraphManager().buildEdgeCache(); });
 
     connect(ui.actionAllow_Editing, &QAction::toggled,
             [this](bool checked) { ui.graph->getGraphManager().setAllowEditing(checked); });
@@ -163,6 +168,7 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         loader.tryLoad();
 
         ui.actionAllow_Editing->setChecked(ui.graph->getGraphManager().getAllowEditing());
+        ui.actionDraw_Nodes->setChecked(ui.graph->getGraphManager().getDrawNodesEnabled());
     });
 
     connect(ui.actionDraw_Nodes, &QAction::toggled,
@@ -193,6 +199,7 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
         const auto nodePos = graphManager.getNode(nodeIndex).getPosition();
         ui.graph->centerOn(nodePos);
+        QTimer::singleShot(100, [&graphManager]() { graphManager.buildEdgeCache(); });
     });
 
     connect(ui.actionToggle_Light_Dark_Mode, &QAction::triggered,
@@ -206,7 +213,17 @@ void GraphApp::setGraph(Graph* graph) {
     ui.graph = graph;
     ui.actionAllow_Editing->setChecked(graph->getGraphManager().getAllowEditing());
 
-    QTimer::singleShot(500, [this]() { ui.graph->getGraphManager().buildVisibleEdgeCache(); });
+    QTimer::singleShot(500, [this]() { ui.graph->getGraphManager().buildEdgeCache(); });
+}
+
+void GraphApp::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_F) {
+        if (isMaximized()) {
+            showNormal();
+        } else {
+            showMaximized();
+        }
+    }
 }
 
 void GraphApp::onStartedAlgorithm() {

@@ -29,7 +29,7 @@ GraphManager::GraphManager() : m_graphStorage(std::make_unique<AdjacencyList>())
                 m_loadingScreen->close();
             }
 
-            m_edgesCache = m_edgeWatcher.result();
+            m_edgeCache = m_edgeWatcher.result();
             update();
         }
     });
@@ -56,7 +56,7 @@ bool GraphManager::isGoodPosition(const QPoint& pos, NodeIndex_t nodeToIgnore) c
         return true;
     }
 
-    return !m_quadTree.intersectsAnotherNode(pos, nodeToIgnore);
+    return !m_quadTree.intersectsAnotherNode(pos, 2 * NodeData::k_radius, nodeToIgnore);
 }
 
 void GraphManager::setCollisionsCheckEnabled(bool enabled) { m_collisionsCheckEnabled = enabled; }
@@ -64,7 +64,7 @@ void GraphManager::setCollisionsCheckEnabled(bool enabled) { m_collisionsCheckEn
 void GraphManager::reset() {
     m_nodes.clear();
     m_quadTree.clear();
-    m_edgesCache.clear();
+    m_edgeCache.clear();
     m_selectedNodes.clear();
 
     resetAdjacencyMatrix();
@@ -108,7 +108,32 @@ void GraphManager::addEdge(NodeIndex_t start, NodeIndex_t end, int32_t cost) {
     m_graphStorage->addEdge(start, end, cost);
 }
 
-void GraphManager::randomlyAddEdges(size_t edgeCount) {}
+void GraphManager::randomlyAddEdges(size_t edgeCount) {
+    std::unordered_set<uint64_t> used;
+    used.reserve(edgeCount * 1.3);
+
+    auto encode = [](size_t u, size_t v) -> uint64_t { return (uint64_t(u) << 32) | v; };
+
+    while (used.size() < edgeCount) {
+        NodeIndex_t u = static_cast<NodeIndex_t>(Random::get().getSize(0, m_nodes.size() - 1));
+        if (u == m_nodes.size() - 1 && !m_orientedGraph) {
+            continue;
+        }
+
+        NodeIndex_t v = static_cast<NodeIndex_t>(
+            Random::get().getSize(m_orientedGraph ? 0 : u + 1, m_nodes.size() - 1));
+        if (!m_allowLoops && u == v) {
+            continue;
+        }
+
+        uint64_t key = encode(u, v);
+        if (used.insert(key).second) {
+            addEdge(u, v, 0);
+        }
+    }
+
+    buildEdgeCache();
+}
 
 size_t GraphManager::getMaxEdgesCount() const {
     const size_t n = m_nodes.size();
@@ -123,92 +148,57 @@ void GraphManager::resizeAdjacencyMatrix(size_t nodeCount) { m_graphStorage->res
 
 void GraphManager::resetAdjacencyMatrix() { m_graphStorage = std::make_unique<AdjacencyList>(); }
 
-void GraphManager::buildVisibleEdgeCache() {
+void GraphManager::buildEdgeCache() {
     if (!m_drawEdges) {
         return;
     }
 
-    if (m_edgeFuture.isRunning()) {
-        m_edgeFuture.cancel();
-        m_edgeFuture.waitForFinished();
+    if (m_edgeCache.m_edgePath.boundingRect().contains(m_sceneRect)) {
+        if (m_edgeCache.m_buildWithLod >= 0.5) {
+            return;
+        }
+
+        if (m_edgeCache.m_buildWithLod >= m_currentLod) {
+            return;
+        }
     }
 
-    std::unordered_set<NodeIndex_t> visibleNodes;
-    m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
+    if (m_edgeFuture.isRunning()) {
+        m_edgeFuture.cancel();
+    }
 
-    m_edgeDensity.fill(0);
-    m_edgesCache.clear();
+    const auto halfVisibleWidth = m_sceneRect.width() / 2;
+    const auto halfVisibleHeight = m_sceneRect.height() / 2;
+    const auto extendedRect = m_sceneRect.adjusted(-halfVisibleWidth, -halfVisibleHeight,
+                                                   halfVisibleWidth, halfVisibleHeight);
 
-    m_loadingScreen = new LoadingScreen("Building visible edge cache");
-    m_loadingScreen->forceShow();
+    std::vector<bool> visitMask(m_nodes.size(), false);
+    std::vector<NodeIndex_t> visibleNodes;
+    m_quadTree.getNodesInArea(extendedRect, visitMask, visibleNodes);
 
-    m_edgeFuture = QtConcurrent::mappedReduced<QPainterPath>(
+    m_edgeFuture = QtConcurrent::mappedReduced<EdgeCache>(
         visibleNodes,
         [&](NodeIndex_t nodeIndex) {
-            QPainterPath edgePath;
+            EdgeCache cache;
+            cache.m_buildWithLod = m_currentLod;
+
+            if (m_allowLoops && m_graphStorage->hasEdge(nodeIndex, nodeIndex)) {
+                const auto rect = m_nodes[nodeIndex].getBoundingRect();
+                cache.m_loopEdgePath.addEllipse(rect.adjusted(8, 8, -8, -8));
+            }
 
             m_graphStorage->forEachOutgoingEdge(
                 nodeIndex, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
-                    if (edgePath.elementCount() > SHOWN_EDGE_LIMIT) {
-                        update(m_sceneRect);
-                        return;
-                    }
-
-                    const auto srcCenter = m_nodes[nodeIndex].getPosition();
-                    const auto targetCenter = m_nodes[neighbourIndex].getPosition();
-                    if (!rasterizeEdgeAndCheckDensity(srcCenter, targetCenter)) {
-                        return;
-                    }
-
-                    addEdgeToPath(edgePath, nodeIndex, neighbourIndex, cost);
+                    addEdgeToPath(cache.m_edgePath, nodeIndex, neighbourIndex, cost);
                 });
 
-            return edgePath;
+            return cache;
         },
-        [](QPainterPath& result, const QPainterPath& edgePath) { result.addPath(edgePath); });
-
-    m_edgeWatcher.setFuture(m_edgeFuture);
-}
-
-void GraphManager::buildFullEdgeCache() {
-    const auto response = QMessageBox::information(nullptr, "Confirmation",
-                                                   "Building the full edge cache may take a "
-                                                   "long time for large graphs. Do you want "
-                                                   "to proceed?",
-                                                   QMessageBox::Yes, QMessageBox::No);
-    if (response != QMessageBox::Yes) {
-        return;
-    }
-
-    if (!m_drawEdges) {
-        return;
-    }
-
-    if (m_edgeFuture.isRunning()) {
-        m_edgeFuture.cancel();
-        m_edgeFuture.waitForFinished();
-    }
-
-    m_edgeDensity.fill(0);
-    m_edgesCache.clear();
-
-    m_loadingScreen = new LoadingScreen("Building full edge cache");
-    m_loadingScreen->forceShow();
-
-    m_edgeFuture = QtConcurrent::mappedReduced<QPainterPath>(
-        m_nodes,
-        [&](const NodeData& nodeData) {
-            NodeIndex_t nodeIndex = nodeData.getIndex();
-            QPainterPath edgePath;
-
-            m_graphStorage->forEachOutgoingEdge(
-                nodeIndex, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
-                    addEdgeToPath(edgePath, nodeIndex, neighbourIndex, cost);
-                });
-
-            return edgePath;
-        },
-        [](QPainterPath& result, const QPainterPath& edgePath) { result.addPath(edgePath); });
+        [](EdgeCache& result, const EdgeCache& edgeCache) {
+            result.m_edgePath.addPath(edgeCache.m_edgePath);
+            result.m_loopEdgePath.addPath(edgeCache.m_loopEdgePath);
+            result.m_buildWithLod = edgeCache.m_buildWithLod;
+        });
 
     m_edgeWatcher.setFuture(m_edgeFuture);
 }
@@ -223,25 +213,29 @@ void GraphManager::completeGraph() {
     newStorage->complete();
     m_graphStorage = std::move(newStorage);
 
-    buildVisibleEdgeCache();
+    buildEdgeCache();
 }
 
 void GraphManager::fillGraph() {
-    size_t attempts = 0;
-    constexpr size_t maxAttempts = 10000;
-
     reset();
     reserveNodes(NODE_LIMIT);
-    while (m_nodes.size() < NODE_LIMIT && attempts < maxAttempts) {
-        QPoint pos(Random::get().getInt(0, m_boundingRect.width()),
-                   Random::get().getInt(0, m_boundingRect.height()));
 
-        if (isGoodPosition(pos)) {
-            addNode(pos);
-            attempts = 0;
-        } else {
-            ++attempts;
+    constexpr int padding = 5;
+    constexpr int step = 2 * NodeData::k_radius + padding;
+    int x = NodeData::k_radius, y = NodeData::k_radius;
+
+    for (size_t i = 0; i < NODE_LIMIT; ++i) {
+        if (x + NodeData::k_radius > m_boundingRect.width()) {
+            x = NodeData::k_radius;
+            y += step;
         }
+
+        if (y + NodeData::k_radius > m_boundingRect.height()) {
+            break;
+        }
+
+        addNode({x, y});
+        x += step;
     }
 
     resizeAdjacencyMatrix(m_nodes.size());
@@ -250,10 +244,6 @@ void GraphManager::fillGraph() {
 void GraphManager::setAllowEditing(bool enabled) { m_editingEnabled = enabled; }
 
 bool GraphManager::getAllowEditing() const { return m_editingEnabled; }
-
-void GraphManager::setAnimationsDisabled(bool disabled) { m_animationsDisabled = disabled; }
-
-bool GraphManager::getAnimationsDisabled() const { return m_animationsDisabled; }
 
 void GraphManager::setAllowLoops(bool allow) { m_allowLoops = allow; }
 
@@ -331,8 +321,8 @@ void GraphManager::evaluateStorageStrategy(size_t edgeCount) {
     }
 
     QMessageBox::information(nullptr, "Memory Usage",
-                             QString("Program has detected that by changing\nthe graph storage to "
-                                     "adjacency %1, memory usage will be better.\n\nPredicted "
+                             QString("Program has detected that by using an adjacency \n%1 memory "
+                                     "usage will be better.\n\nPredicted "
                                      "usage with list: %2 bytes.\nPredicted usage with "
                                      "matrix: %3 bytes.\nEdge count: %4")
                                  .arg(switchToMatrix ? "matrix" : "list")
@@ -427,7 +417,9 @@ QRectF GraphManager::boundingRect() const { return m_boundingRect; }
 void GraphManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*) {
     const auto lod = option->levelOfDetailFromTransform(painter->worldTransform());
 
-    m_shouldDrawArrows = lod >= 1.2;
+    m_shouldDrawArrows = lod >= 1;
+    m_currentLod = lod;
+
     drawEdgeCache(painter, lod);
     drawNodes(painter, lod);
     drawQuadTree(painter, &m_quadTree, lod);
@@ -545,7 +537,7 @@ void GraphManager::drawEdgeCache(QPainter* painter, qreal lod) const {
 
     painter->setPen(QPen{QColor::fromRgb(m_nodeOutlineDefaultColor), 2.f});
     painter->setBrush(Qt::NoBrush);
-    painter->drawPath(m_edgesCache);
+    painter->drawPath(m_edgeCache.m_edgePath);
 }
 
 void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
@@ -570,14 +562,15 @@ void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
         return;
     }
 
-    std::unordered_set<NodeIndex_t> visibleNodes;
-    m_quadTree.getNodesInArea(m_sceneRect, visibleNodes);
+    std::vector<bool> visitMask(m_nodes.size(), false);
+    std::vector<NodeIndex_t> visibleNodes;
+    m_quadTree.getNodesInArea(m_sceneRect, visitMask, visibleNodes);
 
     for (const auto nodeIndex : visibleNodes) {
         const auto& node = m_nodes[nodeIndex];
         const auto& rect = node.getBoundingRect();
 
-        if (lod >= 1) {
+        if (lod >= 1 && m_drawEdges) {
             m_graphStorage->forEachOutgoingEdge(
                 nodeIndex, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
                     const bool hasOppositeEdge =
@@ -635,7 +628,21 @@ void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
         painter->drawEllipse(rect);
         if (lod >= 1) {
             painter->drawText(rect, Qt::AlignCenter, node.getLabel());
+
+            if (m_drawEdges && m_graphStorage->hasEdge(nodeIndex, nodeIndex)) {
+                const auto cost = m_graphStorage->getCost(nodeIndex, nodeIndex);
+                if (cost != 0) {
+                    painter->drawText(rect.translated(0, -12), Qt::AlignCenter,
+                                      QString::number(cost));
+                }
+            }
         }
+    }
+
+    if (m_drawEdges) {
+        painter->setPen(outlineColor);
+        painter->setBrush(Qt::NoBrush);
+        painter->drawPath(m_edgeCache.m_loopEdgePath);
     }
 }
 
@@ -685,11 +692,34 @@ void GraphManager::addArrowToPath(QPainterPath& path, QPoint tip, const QPointF&
 
 void GraphManager::addEdgeToPath(QPainterPath& edgePath, NodeIndex_t nodeIndex,
                                  NodeIndex_t neighbourIndex, CostType_t cost) const {
-    const bool hasOppositeEdge =
-        m_orientedGraph && m_graphStorage->hasEdge(neighbourIndex, nodeIndex);
-
     const auto srcCenter = m_nodes[nodeIndex].getPosition();
     const auto targetCenter = m_nodes[neighbourIndex].getPosition();
+
+    const auto shouldSkipNearEdges = m_currentLod < 0.5;
+    if (shouldSkipNearEdges) {
+        const auto srcScreen = mapToScreen(srcCenter);
+        const auto targetScreen = mapToScreen(targetCenter);
+
+        const auto minDistance = [this]() {
+            if (m_currentLod <= 0.1) {
+                return 8.;
+            } else if (m_currentLod <= 0.2) {
+                return 7.;
+            } else if (m_currentLod <= 0.3) {
+                return 6.;
+            }
+
+            return 5.5;
+        }();
+
+        const auto dx = targetScreen.x() - srcScreen.x();
+        const auto dy = targetScreen.y() - srcScreen.y();
+        const auto distanceSquared = dx * dx + dy * dy;
+
+        if (distanceSquared < minDistance * minDistance) {
+            return;
+        }
+    }
 
     const auto direction = targetCenter - srcCenter;
     const auto distance = std::hypot(direction.x(), direction.y());
@@ -703,7 +733,10 @@ void GraphManager::addEdgeToPath(QPainterPath& edgePath, NodeIndex_t nodeIndex,
     const auto lineStart = srcCenter + offset;
     const auto lineEnd = targetCenter - offset;
 
-    if (m_orientedGraph && m_shouldDrawArrows) {
+    const bool hasOppositeEdge =
+        m_orientedGraph && m_graphStorage->hasEdge(neighbourIndex, nodeIndex);
+
+    if (m_drawNodes && m_orientedGraph && m_shouldDrawArrows) {
         addArrowToPath(edgePath, lineEnd, directionNormalized);
         if (hasOppositeEdge) {
             addArrowToPath(edgePath, lineStart, -directionNormalized);
@@ -762,59 +795,9 @@ void GraphManager::deselectNodes() {
     m_selectedNodes.clear();
 }
 
-bool GraphManager::rasterizeEdgeAndCheckDensity(QPoint source, QPoint dest) {
-    const auto sourceScreen = mapToScreen(source);
-    const auto destScreen = mapToScreen(dest);
+QPointF GraphManager::mapToScreen(QPointF graphPos) const {
+    const auto x = graphPos.x() - m_sceneRect.left();
+    const auto y = graphPos.y() - m_sceneRect.top();
 
-    QPoint gridStart(
-        qBound(0, static_cast<int>(sourceScreen.x() * EDGE_GRID_SIZE), EDGE_GRID_SIZE - 1),
-        qBound(0, static_cast<int>(sourceScreen.y() * EDGE_GRID_SIZE), EDGE_GRID_SIZE - 1));
-
-    QPoint gridEnd(
-        qBound(0, static_cast<int>(destScreen.x() * EDGE_GRID_SIZE), EDGE_GRID_SIZE - 1),
-        qBound(0, static_cast<int>(destScreen.y() * EDGE_GRID_SIZE), EDGE_GRID_SIZE - 1));
-
-    int dx = gridEnd.x() - gridStart.x();
-    int dy = gridEnd.y() - gridStart.y();
-
-    const int sx = (dx >= 0) ? 1 : -1;
-    const int sy = (dy >= 0) ? 1 : -1;
-
-    dx *= sx;
-    dy *= sy;
-
-    int err = dx - dy;
-
-    int x = gridStart.x();
-    int y = gridStart.y();
-
-    while (true) {
-        if (m_edgeDensity[y * EDGE_GRID_SIZE + x] >= MAX_EDGE_DENSITY) {
-            return false;
-        }
-
-        ++m_edgeDensity[y * EDGE_GRID_SIZE + x];
-
-        if (x == gridEnd.x() && y == gridEnd.y()) {
-            break;
-        }
-
-        int e2 = 2 * err;
-        if (e2 > -dy) {
-            err -= dy;
-            x += sx;
-        }
-        if (e2 < dx) {
-            err += dx;
-            y += sy;
-        }
-    }
-
-    return true;
-}
-
-QPointF GraphManager::mapToScreen(QPointF graphPos) {
-    const auto nx = (graphPos.x() - m_sceneRect.left()) / m_sceneRect.width();
-    const auto ny = (graphPos.y() - m_sceneRect.top()) / m_sceneRect.height();
-    return QPointF{nx, ny};
+    return QPointF{x, y};
 }

@@ -11,7 +11,8 @@ class QuadTree {
 
     void insert(const NodeData& node);
     void getContainingTrees(const NodeData& node, std::vector<QuadTree*>& trees);
-    void getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>& nodes) const;
+    void getNodesInArea(const QRect& area, std::vector<bool>& visitMask,
+                        std::vector<NodeIndex_t>& nodes) const;
 
     // NON-RECURSIVE METHODS
     bool needsReinserting(const NodeData& node) const;
@@ -28,7 +29,7 @@ class QuadTree {
     QuadTree* getSouthWest() const;
     QuadTree* getSouthEast() const;
 
-    bool intersectsAnotherNode(QPoint pos, NodeIndex_t indexToIgnore = -1) const;
+    bool intersectsAnotherNode(QPoint pos, float minDistance, NodeIndex_t indexToIgnore = -1) const;
     std::optional<NodeIndex_t> getNodeAtPosition(QPoint pos, float minDistance,
                                                  NodeIndex_t indexToIgnore = -1) const;
 

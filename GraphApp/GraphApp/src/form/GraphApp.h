@@ -12,6 +12,9 @@ class GraphApp : public QMainWindow {
 
     void setGraph(Graph* graph);
 
+   protected:
+    void keyPressEvent(QKeyEvent* event) final;
+
    private:
     void onStartedAlgorithm();
     void onFinishedAlgorithm();

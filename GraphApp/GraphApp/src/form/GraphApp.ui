@@ -89,13 +89,10 @@
     </property>
     <addaction name="actionBuild_Adjacency_List"/>
     <addaction name="actionRandom_Graph"/>
-    <addaction name="actionComplete_Graph"/>
-    <addaction name="actionFill_Graph_With_Nodes"/>
     <addaction name="actionBuild_Visible_Edge_Cache"/>
-    <addaction name="actionBuild_Full_Edge_Cache"/>
+    <addaction name="actionFill_Graph_With_Nodes"/>
     <addaction name="actionReset_Graph"/>
     <addaction name="separator"/>
-    <addaction name="actionAnimations"/>
     <addaction name="actionAllow_Editing"/>
     <addaction name="actionAllow_Loops"/>
     <addaction name="actionOriented_Graph"/>
@@ -227,7 +224,7 @@
   </action>
   <action name="actionFill_Graph_With_Nodes">
    <property name="text">
-    <string>Fill Graph With Nodes</string>
+    <string>Fill Graph with Nodes</string>
    </property>
   </action>
   <action name="action_Custom_Load_Map">
@@ -296,6 +293,9 @@
    <property name="text">
     <string>Toggle Light/Dark Mode</string>
    </property>
+   <property name="shortcut">
+    <string>D</string>
+   </property>
   </action>
   <action name="actionCenter_on_Node">
    <property name="text">
@@ -307,7 +307,7 @@
   </action>
   <action name="actionBuild_Visible_Edge_Cache">
    <property name="text">
-    <string>Build Visible Edge Cache</string>
+    <string>Build Edge Cache</string>
    </property>
    <property name="shortcut">
     <string>F5</string>

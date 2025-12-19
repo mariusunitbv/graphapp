@@ -61,18 +61,21 @@ void QuadTree::getContainingTrees(const NodeData& node, std::vector<QuadTree*>& 
     m_southEast->getContainingTrees(node, trees);
 }
 
-void QuadTree::getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>& nodes) const {
+void QuadTree::getNodesInArea(const QRect& area, std::vector<bool>& visitMask,
+                              std::vector<NodeIndex_t>& nodes) const {
     if (!m_boundary.intersects(area)) {
         return;
     }
 
     for (size_t i = 0; i < m_nodes.size(); ++i) {
+        const auto index = m_nodes[i].m_index;
         const auto& nodePos = m_nodes[i].m_position;
         const QRect nodeArea(nodePos.x() - NodeData::k_radius, nodePos.y() - NodeData::k_radius,
                              2 * NodeData::k_radius, 2 * NodeData::k_radius);
 
-        if (area.intersects(nodeArea)) {
-            nodes.emplace(m_nodes[i].m_index);
+        if (!visitMask[index] && area.intersects(nodeArea)) {
+            nodes.push_back(index);
+            visitMask[index] = true;
         }
     }
 
@@ -80,10 +83,10 @@ void QuadTree::getNodesInArea(const QRect& area, std::unordered_set<NodeIndex_t>
         return;
     }
 
-    m_northWest->getNodesInArea(area, nodes);
-    m_northEast->getNodesInArea(area, nodes);
-    m_southWest->getNodesInArea(area, nodes);
-    m_southEast->getNodesInArea(area, nodes);
+    m_northWest->getNodesInArea(area, visitMask, nodes);
+    m_northEast->getNodesInArea(area, visitMask, nodes);
+    m_southWest->getNodesInArea(area, visitMask, nodes);
+    m_southEast->getNodesInArea(area, visitMask, nodes);
 }
 
 bool QuadTree::needsReinserting(const NodeData& node) const {
@@ -158,8 +161,49 @@ QuadTree* QuadTree::getSouthWest() const { return m_southWest; }
 
 QuadTree* QuadTree::getSouthEast() const { return m_southEast; }
 
-bool QuadTree::intersectsAnotherNode(QPoint pos, NodeIndex_t indexToIgnore) const {
-    return getNodeAtPosition(pos, 2 * NodeData::k_radius, indexToIgnore).has_value();
+bool QuadTree::intersectsAnotherNode(QPoint pos, float minDistance,
+                                     NodeIndex_t indexToIgnore) const {
+    if (!m_boundary.intersects(QRect(pos.x() - NodeData::k_radius, pos.y() - NodeData::k_radius,
+                                     2 * NodeData::k_radius, 2 * NodeData::k_radius))) {
+        return false;
+    }
+
+    for (size_t i = 0; i < m_nodes.size(); ++i) {
+        if (m_nodes[i].m_index == indexToIgnore) {
+            continue;
+        }
+
+        const auto nodePos = m_nodes[i].m_position;
+
+        const int64_t dx = nodePos.x() - pos.x();
+        const int64_t dy = nodePos.y() - pos.y();
+
+        if (dx * dx + dy * dy < (minDistance * minDistance)) {
+            return true;
+        }
+    }
+
+    if (!isSubdivided()) {
+        return false;
+    }
+
+    if (m_northWest->intersectsAnotherNode(pos, minDistance, indexToIgnore)) {
+        return true;
+    }
+
+    if (m_northEast->intersectsAnotherNode(pos, minDistance, indexToIgnore)) {
+        return true;
+    }
+
+    if (m_southWest->intersectsAnotherNode(pos, minDistance, indexToIgnore)) {
+        return true;
+    }
+
+    if (m_southEast->intersectsAnotherNode(pos, minDistance, indexToIgnore)) {
+        return true;
+    }
+
+    return false;
 }
 
 std::optional<NodeIndex_t> QuadTree::getNodeAtPosition(QPoint pos, float minDistance,

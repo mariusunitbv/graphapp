@@ -7,9 +7,6 @@
 #include "QuadTree.h"
 
 constexpr size_t NODE_LIMIT = 10'000'000;
-constexpr size_t SHOWN_EDGE_LIMIT = 400'000;
-constexpr uint16_t EDGE_GRID_SIZE = 128;
-constexpr uint16_t MAX_EDGE_DENSITY = 2'000;
 
 class GraphManager : public QGraphicsObject {
     Q_OBJECT
@@ -43,17 +40,13 @@ class GraphManager : public QGraphicsObject {
     void resizeAdjacencyMatrix(size_t nodeCount);
     void resetAdjacencyMatrix();
 
-    void buildVisibleEdgeCache();
-    void buildFullEdgeCache();
+    void buildEdgeCache();
 
     void completeGraph();
     void fillGraph();
 
     void setAllowEditing(bool enabled);
     bool getAllowEditing() const;
-
-    void setAnimationsDisabled(bool disabled);
-    bool getAnimationsDisabled() const;
 
     void setAllowLoops(bool allow);
     bool getAllowLoops() const;
@@ -104,9 +97,18 @@ class GraphManager : public QGraphicsObject {
     void removeSelectedNodes();
     void deselectNodes();
 
-    bool rasterizeEdgeAndCheckDensity(QPoint source, QPoint dest);
+    QPointF mapToScreen(QPointF graphPos) const;
 
-    QPointF mapToScreen(QPointF graphPos);
+    struct EdgeCache {
+        void clear() {
+            m_edgePath.clear();
+            m_loopEdgePath.clear();
+        }
+
+        QPainterPath m_edgePath;
+        QPainterPath m_loopEdgePath;
+        qreal m_buildWithLod;
+    };
 
     QRect m_boundingRect{};
     QRect m_sceneRect{};
@@ -114,21 +116,21 @@ class GraphManager : public QGraphicsObject {
 
     std::vector<NodeData> m_nodes;
     QuadTree m_quadTree;
-    QPainterPath m_edgesCache, m_algorithmPath;
+    EdgeCache m_edgeCache;
+    QPainterPath m_algorithmPath;
     std::unique_ptr<IGraphStorage> m_graphStorage{};
 
-    std::array<uint16_t, EDGE_GRID_SIZE * EDGE_GRID_SIZE> m_edgeDensity{};
     std::set<NodeIndex_t, std::greater<NodeIndex_t>> m_selectedNodes{};
 
     QPoint m_dragOffset{};
+    qreal m_currentLod{1.0};
 
-    QFuture<QPainterPath> m_edgeFuture;
-    QFutureWatcher<QPainterPath> m_edgeWatcher;
+    QFuture<EdgeCache> m_edgeFuture;
+    QFutureWatcher<EdgeCache> m_edgeWatcher;
 
     bool m_collisionsCheckEnabled : 1 {true};
     bool m_draggingNode : 1 {false};
     bool m_pressedEmptySpace : 1 {false};
-    bool m_animationsDisabled : 1 {false};
     bool m_editingEnabled : 1 {false};
     bool m_allowLoops : 1 {false};
     bool m_orientedGraph : 1 {true};

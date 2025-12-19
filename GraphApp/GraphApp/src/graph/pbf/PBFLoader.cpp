@@ -13,18 +13,19 @@ void PBFLoader::tryLoad() {
         nullptr, "Accuracy",
         "A smaller accuracy will merge near nodes, but a bigger accuracy\n"
         "may crash the app if loading a bigger map!\nAlso the scene dimensions are also affecting "
-        "the accuracy.\n\nEntered accuracy (1 -> 25):",
-        5, 1, 25, 1, &ok);
+        "the accuracy.\n\nEntered accuracy (1 -> 7):",
+        3, 1, 7, 1, &ok);
     if (!ok) {
         return;
     }
 
-    m_accuracy = NodeData::k_radius * (5 / accuracy);
+    m_accuracy = NodeData::k_radius / accuracy;
     m_loadingScreen = new LoadingScreen("Loading .pbf file");
     m_loadingScreen->forceShow();
 
     try {
         m_graphManager->reset();
+        m_graphManager->setDrawNodesEnabled(false);
         m_graphManager->setAllowEditing(false);
         m_graphManager->setCollisionsCheckEnabled(false);
 
@@ -35,6 +36,7 @@ void PBFLoader::tryLoad() {
         m_loadingScreen->close();
 
         m_graphManager->reset();
+        m_graphManager->setDrawNodesEnabled(true);
         m_graphManager->setAllowEditing(true);
 
         QMessageBox::warning(
@@ -44,13 +46,6 @@ void PBFLoader::tryLoad() {
     }
 
     m_graphManager->setCollisionsCheckEnabled(true);
-}
-
-QPointF PBFLoader::toMercator(qreal lat, qreal lon) const {
-    const auto x = EARTH_RADIUS * qDegreesToRadians(lon);
-    const auto y = EARTH_RADIUS * std::log(std::tan(M_PI / 4. + qDegreesToRadians(lat) / 2.));
-
-    return {x, y};
 }
 
 QPoint PBFLoader::mercatorToGraphPosition(const QPointF& mercatorPos) const {
@@ -86,24 +81,12 @@ QPoint PBFLoader::mercatorToGraphPosition(const QPointF& mercatorPos) const {
     return QPointF{x, y}.toPoint();
 }
 
-qreal PBFLoader::haversineDistance(qreal lat1, qreal lat2, qreal lon1, qreal lon2) const {
-    const auto phi1 = qDegreesToRadians(lat1);
-    const auto phi2 = qDegreesToRadians(lat2);
-    const auto dPhi = qDegreesToRadians(lat2 - lat1);
-    const auto dLambda = qDegreesToRadians(lon2 - lon1);
-
-    const auto havTheta = qSin(dPhi / 2) * qSin(dPhi / 2) +
-                          qCos(phi1) * qCos(phi2) * qSin(dLambda / 2) * qSin(dLambda / 2);
-    const auto theta = 2 * qAsin(qSqrt(havTheta));
-
-    return EARTH_RADIUS * theta;
-}
-
 void PBFLoader::parseAndComputeBounds() {
     using namespace osmium;
 
     index::map::SparseMemArray<unsigned_object_id_type, Location> index;
     handler::NodeLocationsForWays locationHandler(index);
+    geom::MercatorProjection projection;
 
     size_t parsedNodes{};
     io::Reader reader(m_pbfPath, osm_entity_bits::node | osm_entity_bits::way);
@@ -129,33 +112,35 @@ void PBFLoader::parseAndComputeBounds() {
             auto& mercatorPoints = wayData.m_mercatorPoints;
             mercatorPoints.reserve(way.nodes().size());
 
-            qreal lastLon{}, lastLat{};
-            for (const auto& nodeRef : way.nodes()) {
-                const auto loc = index.get(nodeRef.ref());
-                const auto lon = loc.lon(), lat = loc.lat();
-                const auto mercatorPos = toMercator(lat, lon);
+            const auto& nodes = way.nodes();
+            for (size_t i = 0; i < nodes.size() - 1; ++i) {
+                const auto loc1 = index.get(nodes[i].ref());
+                const auto loc2 = index.get(nodes[i + 1].ref());
 
-                if (mercatorPoints.empty()) {
-                    mercatorPoints.emplace_back(mercatorPos, 0);
-                } else {
-                    mercatorPoints.emplace_back(mercatorPos,
-                                                haversineDistance(lastLat, lat, lastLon, lon));
-                }
+                const auto mercatorPos = projection(loc1);
+                const auto distance = std::round(geom::haversine::distance(loc1, loc2));
+                mercatorPoints.emplace_back(QPointF{mercatorPos.x, mercatorPos.y}, distance);
 
                 if (++parsedNodes % 100000 == 0) {
                     m_loadingScreen->setText(QString("Parsed %1 nodes").arg(parsedNodes));
                 }
 
-                m_minX = std::min(m_minX, mercatorPos.x());
-                m_maxX = std::max(m_maxX, mercatorPos.x());
-                m_minY = std::min(m_minY, mercatorPos.y());
-                m_maxY = std::max(m_maxY, mercatorPos.y());
-
-                lastLon = lon;
-                lastLat = lat;
+                m_minX = std::min(m_minX, mercatorPos.x);
+                m_maxX = std::max(m_maxX, mercatorPos.x);
+                m_minY = std::min(m_minY, mercatorPos.y);
+                m_maxY = std::max(m_maxY, mercatorPos.y);
             }
 
-            if (mercatorPoints.size() > 1) {
+            if (!mercatorPoints.empty()) {
+                const auto loc = index.get(nodes.back().ref());
+                const auto mercatorPos = projection(loc);
+                mercatorPoints.emplace_back(QPointF{mercatorPos.x, mercatorPos.y}, 0);
+
+                m_minX = std::min(m_minX, mercatorPos.x);
+                m_maxX = std::max(m_maxX, mercatorPos.x);
+                m_minY = std::min(m_minY, mercatorPos.y);
+                m_maxY = std::max(m_maxY, mercatorPos.y);
+
                 m_ways.push_back(std::move(wayData));
             }
         }
@@ -199,6 +184,8 @@ void PBFLoader::connectNodes() {
 
     for (const auto& [points, oneWay] : m_ways) {
         NodeIndex_t prevNodeIndex = INVALID_NODE;
+        int64_t accumulatedDistance{};
+
         for (const auto& [mercatorPos, distance] : points) {
             const auto screenPos = mercatorToGraphPosition(mercatorPos);
 
@@ -207,16 +194,23 @@ void PBFLoader::connectNodes() {
                 throw std::runtime_error("Failed to find node for way connection.");
             }
 
-            if (prevNodeIndex == INVALID_NODE || prevNodeIndex == nodeIndex) {
+            if (prevNodeIndex == INVALID_NODE) {
                 prevNodeIndex = nodeIndex;
                 continue;
             }
 
-            m_graphManager->addEdge(prevNodeIndex, nodeIndex, distance);
-            if (!oneWay) {
-                m_graphManager->addEdge(nodeIndex, prevNodeIndex, distance);
+            accumulatedDistance += distance;
+
+            if (prevNodeIndex == nodeIndex) {
+                continue;
             }
 
+            m_graphManager->addEdge(prevNodeIndex, nodeIndex, accumulatedDistance);
+            if (!oneWay) {
+                m_graphManager->addEdge(nodeIndex, prevNodeIndex, accumulatedDistance);
+            }
+
+            accumulatedDistance = 0;
             prevNodeIndex = nodeIndex;
         }
 
@@ -226,5 +220,5 @@ void PBFLoader::connectNodes() {
     }
 
     m_loadingScreen->close();
-    m_graphManager->buildFullEdgeCache();
+    m_graphManager->buildEdgeCache();
 }

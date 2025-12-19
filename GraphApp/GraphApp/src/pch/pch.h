@@ -11,6 +11,9 @@
 #include <QtWidgets>
 
 // External
+#include <osmium/geom/haversine.hpp>
+#include <osmium/geom/mercator_projection.hpp>
+
 #include <osmium/io/pbf_input.hpp>
 #include <osmium/visitor.hpp>
 

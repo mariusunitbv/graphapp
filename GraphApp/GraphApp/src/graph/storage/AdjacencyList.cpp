@@ -31,6 +31,10 @@ void AdjacencyList::removeEdge(NodeIndex_t start, NodeIndex_t end) {
 }
 
 bool AdjacencyList::hasEdge(NodeIndex_t start, NodeIndex_t end) const {
+    if (start >= m_adjacencyList.size()) {
+        return false;
+    }
+
     return getNeighbour(start, end) != m_adjacencyList[start].end();
 }
 

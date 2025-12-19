@@ -36,5 +36,5 @@ class NodeData {
     uint32_t m_selectOrder = -1;
 
    public:
-    static constexpr auto k_radius{24};
+    static constexpr auto k_radius{28};
 };

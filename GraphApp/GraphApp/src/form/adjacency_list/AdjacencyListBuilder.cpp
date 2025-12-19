@@ -10,29 +10,33 @@ AdjacencyListBuilder::AdjacencyListBuilder(Graph* graph, QWidget* parent)
 
     QString currentAdjacencyList;
     QTextStream stream(&currentAdjacencyList);
-    for (size_t i = 0; i < graphManager.getNodesCount(); ++i) {
-        graphManager.getGraphStorage()->forEachOutgoingEdge(
-            static_cast<NodeIndex_t>(i), [&](NodeIndex_t j, CostType_t cost) {
-                if (!graphManager.getAllowLoops() && i == j) {
-                    return;
-                }
+    for (NodeIndex_t i = 0; i < graphManager.getNodesCount(); ++i) {
+        if (graphManager.getAllowLoops() && graphManager.getGraphStorage()->hasEdge(i, i)) {
+            const auto loopCost = graphManager.getGraphStorage()->getCost(i, i);
+            if (loopCost == 0) {
+                stream << i << ' ' << i << '\n';
+            } else {
+                stream << i << ' ' << i << ' ' << loopCost << '\n';
+            }
+        }
 
-                const bool hasOppositeEdge = graphManager.getGraphStorage()->hasEdge(j, i);
-                if (hasOppositeEdge && graphManager.getOrientedGraph()) {
-                    const auto oppositeCost = graphManager.getGraphStorage()->getCost(j, i);
-                    if (oppositeCost == 0) {
-                        stream << j << ' ' << i << '\n';
-                    } else {
-                        stream << j << ' ' << i << ' ' << oppositeCost << '\n';
-                    }
-                }
-
-                if (cost == 0) {
-                    stream << i << ' ' << j << '\n';
+        graphManager.getGraphStorage()->forEachOutgoingEdge(i, [&](NodeIndex_t j, CostType_t cost) {
+            const bool hasOppositeEdge = graphManager.getGraphStorage()->hasEdge(j, i);
+            if (hasOppositeEdge && graphManager.getOrientedGraph()) {
+                const auto oppositeCost = graphManager.getGraphStorage()->getCost(j, i);
+                if (oppositeCost == 0) {
+                    stream << j << ' ' << i << '\n';
                 } else {
-                    stream << i << ' ' << j << ' ' << cost << '\n';
+                    stream << j << ' ' << i << ' ' << oppositeCost << '\n';
                 }
-            });
+            }
+
+            if (cost == 0) {
+                stream << i << ' ' << j << '\n';
+            } else {
+                stream << i << ' ' << j << ' ' << cost << '\n';
+            }
+        });
     }
 
     connect(ui.pushButton, &QPushButton::clicked, [this]() { buildAdjacencyFromInput(); });

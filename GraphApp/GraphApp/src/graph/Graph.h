@@ -40,6 +40,7 @@ class Graph : public QGraphicsView {
 
     QGraphicsScene* m_scene;
     GraphManager m_graphManager;
+    QTimer m_edgeUpdateTimer;
 
     bool m_isDragging{false};
     bool m_darkMode{false};

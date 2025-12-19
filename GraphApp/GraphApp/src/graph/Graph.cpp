@@ -26,11 +26,15 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
 
     centerOn(m_scene->width() / 2, m_scene->height() / 2);
 
+    m_zoomTextStopTimer.setSingleShot(true);
     connect(&m_zoomTextStopTimer, &QTimer::timeout, [this]() {
         m_shouldDrawZoom = false;
         m_zoomTextStopTimer.stop();
         viewport()->update();
     });
+
+    m_edgeUpdateTimer.setSingleShot(true);
+    connect(&m_edgeUpdateTimer, &QTimer::timeout, [this]() { m_graphManager.buildEdgeCache(); });
 }
 
 Graph::~Graph() { m_scene->deleteLater(); }
@@ -177,7 +181,7 @@ Graph* Graph::getInvertedGraph() const {
     for (NodeIndex_t nodeIndex = 0; nodeIndex < m_graphManager.m_nodes.size(); ++nodeIndex) {
         m_graphManager.m_graphStorage->forEachOutgoingEdgeWithOpposites(
             nodeIndex, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
-                invertedGraphManager.m_graphStorage->addEdge(neighbourIndex, nodeIndex, cost);
+                invertedGraphManager.addEdge(neighbourIndex, nodeIndex, cost);
             });
     }
 
@@ -203,6 +207,9 @@ void Graph::wheelEvent(QWheelEvent* event) {
     m_shouldDrawZoom = true;
     m_zoomTextStopTimer.stop();
     m_zoomTextStopTimer.start(1500);
+
+    m_edgeUpdateTimer.stop();
+    m_edgeUpdateTimer.start(500);
 }
 
 void Graph::mousePressEvent(QMouseEvent* event) {
@@ -218,6 +225,9 @@ void Graph::mouseReleaseEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton && m_isDragging) {
         setDragMode(QGraphicsView::NoDrag);
         m_isDragging = false;
+
+        m_edgeUpdateTimer.stop();
+        m_edgeUpdateTimer.start(500);
     }
 
     QGraphicsView::mouseReleaseEvent(event);
@@ -259,7 +269,7 @@ void Graph::drawZoomText(QPainter* painter) {
     painter->setFont(font);
 
     QFontMetrics fm(font);
-    const int padding = 5;
+    constexpr int padding = 5;
 
     const QSize textSize(fm.horizontalAdvance(zoomText), fm.height());
     const auto viewRect = viewport()->rect();

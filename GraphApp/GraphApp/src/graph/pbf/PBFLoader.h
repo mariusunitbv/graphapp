@@ -10,9 +10,7 @@ class PBFLoader {
     void tryLoad();
 
    private:
-    QPointF toMercator(qreal lat, qreal lon) const;
     QPoint mercatorToGraphPosition(const QPointF& mercatorPos) const;
-    qreal haversineDistance(qreal lat1, qreal lat2, qreal lon1, qreal lon2) const;
 
     void parseAndComputeBounds();
     void addNodesToGraph();
@@ -36,6 +34,4 @@ class PBFLoader {
     qreal m_maxX{std::numeric_limits<qreal>::min()};
     qreal m_minY{std::numeric_limits<qreal>::max()};
     qreal m_maxY{std::numeric_limits<qreal>::min()};
-
-    static constexpr auto EARTH_RADIUS{6378137.};
 };

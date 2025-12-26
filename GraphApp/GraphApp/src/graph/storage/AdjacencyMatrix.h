@@ -29,8 +29,7 @@ class AdjacencyMatrix final : public IGraphStorage {
     void addEdge(NodeIndex_t start, NodeIndex_t end, CostType_t cost) override;
     void removeEdge(NodeIndex_t start, NodeIndex_t end) override;
 
-    bool hasEdge(NodeIndex_t start, NodeIndex_t end) const override;
-    CostType_t getCost(NodeIndex_t start, NodeIndex_t end) const override;
+    std::optional<CostType_t> getEdge(NodeIndex_t start, NodeIndex_t end) const override;
 
     void forEachOutgoingEdge(
         NodeIndex_t node,

@@ -11,6 +11,7 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
 
     QOpenGLWidget* glWidget = new QOpenGLWidget(this);
     glWidget->setFormat(QSurfaceFormat::defaultFormat());
+    setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
 
     setViewport(glWidget);
 
@@ -37,7 +38,12 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
     connect(&m_edgeUpdateTimer, &QTimer::timeout, [this]() { m_graphManager.buildEdgeCache(); });
 }
 
-Graph::~Graph() { m_scene->deleteLater(); }
+Graph::~Graph() {
+    m_graphManager.m_edgeFuture.cancel();
+    m_graphManager.m_edgeFuture.waitForFinished();
+
+    m_scene->deleteLater();
+}
 
 bool Graph::buildFromAdjacencyListString(const QString& text) {
     QStringList lines = text.split('\n', Qt::SkipEmptyParts);
@@ -175,8 +181,12 @@ Graph* Graph::getInvertedGraph() const {
         invertedGraphManager.m_graphStorage = std::make_unique<AdjacencyMatrix>();
     }
 
-    invertedGraphManager.m_nodes = m_graphManager.m_nodes;
-    invertedGraphManager.m_quadTree = m_graphManager.m_quadTree;
+    invertedGraphManager.setCollisionsCheckEnabled(false);
+    for (const auto& node : m_graphManager.m_nodes) {
+        invertedGraphManager.addNode(node.getPosition());
+    }
+    invertedGraphManager.setCollisionsCheckEnabled(true);
+
     invertedGraphManager.resizeAdjacencyMatrix(m_graphManager.m_nodes.size());
     for (NodeIndex_t nodeIndex = 0; nodeIndex < m_graphManager.m_nodes.size(); ++nodeIndex) {
         m_graphManager.m_graphStorage->forEachOutgoingEdgeWithOpposites(

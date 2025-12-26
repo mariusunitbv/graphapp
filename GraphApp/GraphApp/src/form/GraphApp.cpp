@@ -199,7 +199,7 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
         const auto nodePos = graphManager.getNode(nodeIndex).getPosition();
         ui.graph->centerOn(nodePos);
-        QTimer::singleShot(100, [&graphManager]() { graphManager.buildEdgeCache(); });
+        QTimer::singleShot(300, [&graphManager]() { graphManager.buildEdgeCache(); });
     });
 
     connect(ui.actionToggle_Light_Dark_Mode, &QAction::triggered,

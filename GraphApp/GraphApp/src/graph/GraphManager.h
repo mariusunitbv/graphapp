@@ -6,7 +6,7 @@
 
 #include "QuadTree.h"
 
-constexpr size_t NODE_LIMIT = 10'000'000;
+constexpr size_t NODE_LIMIT = INVALID_NODE - 1;
 
 class GraphManager : public QGraphicsObject {
     Q_OBJECT
@@ -107,7 +107,7 @@ class GraphManager : public QGraphicsObject {
 
         QPainterPath m_edgePath;
         QPainterPath m_loopEdgePath;
-        qreal m_buildWithLod;
+        qreal m_builtWithLod;
     };
 
     QRect m_boundingRect{};

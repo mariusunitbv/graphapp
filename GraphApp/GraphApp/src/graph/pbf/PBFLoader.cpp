@@ -88,8 +88,9 @@ void PBFLoader::parseAndComputeBounds() {
     handler::NodeLocationsForWays locationHandler(index);
     geom::MercatorProjection projection;
 
-    size_t parsedNodes{};
-    io::Reader reader(m_pbfPath, osm_entity_bits::node | osm_entity_bits::way);
+    std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
+    io::Reader reader(m_pbfPath, osm_entity_bits::node | osm_entity_bits::way,
+                      osmium::io::read_meta::no);
 
     while (auto buffer = reader.read()) {
         apply(buffer, locationHandler);
@@ -121,10 +122,6 @@ void PBFLoader::parseAndComputeBounds() {
                 const auto distance = std::round(geom::haversine::distance(loc1, loc2));
                 mercatorPoints.emplace_back(QPointF{mercatorPos.x, mercatorPos.y}, distance);
 
-                if (++parsedNodes % 100000 == 0) {
-                    m_loadingScreen->setText(QString("Parsed %1 nodes").arg(parsedNodes));
-                }
-
                 m_minX = std::min(m_minX, mercatorPos.x);
                 m_maxX = std::max(m_maxX, mercatorPos.x);
                 m_minY = std::min(m_minY, mercatorPos.y);
@@ -143,12 +140,19 @@ void PBFLoader::parseAndComputeBounds() {
 
                 m_ways.push_back(std::move(wayData));
             }
+
+            const auto now = std::chrono::steady_clock::now();
+            const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate);
+            if (elapsed.count() >= 2) {
+                lastUpdate = now;
+                m_loadingScreen->setText(QString("Parsed %1 ways").arg(m_ways.size()));
+            }
         }
     }
 }
 
 void PBFLoader::addNodesToGraph() {
-    size_t addedNodes{};
+    std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
 
     for (const auto& [points, _] : m_ways) {
         for (const auto& [mercatorPos, _] : points) {
@@ -166,11 +170,15 @@ void PBFLoader::addNodesToGraph() {
 
             if (!m_graphManager->addNode(screenPos)) {
                 throw std::runtime_error(
-                    "Failed to add node to the graph.\nMap contains too many nodes!");
+                    "Failed to add node to the graph.\nNode is out of bounds!");
             }
 
-            if (++addedNodes % 100000 == 0) {
-                m_loadingScreen->setText(QString("Added %1 nodes").arg(addedNodes));
+            const auto now = std::chrono::steady_clock::now();
+            const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate);
+            if (elapsed.count() >= 2) {
+                lastUpdate = now;
+                m_loadingScreen->setText(
+                    QString("Added %1 nodes").arg(m_graphManager->getNodesCount()));
             }
 
             m_screenToNodes.emplace(screenPos, m_graphManager->getNodesCount() - 1);
@@ -179,7 +187,9 @@ void PBFLoader::addNodesToGraph() {
 }
 
 void PBFLoader::connectNodes() {
+    std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
     size_t connectedWays{};
+
     m_graphManager->resizeAdjacencyMatrix(m_graphManager->getNodesCount());
 
     for (const auto& [points, oneWay] : m_ways) {
@@ -214,8 +224,11 @@ void PBFLoader::connectNodes() {
             prevNodeIndex = nodeIndex;
         }
 
-        if (++connectedWays % 50000 == 0) {
-            m_loadingScreen->setText(QString("Connected %1 ways").arg(connectedWays));
+        const auto now = std::chrono::steady_clock::now();
+        const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate);
+        if (elapsed.count() >= 2) {
+            lastUpdate = now;
+            m_loadingScreen->setText(QString("Connected %1 ways").arg(++connectedWays));
         }
     }
 

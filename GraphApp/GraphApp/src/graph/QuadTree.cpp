@@ -150,7 +150,8 @@ void QuadTree::subdivide() {
 bool QuadTree::isSubdivided() const { return m_northWest; }
 
 bool QuadTree::canSubdivide() const {
-    return m_boundary.width() / 2 > 1 && m_boundary.height() / 2 > 1;
+    return m_boundary.width() / 2 > NodeData::k_radius &&
+           m_boundary.height() / 2 > NodeData::k_radius;
 }
 
 QuadTree* QuadTree::getNorthWest() const { return m_northWest; }

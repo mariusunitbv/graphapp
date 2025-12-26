@@ -30,18 +30,14 @@ void AdjacencyList::removeEdge(NodeIndex_t start, NodeIndex_t end) {
     neighbours.erase(it);
 }
 
-bool AdjacencyList::hasEdge(NodeIndex_t start, NodeIndex_t end) const {
+std::optional<CostType_t> AdjacencyList::getEdge(NodeIndex_t start, NodeIndex_t end) const {
     if (start >= m_adjacencyList.size()) {
-        return false;
+        return std::nullopt;
     }
 
-    return getNeighbour(start, end) != m_adjacencyList[start].end();
-}
-
-CostType_t AdjacencyList::getCost(NodeIndex_t start, NodeIndex_t end) const {
-    const auto& it = getNeighbour(start, end);
-    if (it == m_adjacencyList.at(start).end()) {
-        throw std::runtime_error("Tried getting cost for a non-existing edge!");
+    const auto it = getNeighbour(start, end);
+    if (it == m_adjacencyList[start].end()) {
+        return std::nullopt;
     }
 
     return it->second;
@@ -54,7 +50,7 @@ void AdjacencyList::forEachOutgoingEdge(
     }
 
     for (const auto& [neighbour, cost] : m_adjacencyList[node]) {
-        if (node >= neighbour && hasEdge(neighbour, node)) {
+        if (node >= neighbour && getEdge(neighbour, node)) {
             continue;
         }
 

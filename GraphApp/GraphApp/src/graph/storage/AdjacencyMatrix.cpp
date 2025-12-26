@@ -17,21 +17,25 @@ void AdjacencyMatrix::removeEdge(NodeIndex_t i, NodeIndex_t j) {
     m_matrix[i * m_nodeCount + j] = 0;
 }
 
-bool AdjacencyMatrix::hasEdge(NodeIndex_t i, NodeIndex_t j) const { return read(i, j) & FLAG_BIT; }
+std::optional<CostType_t> AdjacencyMatrix::getEdge(NodeIndex_t start, NodeIndex_t end) const {
+    const auto hasEdge = read(start, end) & FLAG_BIT;
+    if (!hasEdge) {
+        return std::nullopt;
+    }
 
-CostType_t AdjacencyMatrix::getCost(NodeIndex_t i, NodeIndex_t j) const {
-    return read(i, j) & COST_MASK;
+    return read(start, end) & COST_MASK;
 }
 
 void AdjacencyMatrix::forEachOutgoingEdge(
     NodeIndex_t node, const std::function<void(NodeIndex_t, CostType_t)>& callback) const {
     for (NodeIndex_t i = 0; i < m_nodeCount; ++i) {
-        if (node >= i && hasEdge(i, node)) {
+        if (node >= i && getEdge(i, node)) {
             continue;
         }
 
-        if (hasEdge(node, i)) {
-            callback(i, getCost(node, i));
+        const auto edge = getEdge(node, i);
+        if (edge) {
+            callback(i, edge.value());
         }
     }
 }
@@ -39,8 +43,9 @@ void AdjacencyMatrix::forEachOutgoingEdge(
 void AdjacencyMatrix::forEachOutgoingEdgeWithOpposites(
     NodeIndex_t node, const std::function<void(NodeIndex_t, CostType_t)>& callback) const {
     for (NodeIndex_t i = 0; i < m_nodeCount; ++i) {
-        if (hasEdge(node, i)) {
-            callback(i, getCost(node, i));
+        const auto edge = getEdge(node, i);
+        if (edge) {
+            callback(i, edge.value());
         }
     }
 }
@@ -68,11 +73,13 @@ void AdjacencyMatrix::recomputeBeforeRemovingNodes(
 
         for (NodeIndex_t j = 0; j < m_nodeCount; ++j) {
             const auto new_j = indexRemap[j];
-            if (new_j == INVALID_NODE || !hasEdge(i, j)) {
+
+            const auto edge = getEdge(i, j);
+            if (new_j == INVALID_NODE || !edge) {
                 continue;
             }
 
-            newMatrix[new_i * newNodeCount + new_j] = encode(getCost(i, j));
+            newMatrix[new_i * newNodeCount + new_j] = encode(edge.value());
         }
     });
 
@@ -87,8 +94,9 @@ void AdjacencyMatrix::recomputeAfterAddingNode(size_t newNodeCount) {
     const auto indices = std::views::iota(NodeIndex_t{0}, static_cast<NodeIndex_t>(m_nodeCount));
     std::for_each(std::execution::par, indices.begin(), indices.end(), [&](NodeIndex_t i) {
         for (NodeIndex_t j = 0; j < m_nodeCount; ++j) {
-            if (hasEdge(i, j)) {
-                newMatrix[i * newNodeCount + j] = encode(getCost(i, j));
+            const auto edge = getEdge(i, j);
+            if (edge) {
+                newMatrix[i * newNodeCount + j] = encode(edge.value());
             }
         }
     });

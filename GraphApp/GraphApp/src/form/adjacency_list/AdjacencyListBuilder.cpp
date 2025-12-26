@@ -11,8 +11,9 @@ AdjacencyListBuilder::AdjacencyListBuilder(Graph* graph, QWidget* parent)
     QString currentAdjacencyList;
     QTextStream stream(&currentAdjacencyList);
     for (NodeIndex_t i = 0; i < graphManager.getNodesCount(); ++i) {
-        if (graphManager.getAllowLoops() && graphManager.getGraphStorage()->hasEdge(i, i)) {
-            const auto loopCost = graphManager.getGraphStorage()->getCost(i, i);
+        const auto loop = graphManager.getGraphStorage()->getEdge(i, i);
+        if (graphManager.getAllowLoops() && loop) {
+            const auto loopCost = loop.value();
             if (loopCost == 0) {
                 stream << i << ' ' << i << '\n';
             } else {
@@ -21,9 +22,9 @@ AdjacencyListBuilder::AdjacencyListBuilder(Graph* graph, QWidget* parent)
         }
 
         graphManager.getGraphStorage()->forEachOutgoingEdge(i, [&](NodeIndex_t j, CostType_t cost) {
-            const bool hasOppositeEdge = graphManager.getGraphStorage()->hasEdge(j, i);
-            if (hasOppositeEdge && graphManager.getOrientedGraph()) {
-                const auto oppositeCost = graphManager.getGraphStorage()->getCost(j, i);
+            const auto oppositeEdge = graphManager.getGraphStorage()->getEdge(j, i);
+            if (graphManager.getOrientedGraph() && oppositeEdge) {
+                const auto oppositeCost = oppositeEdge.value();
                 if (oppositeCost == 0) {
                     stream << j << ' ' << i << '\n';
                 } else {

@@ -81,11 +81,15 @@ std::optional<NodeIndex_t> GraphManager::getNode(const QPoint& pos, float minDis
 }
 
 bool GraphManager::hasNeighbour(NodeIndex_t index, NodeIndex_t neighbour) const {
-    return m_graphStorage->hasEdge(index, neighbour);
+    return m_graphStorage->getEdge(index, neighbour).has_value();
 }
 
 bool GraphManager::addNode(const QPoint& pos) {
-    if (m_nodes.size() >= NODE_LIMIT || !isGoodPosition(pos)) {
+    if (m_nodes.size() > NODE_LIMIT) {
+        throw std::runtime_error("Cannot add more nodes: limit reached.");
+    }
+
+    if (!isGoodPosition(pos)) {
         return false;
     }
 
@@ -154,11 +158,11 @@ void GraphManager::buildEdgeCache() {
     }
 
     if (m_edgeCache.m_edgePath.boundingRect().contains(m_sceneRect)) {
-        if (m_edgeCache.m_buildWithLod >= 0.5) {
+        if (m_edgeCache.m_builtWithLod >= 0.5) {
             return;
         }
 
-        if (m_edgeCache.m_buildWithLod >= m_currentLod) {
+        if (m_edgeCache.m_builtWithLod >= m_currentLod) {
             return;
         }
     }
@@ -180,9 +184,9 @@ void GraphManager::buildEdgeCache() {
         visibleNodes,
         [&](NodeIndex_t nodeIndex) {
             EdgeCache cache;
-            cache.m_buildWithLod = m_currentLod;
+            cache.m_builtWithLod = m_currentLod;
 
-            if (m_allowLoops && m_graphStorage->hasEdge(nodeIndex, nodeIndex)) {
+            if (m_allowLoops && hasNeighbour(nodeIndex, nodeIndex)) {
                 const auto rect = m_nodes[nodeIndex].getBoundingRect();
                 cache.m_loopEdgePath.addEllipse(rect.adjusted(8, 8, -8, -8));
             }
@@ -197,7 +201,7 @@ void GraphManager::buildEdgeCache() {
         [](EdgeCache& result, const EdgeCache& edgeCache) {
             result.m_edgePath.addPath(edgeCache.m_edgePath);
             result.m_loopEdgePath.addPath(edgeCache.m_loopEdgePath);
-            result.m_buildWithLod = edgeCache.m_buildWithLod;
+            result.m_builtWithLod = edgeCache.m_builtWithLod;
         });
 
     m_edgeWatcher.setFuture(m_edgeFuture);
@@ -294,8 +298,9 @@ void GraphManager::evaluateStorageStrategy(size_t edgeCount) {
 
         for (const auto& nodeData : m_nodes) {
             const NodeIndex_t i = nodeData.getIndex();
-            if (m_graphStorage->hasEdge(i, i)) {
-                newStorage->addEdge(i, i, m_graphStorage->getCost(i, i));
+            const auto loop = m_graphStorage->getEdge(i, i);
+            if (loop) {
+                newStorage->addEdge(i, i, loop.value());
             }
 
             m_graphStorage->forEachOutgoingEdgeWithOpposites(
@@ -402,7 +407,7 @@ void GraphManager::dijkstra() {
         if (nextNode != -1) {
             m_algorithmPath.moveTo(m_nodes[nextNode].getPosition());
             m_algorithmPath.lineTo(m_nodes[at].getPosition());
-            totalCost += static_cast<uint64_t>(m_graphStorage->getCost(nextNode, at));
+            totalCost += static_cast<uint64_t>(m_graphStorage->getEdge(nextNode, at).value());
         }
 
         m_nodes[at].setFillColor(qRgb(255, 255, 0));
@@ -573,10 +578,10 @@ void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
         if (lod >= 1 && m_drawEdges) {
             m_graphStorage->forEachOutgoingEdge(
                 nodeIndex, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
-                    const bool hasOppositeEdge =
-                        m_orientedGraph && m_graphStorage->hasEdge(neighbourIndex, nodeIndex);
-                    const auto oppositeCost =
-                        hasOppositeEdge ? m_graphStorage->getCost(neighbourIndex, nodeIndex) : 0;
+                    const auto oppositeEdge =
+                        m_orientedGraph ? m_graphStorage->getEdge(neighbourIndex, nodeIndex)
+                                        : std::nullopt;
+                    const auto oppositeCost = oppositeEdge.has_value() ? oppositeEdge.value() : 0;
 
                     if (cost == 0 && oppositeCost == 0) {
                         return;
@@ -610,7 +615,7 @@ void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
                         painter->drawText(textRect, Qt::AlignCenter, costText);
                     }
 
-                    if (hasOppositeEdge && oppositeCost != 0) {
+                    if (oppositeEdge && oppositeCost != 0) {
                         const auto costPos = mid - normal * costOffset;
                         const auto costText = QString::number(oppositeCost);
                         const auto textWidth = fm.horizontalAdvance(costText);
@@ -629,11 +634,14 @@ void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
         if (lod >= 1) {
             painter->drawText(rect, Qt::AlignCenter, node.getLabel());
 
-            if (m_drawEdges && m_graphStorage->hasEdge(nodeIndex, nodeIndex)) {
-                const auto cost = m_graphStorage->getCost(nodeIndex, nodeIndex);
-                if (cost != 0) {
-                    painter->drawText(rect.translated(0, -12), Qt::AlignCenter,
-                                      QString::number(cost));
+            if (m_drawEdges) {
+                const auto loop = m_graphStorage->getEdge(nodeIndex, nodeIndex);
+                if (loop) {
+                    const auto cost = loop.value();
+                    if (cost != 0) {
+                        painter->drawText(rect.translated(0, -12), Qt::AlignCenter,
+                                          QString::number(cost));
+                    }
                 }
             }
         }
@@ -733,12 +741,9 @@ void GraphManager::addEdgeToPath(QPainterPath& edgePath, NodeIndex_t nodeIndex,
     const auto lineStart = srcCenter + offset;
     const auto lineEnd = targetCenter - offset;
 
-    const bool hasOppositeEdge =
-        m_orientedGraph && m_graphStorage->hasEdge(neighbourIndex, nodeIndex);
-
     if (m_drawNodes && m_orientedGraph && m_shouldDrawArrows) {
         addArrowToPath(edgePath, lineEnd, directionNormalized);
-        if (hasOppositeEdge) {
+        if (hasNeighbour(neighbourIndex, nodeIndex)) {
             addArrowToPath(edgePath, lineStart, -directionNormalized);
         }
     }

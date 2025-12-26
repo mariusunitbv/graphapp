@@ -35,6 +35,16 @@ GraphManager::GraphManager() : m_graphStorage(std::make_unique<AdjacencyList>())
     });
 }
 
+void GraphManager::setGraphStorageType(IGraphStorage::Type type) {
+    if (type == IGraphStorage::Type::ADJACENCY_LIST) {
+        m_graphStorage = std::make_unique<AdjacencyList>();
+    } else if (type == IGraphStorage::Type::ADJACENCY_MATRIX) {
+        m_graphStorage = std::make_unique<AdjacencyMatrix>();
+    } else {
+        throw std::runtime_error("Unknown graph storage type.");
+    }
+}
+
 const std::unique_ptr<IGraphStorage>& GraphManager::getGraphStorage() const {
     return m_graphStorage;
 }

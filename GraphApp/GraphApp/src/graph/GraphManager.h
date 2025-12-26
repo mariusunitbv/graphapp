@@ -16,6 +16,7 @@ class GraphManager : public QGraphicsObject {
 
     GraphManager();
 
+    void setGraphStorageType(IGraphStorage::Type type);
     const std::unique_ptr<IGraphStorage>& getGraphStorage() const;
 
     void setSceneDimensions(QSize size);

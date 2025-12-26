@@ -20,5 +20,8 @@ class GraphApp : public QMainWindow {
     void onFinishedAlgorithm();
     void onEndedAlgorithm();
 
+    void saveGraph();
+    void loadGraph();
+
     Ui::GraphAppClass ui;
 };

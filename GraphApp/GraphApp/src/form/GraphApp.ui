@@ -97,6 +97,11 @@
     <addaction name="actionAllow_Loops"/>
     <addaction name="actionOriented_Graph"/>
     <addaction name="separator"/>
+    <addaction name="actionSave_Graph"/>
+    <addaction name="actionLoad_Graph"/>
+    <addaction name="separator"/>
+    <addaction name="actionInverted_Graph_2"/>
+    <addaction name="separator"/>
     <addaction name="actionChange_Scene_Dimensions"/>
     <addaction name="action_Custom_Load_Map"/>
    </widget>
@@ -125,7 +130,14 @@
     <addaction name="actionCenter_on_Node"/>
     <addaction name="actionToggle_Light_Dark_Mode"/>
    </widget>
+   <widget class="QMenu" name="menuTraversals">
+    <property name="title">
+     <string>Traversals</string>
+    </property>
+    <addaction name="actionGeneric"/>
+   </widget>
    <addaction name="menuGraph"/>
+   <addaction name="menuTraversals"/>
    <addaction name="menuAlgorithms"/>
    <addaction name="menuView"/>
   </widget>
@@ -327,6 +339,32 @@
    </property>
    <property name="shortcut">
     <string>S</string>
+   </property>
+  </action>
+  <action name="actionSave_Graph">
+   <property name="text">
+    <string>Save Graph</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="actionLoad_Graph">
+   <property name="text">
+    <string>Load Graph</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
+  </action>
+  <action name="actionGeneric">
+   <property name="text">
+    <string>Generic</string>
+   </property>
+  </action>
+  <action name="actionInverted_Graph_2">
+   <property name="text">
+    <string>Inverted Graph</string>
    </property>
   </action>
  </widget>

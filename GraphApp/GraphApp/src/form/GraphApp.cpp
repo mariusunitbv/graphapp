@@ -71,11 +71,22 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         graphManager.randomlyAddEdges(edgeCountInt);
     });
 
+    connect(ui.actionBuild_Visible_Edge_Cache, &QAction::triggered,
+            [this]() { ui.graph->getGraphManager().buildEdgeCache(); });
+
     connect(ui.actionFill_Graph_With_Nodes, &QAction::triggered,
             [this]() { ui.graph->getGraphManager().fillGraph(); });
 
-    connect(ui.actionBuild_Visible_Edge_Cache, &QAction::triggered,
-            [this]() { ui.graph->getGraphManager().buildEdgeCache(); });
+    connect(ui.actionReset_Graph, &QAction::triggered, [this]() {
+        const auto response =
+            QMessageBox::warning(this, "Confirmation", "Are you sure you want to reset the graph?",
+                                 QMessageBox::Yes, QMessageBox::No);
+
+        if (response == QMessageBox::Yes) {
+            ui.graph->getGraphManager().reset();
+            ui.graph->getGraphManager().update();
+        }
+    });
 
     connect(ui.actionAllow_Editing, &QAction::toggled,
             [this](bool checked) { ui.graph->getGraphManager().setAllowEditing(checked); });
@@ -92,18 +103,11 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         }
     });
 
-    connect(ui.actionReset_Graph, &QAction::triggered, [this]() {
-        const auto response =
-            QMessageBox::warning(this, "Confirmation", "Are you sure you want to reset the graph?",
-                                 QMessageBox::Yes, QMessageBox::No);
+    connect(ui.actionSave_Graph, &QAction::triggered, this, &GraphApp::saveGraph);
 
-        if (response == QMessageBox::Yes) {
-            ui.graph->getGraphManager().reset();
-            ui.graph->getGraphManager().update();
-        }
-    });
+    connect(ui.actionLoad_Graph, &QAction::triggered, this, &GraphApp::loadGraph);
 
-    connect(ui.actionInverted_Graph, &QAction::triggered, this, [this]() {
+    connect(ui.actionInverted_Graph_2, &QAction::triggered, this, [this]() {
         Graph* invertedGraph = ui.graph->getInvertedGraph();
         if (!invertedGraph) {
             return;
@@ -114,6 +118,29 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         window->setGraph(invertedGraph);
         window->show();
     });
+
+    connect(ui.actionChange_Scene_Dimensions, &QAction::triggered, [this]() {
+        SceneSizeInput dialog(ui.graph->getSceneSize(), this);
+        if (dialog.exec() == QDialog::Accepted) {
+            ui.graph->setSceneSize(dialog.getEnteredSize());
+        }
+    });
+
+    connect(ui.action_Custom_Load_Map, &QAction::triggered, [this]() {
+        const auto filePath =
+            QFileDialog::getOpenFileName(this, "Open Map File", "", "PBF Files (*.pbf)");
+        if (filePath.isEmpty()) {
+            return;
+        }
+
+        PBFLoader loader(&ui.graph->getGraphManager(), filePath);
+        loader.tryLoad();
+
+        ui.actionAllow_Editing->setChecked(ui.graph->getGraphManager().getAllowEditing());
+        ui.actionDraw_Nodes->setChecked(ui.graph->getGraphManager().getDrawNodesEnabled());
+    });
+
+    connect(ui.actionGeneric, &QAction::triggered, [this]() {});
 
     connect(ui.actionGenericTraversal, &QAction::triggered, [this]() {
 
@@ -149,27 +176,6 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
     connect(ui.actionDijkstra_s_algorithm, &QAction::triggered,
             [this]() { ui.graph->getGraphManager().dijkstra(); });
-
-    connect(ui.actionChange_Scene_Dimensions, &QAction::triggered, [this]() {
-        SceneSizeInput dialog(ui.graph->getSceneSize(), this);
-        if (dialog.exec() == QDialog::Accepted) {
-            ui.graph->setSceneSize(dialog.getEnteredSize());
-        }
-    });
-
-    connect(ui.action_Custom_Load_Map, &QAction::triggered, [this]() {
-        const auto filePath =
-            QFileDialog::getOpenFileName(this, "Open Map File", "", "PBF Files (*.pbf)");
-        if (filePath.isEmpty()) {
-            return;
-        }
-
-        PBFLoader loader(&ui.graph->getGraphManager(), filePath);
-        loader.tryLoad();
-
-        ui.actionAllow_Editing->setChecked(ui.graph->getGraphManager().getAllowEditing());
-        ui.actionDraw_Nodes->setChecked(ui.graph->getGraphManager().getDrawNodesEnabled());
-    });
 
     connect(ui.actionDraw_Nodes, &QAction::toggled,
             [this](bool checked) { ui.graph->getGraphManager().setDrawNodesEnabled(checked); });
@@ -241,4 +247,162 @@ void GraphApp::onFinishedAlgorithm() {
 void GraphApp::onEndedAlgorithm() {
     ui.menuBar->setEnabled(true);
     ui.graph->getGraphManager().setAllowEditing(true);
+}
+
+void GraphApp::saveGraph() {
+    using namespace simdjson;
+
+    auto& graphManager = ui.graph->getGraphManager();
+    if (graphManager.getNodesCount() == 0) {
+        QMessageBox::warning(this, "Save Graph", "There are no nodes in the graph!");
+        return;
+    }
+
+    const auto filePath =
+        QFileDialog::getSaveFileName(this, "Save Graph", "", "Graph Files (*.graph)");
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    builder::string_builder sb;
+    sb.start_object();
+    {
+        const auto graphSize = ui.graph->getSceneSize();
+        const auto nodeCount = graphManager.getNodesCount();
+        const auto storageType = static_cast<int>(graphManager.getGraphStorage()->type());
+
+        sb.append_key_value<"scene_width">(graphSize.width());
+        sb.append_comma();
+        sb.append_key_value<"scene_height">(graphSize.height());
+        sb.append_comma();
+        sb.append_key_value<"oriented">(graphManager.getOrientedGraph());
+        sb.append_comma();
+        sb.append_key_value<"allow_loops">(graphManager.getAllowLoops());
+        sb.append_comma();
+        sb.append_key_value<"node_count">(nodeCount);
+        sb.append_comma();
+        sb.append_key_value<"storage_type">(storageType);
+        sb.append_comma();
+
+        sb.escape_and_append_with_quotes("nodes");
+        sb.append_colon();
+        sb.start_array();
+        {
+            for (NodeIndex_t i = 0; i < nodeCount; ++i) {
+                const auto& node = graphManager.getNode(i);
+                const auto position = node.getPosition();
+
+                sb.start_object();
+                {
+                    sb.append_key_value<"x">(position.x());
+                    sb.append_comma();
+                    sb.append_key_value<"y">(position.y());
+                    sb.append_comma();
+
+                    sb.escape_and_append_with_quotes("edges");
+                    sb.append_colon();
+                    sb.start_array();
+                    {
+                        bool first = true;
+                        graphManager.getGraphStorage()->forEachOutgoingEdgeWithOpposites(
+                            i, [&](NodeIndex_t j, CostType_t cost) {
+                                if (!first) {
+                                    sb.append_comma();
+                                }
+                                first = false;
+
+                                sb.start_object();
+                                {
+                                    sb.append_key_value<"to">(j);
+                                    if (cost != 0) {
+                                        sb.append_comma();
+                                        sb.append_key_value<"cost">(cost);
+                                    }
+                                }
+                                sb.end_object();
+                            });
+                    }
+                    sb.end_array();
+                }
+                sb.end_object();
+
+                if (i < nodeCount - 1) {
+                    sb.append_comma();
+                }
+            }
+        }
+        sb.end_array();
+    }
+    sb.end_object();
+
+    std::ofstream outFile(filePath.toStdWString());
+    outFile << sb.view();
+}
+
+void GraphApp::loadGraph() {
+    using namespace simdjson;
+
+    const auto filePath =
+        QFileDialog::getOpenFileName(this, "Load Graph", "", "Graph Files (*.graph)");
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    auto& graphManager = ui.graph->getGraphManager();
+
+    try {
+        ondemand::parser parser;
+        const auto json = padded_string::load(filePath.toStdWString());
+        auto doc = parser.iterate(json);
+
+        graphManager.setCollisionsCheckEnabled(false);
+
+        const auto sceneWidth = doc["scene_width"].get_int64().value();
+        const auto sceneHeight = doc["scene_height"].get_int64().value();
+
+        ui.graph->setSceneSize(QSize(sceneWidth, sceneHeight));
+
+        const auto oriented = doc["oriented"].get_bool().value();
+        graphManager.setOrientedGraph(oriented);
+
+        const auto allowLoops = doc["allow_loops"].get_bool().value();
+        graphManager.setAllowLoops(allowLoops);
+
+        const auto nodeCount = doc["node_count"].get_int64().value();
+        const auto storageType =
+            static_cast<IGraphStorage::Type>(doc["storage_type"].get_int64().value());
+        graphManager.setGraphStorageType(storageType);
+        graphManager.reserveNodes(nodeCount);
+        graphManager.resizeAdjacencyMatrix(nodeCount);
+
+        for (auto node : doc["nodes"]) {
+            const auto x = node["x"].get_int64().value();
+            const auto y = node["y"].get_int64().value();
+
+            graphManager.addNode(QPoint(x, y));
+            const auto addedNodeIndex = static_cast<NodeIndex_t>(graphManager.getNodesCount() - 1);
+
+            for (auto neighbour : node["edges"]) {
+                const auto neighbourIndex =
+                    static_cast<NodeIndex_t>(neighbour["to"].get_int64().value());
+                const auto cost = [&neighbour]() {
+                    auto field = neighbour.find_field("cost");
+                    if (field.error() == SUCCESS) {
+                        return field.value().get_int64().value();
+                    }
+
+                    return 0ll;
+                }();
+
+                graphManager.getGraphStorage()->addEdge(addedNodeIndex, neighbourIndex, cost);
+            }
+        }
+
+        QTimer::singleShot(1000, [&graphManager]() { graphManager.buildEdgeCache(); });
+    } catch (const std::exception& ex) {
+        QMessageBox::warning(this, "Load Graph",
+                             QString("Failed to load graph: %1").arg(ex.what()));
+    }
+
+    graphManager.setCollisionsCheckEnabled(true);
 }

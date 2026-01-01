@@ -10,8 +10,11 @@ class PseudocodeForm : public QMainWindow {
 
     void setHighlightColor(QRgb color);
     void setPseudocodeText(const QString& text);
+    void setHighlightPriority(int priority);
 
-    void highlight(std::initializer_list<int> lineNumbers);
+    void highlight(std::initializer_list<int> lineNumbers, int priority = 0);
+
+    static constexpr auto k_animationDurationMs = 500;
 
    private:
     void highlightInternal();
@@ -20,6 +23,7 @@ class PseudocodeForm : public QMainWindow {
 
     QRgb m_highlightColor;
     int m_alpha{0};
+    int m_priority{0};
 
     std::vector<int> m_currentlyHighlightedLines;
     QPointer<QVariantAnimation> m_highlightAnimation;

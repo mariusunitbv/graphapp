@@ -5,30 +5,15 @@
 #include "storage/AdjacencyList.h"
 #include "storage/AdjacencyMatrix.h"
 
+#include "algorithms/IAlgorithm.h"
+
 #include "../random/Random.h"
 
 GraphManager::GraphManager() : m_graphStorage(std::make_unique<AdjacencyList>()) {
     setFlag(ItemIsFocusable);
-    connect(&m_sceneUpdateTimer, &QTimer::timeout, [this]() {
-        QGraphicsScene* scene = this->scene();
-        if (!scene) {
-            return;
-        }
-
-        QGraphicsView* view = scene->views().first();
-        const QRect sceneRect = view->mapToScene(view->viewport()->rect()).boundingRect().toRect();
-        if (m_sceneRect != sceneRect) {
-            m_sceneRect = sceneRect;
-            update(m_sceneRect);
-        }
-    });
 
     connect(&m_edgeWatcher, &QFutureWatcher<QPainterPath>::finished, [this]() {
         if (!m_edgeFuture.isCanceled()) {
-            if (m_loadingScreen) {
-                m_loadingScreen->close();
-            }
-
             m_edgeCache = m_edgeWatcher.result();
             update();
         }
@@ -52,8 +37,6 @@ const std::unique_ptr<IGraphStorage>& GraphManager::getGraphStorage() const {
 void GraphManager::setSceneDimensions(QSize size) {
     m_boundingRect.setCoords(0, 0, size.width(), size.height());
     m_quadTree.setBoundary(QRect(0, 0, size.width(), size.height()));
-
-    m_sceneUpdateTimer.start(200);
 }
 
 bool GraphManager::isGoodPosition(const QPoint& pos, NodeIndex_t nodeToIgnore) const {
@@ -90,6 +73,14 @@ std::optional<NodeIndex_t> GraphManager::getNode(const QPoint& pos, float minDis
     return m_quadTree.getNodeAtPosition(pos, minDistance);
 }
 
+std::optional<NodeIndex_t> GraphManager::getSelectedNode() const {
+    if (m_selectedNodes.empty()) {
+        return std::optional<NodeIndex_t>();
+    }
+
+    return *m_selectedNodes.begin();
+}
+
 bool GraphManager::hasNeighbour(NodeIndex_t index, NodeIndex_t neighbour) const {
     return m_graphStorage->getEdge(index, neighbour).has_value();
 }
@@ -103,13 +94,12 @@ bool GraphManager::addNode(const QPoint& pos) {
         return false;
     }
 
-    NodeData nodeData(m_nodes.size(), pos);
-    nodeData.setFillColor(m_nodeDefaultColor);
+    auto& lastNode = m_nodes.emplace_back(m_nodes.size(), pos);
+    lastNode.setFillColor(m_nodeDefaultColor);
 
-    m_nodes.push_back(nodeData);
-    m_quadTree.insert(nodeData);
+    m_quadTree.insert(lastNode);
 
-    update(nodeData.getBoundingRect());
+    update(lastNode.getBoundingRect());
     return true;
 }
 
@@ -143,6 +133,9 @@ void GraphManager::randomlyAddEdges(size_t edgeCount) {
         uint64_t key = encode(u, v);
         if (used.insert(key).second) {
             addEdge(u, v, 0);
+            if (!m_orientedGraph) {
+                addEdge(v, u, 0);
+            }
         }
     }
 
@@ -162,12 +155,14 @@ void GraphManager::resizeAdjacencyMatrix(size_t nodeCount) { m_graphStorage->res
 
 void GraphManager::resetAdjacencyMatrix() { m_graphStorage = std::make_unique<AdjacencyList>(); }
 
+void GraphManager::markEdgesDirty() { m_edgesDirty = true; }
+
 void GraphManager::buildEdgeCache() {
     if (!m_drawEdges) {
         return;
     }
 
-    if (m_edgeCache.m_edgePath.boundingRect().contains(m_sceneRect)) {
+    if (!m_edgesDirty && m_edgeCache.m_edgePath.boundingRect().contains(m_sceneRect)) {
         if (m_edgeCache.m_builtWithLod >= 0.5) {
             return;
         }
@@ -189,6 +184,7 @@ void GraphManager::buildEdgeCache() {
     std::vector<bool> visitMask(m_nodes.size(), false);
     std::vector<NodeIndex_t> visibleNodes;
     m_quadTree.getNodesInArea(extendedRect, visitMask, visibleNodes);
+    m_edgesDirty = false;
 
     m_edgeFuture = QtConcurrent::mappedReduced<EdgeCache>(
         visibleNodes,
@@ -267,11 +263,17 @@ void GraphManager::setOrientedGraph(bool oriented) { m_orientedGraph = oriented;
 
 bool GraphManager::getOrientedGraph() const { return m_orientedGraph; }
 
-void GraphManager::setDrawNodesEnabled(bool enabled) { m_drawNodes = enabled; }
+void GraphManager::setDrawNodesEnabled(bool enabled) {
+    m_drawNodes = enabled;
+    update(m_sceneRect);
+}
 
 bool GraphManager::getDrawNodesEnabled() const { return m_drawNodes; }
 
-void GraphManager::setDrawEdgesEnabled(bool enabled) { m_drawEdges = enabled; }
+void GraphManager::setDrawEdgesEnabled(bool enabled) {
+    m_drawEdges = enabled;
+    update(m_sceneRect);
+}
 
 bool GraphManager::getDrawEdgesEnabled() const { return m_drawEdges; }
 
@@ -290,7 +292,12 @@ void GraphManager::setNodeDefaultColor(QRgb color) {
     m_nodeDefaultColor = color;
 }
 
-void GraphManager::setNodeOutlineDefaultColor(QRgb color) { m_nodeOutlineDefaultColor = color; }
+void GraphManager::setNodeOutlineDefaultColor(QRgb color) {
+    m_nodeOutlineDefaultColor = color;
+    if (m_algorithmInfoTextItem) {
+        m_algorithmInfoTextItem->setDefaultTextColor(QColor::fromRgb(color));
+    }
+}
 
 void GraphManager::evaluateStorageStrategy(size_t edgeCount) {
     auto switchStorageToType = [this](IGraphStorage::Type type) {
@@ -352,6 +359,108 @@ void GraphManager::evaluateStorageStrategy(size_t edgeCount) {
         switchStorageToType(IGraphStorage::Type::ADJACENCY_LIST);
     }
 }
+
+bool GraphManager::runningAlgorithm() const { return !m_runningAlgorithms.empty(); }
+
+void GraphManager::registerAlgorithm(IAlgorithm* algorithm) {
+    m_runningAlgorithms.push_back(algorithm);
+
+    if (!m_algorithmInfoTextItem) {
+        auto font = QApplication::font();
+        font.setPointSize(m_algorithmInfoTextSize);
+
+        m_algorithmInfoTextItem = new QGraphicsTextItem(this);
+        m_algorithmInfoTextItem->setPlainText(
+            "Algorithm stats will be shown here.\nPress P to increase the size.\nPress L to "
+            "decrease "
+            "the size.");
+        m_algorithmInfoTextItem->setFlag(QGraphicsItem::ItemIgnoresTransformations);
+        m_algorithmInfoTextItem->setDefaultTextColor(QColor::fromRgb(m_nodeOutlineDefaultColor));
+        m_algorithmInfoTextItem->setZValue(10);
+        m_algorithmInfoTextItem->setFont(font);
+
+        updateAlgorithmInfoTextPos();
+    }
+}
+
+void GraphManager::unregisterAlgorithm(IAlgorithm* algorithm) {
+    auto it = std::find(m_runningAlgorithms.begin(), m_runningAlgorithms.end(), algorithm);
+
+    if (it != m_runningAlgorithms.end()) {
+        m_runningAlgorithms.erase(it);
+
+        if (!runningAlgorithm()) {
+            m_timeSinceAlgorithmFinished = std::chrono::steady_clock::now();
+
+            if (m_algorithmInfoTextItem) {
+                scene()->removeItem(m_algorithmInfoTextItem);
+                delete m_algorithmInfoTextItem;
+                m_algorithmInfoTextItem = nullptr;
+            }
+        }
+    }
+}
+
+void GraphManager::cancelAlgorithms() {
+    for (auto algorithm : m_runningAlgorithms) {
+        algorithm->cancelAlgorithm();
+    }
+}
+
+void GraphManager::addAlgorithmEdge(NodeIndex_t start, NodeIndex_t end, size_t priority) {
+    if (!m_addingAlgorithmEdgesAllowed) {
+        return;
+    }
+
+    auto& path = m_algorithmPaths[priority].m_path;
+
+    const auto srcCenter = m_nodes[start].getPosition();
+    const auto targetCenter = m_nodes[end].getPosition();
+
+    path.moveTo(srcCenter);
+    path.lineTo(targetCenter);
+
+    if (m_orientedGraph) {
+        const auto direction = targetCenter - srcCenter;
+        const auto distance = std::hypot(direction.x(), direction.y());
+        if (distance < 0.001) {
+            return;
+        }
+
+        const auto directionNormalized =
+            QPointF{direction.x() / distance, direction.y() / distance};
+
+        const auto offset = (directionNormalized * NodeData::k_radius).toPoint();
+        const auto lineEnd = targetCenter - offset;
+
+        addArrowToPath(m_algorithmPaths[priority].m_arrowPath, lineEnd, directionNormalized);
+    }
+}
+
+void GraphManager::setAlgorithmPathColor(size_t priority, QRgb color) {
+    m_algorithmPaths[priority].m_color = color;
+}
+
+void GraphManager::clearAlgorithmPath(size_t priority) {
+    if (!m_algorithmPaths.contains(priority)) {
+        return;
+    }
+
+    m_algorithmPaths[priority].m_path.clear();
+    m_algorithmPaths[priority].m_arrowPath.clear();
+}
+
+void GraphManager::clearAlgorithmPaths() { m_algorithmPaths.clear(); }
+
+void GraphManager::setAlgorithmInfoText(const QString& text) {
+    if (m_algorithmInfoTextItem) {
+        m_algorithmInfoTextItem->setPlainText(text);
+    }
+}
+
+void GraphManager::disableAddingAlgorithmEdges() { m_addingAlgorithmEdgesAllowed = false; }
+
+void GraphManager::enableAddingAlgorithmEdges() { m_addingAlgorithmEdgesAllowed = true; }
 
 void GraphManager::dijkstra() {
     if (m_selectedNodes.size() != 2) {
@@ -427,6 +536,22 @@ void GraphManager::dijkstra() {
                              QString("Path found with total cost: %1").arg(totalCost));
 }
 
+void GraphManager::updateVisibleSceneRect() {
+    QGraphicsScene* scene = this->scene();
+    if (!scene) {
+        return;
+    }
+
+    QGraphicsView* view = scene->views().first();
+    const QRect sceneRect = view->mapToScene(view->viewport()->rect()).boundingRect().toRect();
+    if (m_sceneRect != sceneRect) {
+        m_sceneRect = sceneRect;
+
+        updateAlgorithmInfoTextPos();
+        update(m_sceneRect);
+    }
+}
+
 QRectF GraphManager::boundingRect() const { return m_boundingRect; }
 
 void GraphManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget*) {
@@ -435,15 +560,10 @@ void GraphManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
     m_shouldDrawArrows = lod >= 1;
     m_currentLod = lod;
 
-    drawEdgeCache(painter, lod);
-    drawNodes(painter, lod);
-    drawQuadTree(painter, &m_quadTree, lod);
-
-    if (!m_algorithmPath.isEmpty()) {
-        painter->setPen(QPen{Qt::yellow, 2.f});
-        painter->setBrush(Qt::NoBrush);
-        painter->drawPath(m_algorithmPath);
-    }
+    drawEdgeCache(painter);
+    drawAlgorithmEdges(painter);
+    drawNodes(painter);
+    drawQuadTree(painter, &m_quadTree);
 }
 
 void GraphManager::mousePressEvent(QGraphicsSceneMouseEvent* event) {
@@ -482,7 +602,7 @@ void GraphManager::mousePressEvent(QGraphicsSceneMouseEvent* event) {
 
 void GraphManager::mouseMoveEvent(QGraphicsSceneMouseEvent* event) {
     if (event->buttons() & Qt::LeftButton && m_selectedNodes.size() == 1 &&
-        !(event->modifiers() & Qt::ControlModifier)) {
+        !(event->modifiers() & Qt::ControlModifier) && !runningAlgorithm()) {
         const auto selectedIndex = *m_selectedNodes.begin();
         auto& node = getNode(selectedIndex);
         const auto desiredPos = event->pos().toPoint() + m_dragOffset;
@@ -522,6 +642,7 @@ void GraphManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         setFlag(ItemIsSelectable, false);
         if (m_draggingNode) {
+            m_edgesDirty = true;
             m_draggingNode = false;
             setCursor(Qt::ArrowCursor);
         } else if (m_pressedEmptySpace && !(event->modifiers() & Qt::ControlModifier)) {
@@ -538,25 +659,48 @@ void GraphManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
 void GraphManager::keyReleaseEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Delete && m_editingEnabled) {
         removeSelectedNodes();
-    } else if (event->key() == Qt::Key_Escape) {
+    } else if (event->key() == Qt::Key_Escape && !runningAlgorithm()) {
         deselectNodes();
+    } else if (event->key() == Qt::Key_P && runningAlgorithm() && m_algorithmInfoTextSize < 40) {
+        m_algorithmInfoTextItem->setFont(
+            QFont(QApplication::font().family(), ++m_algorithmInfoTextSize));
+    } else if (event->key() == Qt::Key_L && runningAlgorithm() && m_algorithmInfoTextSize > 6) {
+        m_algorithmInfoTextItem->setFont(
+            QFont(QApplication::font().family(), --m_algorithmInfoTextSize));
     }
 
     QGraphicsObject::keyReleaseEvent(event);
 }
 
-void GraphManager::drawEdgeCache(QPainter* painter, qreal lod) const {
+void GraphManager::drawEdgeCache(QPainter* painter) const {
     if (!m_drawEdges) {
         return;
     }
 
-    painter->setPen(QPen{QColor::fromRgb(m_nodeOutlineDefaultColor), 2.f});
+    painter->setPen(QPen{
+        QColor::fromRgb(runningAlgorithm() ? qRgb(200, 200, 200) : m_nodeOutlineDefaultColor), 2.});
     painter->setBrush(Qt::NoBrush);
     painter->drawPath(m_edgeCache.m_edgePath);
 }
 
-void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
-    if (lod <= 0.15) {
+void GraphManager::drawAlgorithmEdges(QPainter* painter) const {
+    if (!runningAlgorithm() || !m_drawEdges) {
+        return;
+    }
+
+    painter->setBrush(Qt::NoBrush);
+    for (auto it = m_algorithmPaths.rbegin(); it != m_algorithmPaths.rend(); ++it) {
+        painter->setPen(QPen{QColor::fromRgb(it->second.m_color), 3});
+        painter->drawPath(it->second.m_path);
+
+        if (m_drawNodes && m_orientedGraph && m_shouldDrawArrows) {
+            painter->drawPath(it->second.m_arrowPath);
+        }
+    }
+}
+
+void GraphManager::drawNodes(QPainter* painter) const {
+    if (m_currentLod <= 0.15) {
         return;
     }
 
@@ -569,7 +713,7 @@ void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
             painter->setPen(QPen{node.isSelected() ? Qt::green : outlineColor, 1.5});
             painter->setBrush(node.getFillColor());
             painter->drawEllipse(rect);
-            if (lod >= 1) {
+            if (m_currentLod >= 1) {
                 painter->drawText(rect, Qt::AlignCenter, node.getLabel());
             }
         }
@@ -585,7 +729,7 @@ void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
         const auto& node = m_nodes[nodeIndex];
         const auto& rect = node.getBoundingRect();
 
-        if (lod >= 1 && m_drawEdges) {
+        if (m_currentLod >= 1 && m_drawEdges) {
             m_graphStorage->forEachOutgoingEdge(
                 nodeIndex, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
                     const auto oppositeEdge =
@@ -641,7 +785,7 @@ void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
         painter->setPen(QPen{node.isSelected() ? Qt::green : outlineColor, 1.5});
         painter->setBrush(node.getFillColor());
         painter->drawEllipse(rect);
-        if (lod >= 1) {
+        if (m_currentLod >= 1) {
             painter->drawText(rect, Qt::AlignCenter, node.getLabel());
 
             if (m_drawEdges) {
@@ -664,8 +808,8 @@ void GraphManager::drawNodes(QPainter* painter, qreal lod) const {
     }
 }
 
-void GraphManager::drawQuadTree(QPainter* painter, QuadTree* quadTree, qreal lod) const {
-    if (!m_drawQuadTrees || lod < 1.5) {
+void GraphManager::drawQuadTree(QPainter* painter, QuadTree* quadTree) const {
+    if (!m_drawQuadTrees || m_currentLod < 1.5) {
         return;
     }
 
@@ -681,15 +825,30 @@ void GraphManager::drawQuadTree(QPainter* painter, QuadTree* quadTree, qreal lod
         return;
     }
 
-    const auto northWest = quadTree->getNorthWest();
-    const auto northEast = quadTree->getNorthEast();
-    const auto southWest = quadTree->getSouthWest();
-    const auto southEast = quadTree->getSouthEast();
+    const auto northWest = quadTree->getNorthWest().get();
+    const auto northEast = quadTree->getNorthEast().get();
+    const auto southWest = quadTree->getSouthWest().get();
+    const auto southEast = quadTree->getSouthEast().get();
 
-    drawQuadTree(painter, northWest, lod);
-    drawQuadTree(painter, northEast, lod);
-    drawQuadTree(painter, southWest, lod);
-    drawQuadTree(painter, southEast, lod);
+    drawQuadTree(painter, northWest);
+    drawQuadTree(painter, northEast);
+    drawQuadTree(painter, southWest);
+    drawQuadTree(painter, southEast);
+}
+
+void GraphManager::updateAlgorithmInfoTextPos() {
+    if (!m_algorithmInfoTextItem) {
+        return;
+    }
+
+    QGraphicsView* view = scene()->views().first();
+    if (view) {
+        const auto topLeft = view->mapToScene(16, 16);
+        const auto viewportWidth = view->viewport()->width() - 32;
+
+        m_algorithmInfoTextItem->setPos(topLeft);
+        m_algorithmInfoTextItem->setTextWidth(viewportWidth);
+    }
 }
 
 void GraphManager::addArrowToPath(QPainterPath& path, QPoint tip, const QPointF& dir) const {
@@ -702,10 +861,9 @@ void GraphManager::addArrowToPath(QPainterPath& path, QPoint tip, const QPointF&
     const auto p1 = base + normal * arrowWidth;
     const auto p2 = base - normal * arrowWidth;
 
-    path.moveTo(tip);
-    path.lineTo(p1);
+    path.moveTo(p1);
+    path.lineTo(tip);
     path.lineTo(p2);
-    path.closeSubpath();
 }
 
 void GraphManager::addEdgeToPath(QPainterPath& edgePath, NodeIndex_t nodeIndex,
@@ -800,6 +958,13 @@ void GraphManager::removeSelectedNodes() {
 }
 
 void GraphManager::deselectNodes() {
+    using namespace std::chrono;
+
+    const auto now = steady_clock::now();
+    if (duration_cast<milliseconds>(now - m_timeSinceAlgorithmFinished).count() < 750) {
+        return;
+    }
+
     for (const auto nodeIndex : m_selectedNodes) {
         auto& node = m_nodes[nodeIndex];
 

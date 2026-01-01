@@ -112,7 +112,7 @@
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <PreprocessorDefinitions>SIMDJSON_USING_WINDOWS_DYNAMIC_LIBRARY;NOMINMAX;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>SIMDJSON_USING_WINDOWS_DYNAMIC_LIBRARY;NDEBUG;NOMINMAX;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalDependencies>
@@ -164,6 +164,17 @@
     <ClCompile Include="src\form\adjacency_list\AdjacencyListBuilder.cpp" />
     <ClCompile Include="src\form\loading_screen\LoadingScreen.cpp" />
     <ClCompile Include="src\form\scene_size\SceneSizeInput.cpp" />
+    <ClCompile Include="src\graph\algorithms\custom\ConnectedComponents.cpp" />
+    <ClCompile Include="src\graph\algorithms\custom\StronglyConnectedComponents.cpp" />
+    <ClCompile Include="src\graph\algorithms\custom\TopologicalSort.cpp" />
+    <ClCompile Include="src\graph\algorithms\paths\PathReconstruction.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\BreadthFirstTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\DepthFirstTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\DepthFirstTotalTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\GenericTotalTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\traversals\GenericTraversal.cpp" />
+    <ClCompile Include="src\graph\algorithms\IAlgorithm.cpp" />
+    <ClCompile Include="src\graph\algorithms\ITimedAlgorithm.cpp" />
     <ClCompile Include="src\graph\storage\AdjacencyList.cpp" />
     <ClCompile Include="src\graph\pbf\PBFLoader.cpp" />
     <ClCompile Include="src\graph\storage\AdjacencyMatrix.cpp" />
@@ -179,6 +190,17 @@
     <QtMoc Include="src\form\loading_screen\LoadingScreen.h" />
     <QtMoc Include="src\form\adjacency_list\AdjacencyListBuilder.h" />
     <QtMoc Include="src\form\scene_size\SceneSizeInput.h" />
+    <QtMoc Include="src\graph\algorithms\IAlgorithm.h" />
+    <QtMoc Include="src\graph\algorithms\ITimedAlgorithm.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\GenericTraversal.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\GenericTotalTraversal.h" />
+    <QtMoc Include="src\graph\algorithms\paths\PathReconstruction.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\BreadthFirstTraversal.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\DepthFirstTraversal.h" />
+    <QtMoc Include="src\graph\algorithms\traversals\DepthFirstTotalTraversal.h" />
+    <QtMoc Include="src\graph\algorithms\custom\TopologicalSort.h" />
+    <QtMoc Include="src\graph\algorithms\custom\ConnectedComponents.h" />
+    <QtMoc Include="src\graph\algorithms\custom\StronglyConnectedComponents.h" />
     <ClInclude Include="src\graph\storage\AdjacencyList.h" />
     <ClInclude Include="src\graph\storage\IGraphStorage.h" />
     <ClInclude Include="src\graph\pbf\PBFLoader.h" />

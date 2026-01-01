@@ -1,12 +1,12 @@
 #pragma once
 
-#include "../form/loading_screen/LoadingScreen.h"
-
 #include "storage/IGraphStorage.h"
 
 #include "QuadTree.h"
 
-constexpr size_t NODE_LIMIT = INVALID_NODE - 1;
+class IAlgorithm;
+
+constexpr size_t NODE_LIMIT = 50'000'000;
 
 class GraphManager : public QGraphicsObject {
     Q_OBJECT
@@ -29,6 +29,7 @@ class GraphManager : public QGraphicsObject {
 
     NodeData& getNode(NodeIndex_t index);
     std::optional<NodeIndex_t> getNode(const QPoint& pos, float minDistance = NodeData::k_radius);
+    std::optional<NodeIndex_t> getSelectedNode() const;
 
     bool hasNeighbour(NodeIndex_t index, NodeIndex_t neighbour) const;
 
@@ -41,6 +42,7 @@ class GraphManager : public QGraphicsObject {
     void resizeAdjacencyMatrix(size_t nodeCount);
     void resetAdjacencyMatrix();
 
+    void markEdgesDirty();
     void buildEdgeCache();
 
     void completeGraph();
@@ -69,8 +71,23 @@ class GraphManager : public QGraphicsObject {
 
     void evaluateStorageStrategy(size_t edgeCount);
 
+    bool runningAlgorithm() const;
+    void registerAlgorithm(IAlgorithm* algorithm);
+    void unregisterAlgorithm(IAlgorithm* algorithm);
+    void cancelAlgorithms();
+
+    void addAlgorithmEdge(NodeIndex_t start, NodeIndex_t end, size_t priority);
+    void setAlgorithmPathColor(size_t priority, QRgb color);
+    void clearAlgorithmPath(size_t priority);
+    void clearAlgorithmPaths();
+    void setAlgorithmInfoText(const QString& text);
+
+    void disableAddingAlgorithmEdges();
+    void enableAddingAlgorithmEdges();
+
     void dijkstra();
 
+    void updateVisibleSceneRect();
     QRectF boundingRect() const override;
 
    protected:
@@ -83,9 +100,11 @@ class GraphManager : public QGraphicsObject {
     void keyReleaseEvent(QKeyEvent* event) override;
 
    private:
-    void drawEdgeCache(QPainter* painter, qreal lod) const;
-    void drawNodes(QPainter* painter, qreal lod) const;
-    void drawQuadTree(QPainter* painter, QuadTree* quadTree, qreal lod) const;
+    void drawEdgeCache(QPainter* painter) const;
+    void drawAlgorithmEdges(QPainter* painter) const;
+    void drawNodes(QPainter* painter) const;
+    void drawQuadTree(QPainter* painter, QuadTree* quadTree) const;
+    void updateAlgorithmInfoTextPos();
 
     void addArrowToPath(QPainterPath& path, QPoint tip, const QPointF& dir) const;
     void addEdgeToPath(QPainterPath& edgePath, NodeIndex_t nodeIndex, NodeIndex_t neighbourIndex,
@@ -104,22 +123,34 @@ class GraphManager : public QGraphicsObject {
         void clear() {
             m_edgePath.clear();
             m_loopEdgePath.clear();
+            m_builtWithLod = 0;
         }
 
         QPainterPath m_edgePath;
         QPainterPath m_loopEdgePath;
-        qreal m_builtWithLod;
+        qreal m_builtWithLod{};
+    };
+
+    struct AlgorithmPath {
+        QRgb m_color{qRgb(255, 0, 0)};
+        QPainterPath m_path;
+        QPainterPath m_arrowPath;
     };
 
     QRect m_boundingRect{};
     QRect m_sceneRect{};
-    QTimer m_sceneUpdateTimer;
 
     std::vector<NodeData> m_nodes;
     QuadTree m_quadTree;
     EdgeCache m_edgeCache;
     QPainterPath m_algorithmPath;
     std::unique_ptr<IGraphStorage> m_graphStorage{};
+
+    std::vector<IAlgorithm*> m_runningAlgorithms;
+    std::map<int64_t, AlgorithmPath> m_algorithmPaths;
+    QGraphicsTextItem* m_algorithmInfoTextItem{nullptr};
+    std::chrono::steady_clock::time_point m_timeSinceAlgorithmFinished;
+    uint8_t m_algorithmInfoTextSize{14};
 
     std::set<NodeIndex_t, std::greater<NodeIndex_t>> m_selectedNodes{};
 
@@ -139,9 +170,9 @@ class GraphManager : public QGraphicsObject {
     bool m_drawNodes : 1 {true};
     bool m_drawEdges : 1 {true};
     bool m_drawQuadTrees : 1 {false};
+    bool m_edgesDirty : 1 {false};
+    bool m_addingAlgorithmEdgesAllowed : 1 {true};
 
     QRgb m_nodeDefaultColor{qRgb(255, 255, 255)};
     QRgb m_nodeOutlineDefaultColor{qRgb(255, 255, 255)};
-
-    QPointer<LoadingScreen> m_loadingScreen{};
 };

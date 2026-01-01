@@ -5,6 +5,8 @@ constexpr auto INVALID_NODE = std::numeric_limits<NodeIndex_t>::max();
 
 class NodeData {
    public:
+    enum class State : uint8_t { NONE = 0, UNVISITED, VISITED, ANALYZING, ANALYZED, UNREACHABLE };
+
     NodeData(size_t index, const QPoint& position);
 
     QRect getBoundingRect() const;
@@ -26,6 +28,9 @@ class NodeData {
     bool isSelected() const;
     uint32_t getSelectOrder() const;
 
+    void setState(State state);
+    State getState() const;
+
    private:
     NodeIndex_t m_index{INVALID_NODE};
     QRgb m_fillColor{};
@@ -34,6 +39,7 @@ class NodeData {
     QString m_label{};
 
     uint32_t m_selectOrder = -1;
+    State m_state{State::NONE};
 
    public:
     static constexpr auto k_radius{28};

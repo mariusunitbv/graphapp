@@ -2,15 +2,6 @@
 
 #include "QuadTree.h"
 
-QuadTree::~QuadTree() {
-    if (isSubdivided()) {
-        delete m_northWest;
-        delete m_northEast;
-        delete m_southWest;
-        delete m_southEast;
-    }
-}
-
 void QuadTree::setBoundary(const QRect& boundary) { m_boundary = boundary; }
 
 const QRect& QuadTree::getBoundary() const { return m_boundary; }
@@ -114,14 +105,11 @@ void QuadTree::remove(const NodeData& node) {
 
 void QuadTree::clear() {
     m_nodes.clear();
-    if (isSubdivided()) {
-        delete m_northWest;
-        delete m_northEast;
-        delete m_southWest;
-        delete m_southEast;
 
-        m_northWest = m_northEast = m_southWest = m_southEast = nullptr;
-    }
+    m_northWest.reset();
+    m_northEast.reset();
+    m_southWest.reset();
+    m_southEast.reset();
 }
 
 void QuadTree::subdivide() {
@@ -134,33 +122,33 @@ void QuadTree::subdivide() {
         throw std::runtime_error("Cannot subdivide QuadTree further.");
     }
 
-    m_northWest = new QuadTree();
+    m_northWest = std::make_unique<QuadTree>();
     m_northWest->setBoundary(QRect(x, y, w, h));
 
-    m_northEast = new QuadTree();
+    m_northEast = std::make_unique<QuadTree>();
     m_northEast->setBoundary(QRect(x + w, y, w, h));
 
-    m_southWest = new QuadTree();
+    m_southWest = std::make_unique<QuadTree>();
     m_southWest->setBoundary(QRect(x, y + h, w, h));
 
-    m_southEast = new QuadTree();
+    m_southEast = std::make_unique<QuadTree>();
     m_southEast->setBoundary(QRect(x + w, y + h, w, h));
 }
 
-bool QuadTree::isSubdivided() const { return m_northWest; }
+bool QuadTree::isSubdivided() const { return m_northWest != nullptr; }
 
 bool QuadTree::canSubdivide() const {
     return m_boundary.width() / 2 > NodeData::k_radius &&
            m_boundary.height() / 2 > NodeData::k_radius;
 }
 
-QuadTree* QuadTree::getNorthWest() const { return m_northWest; }
+const QuadTreePtr_t& QuadTree::getNorthWest() const { return m_northWest; }
 
-QuadTree* QuadTree::getNorthEast() const { return m_northEast; }
+const QuadTreePtr_t& QuadTree::getNorthEast() const { return m_northEast; }
 
-QuadTree* QuadTree::getSouthWest() const { return m_southWest; }
+const QuadTreePtr_t& QuadTree::getSouthWest() const { return m_southWest; }
 
-QuadTree* QuadTree::getSouthEast() const { return m_southEast; }
+const QuadTreePtr_t& QuadTree::getSouthEast() const { return m_southEast; }
 
 bool QuadTree::intersectsAnotherNode(QPoint pos, float minDistance,
                                      NodeIndex_t indexToIgnore) const {

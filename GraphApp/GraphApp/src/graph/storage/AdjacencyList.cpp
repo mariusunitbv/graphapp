@@ -8,6 +8,12 @@ void AdjacencyList::resize(size_t nodeCount) { m_adjacencyList.resize(nodeCount)
 
 void AdjacencyList::addEdge(NodeIndex_t start, NodeIndex_t end, CostType_t cost) {
     auto& neighbours = m_adjacencyList[start];
+
+    if (!neighbours.empty() && neighbours.back().first < end) {
+        neighbours.emplace_back(end, cost);
+        return;
+    }
+
     auto it = std::lower_bound(
         neighbours.begin(), neighbours.end(), end,
         [](const auto& neighbour, NodeIndex_t value) { return neighbour.first < value; });

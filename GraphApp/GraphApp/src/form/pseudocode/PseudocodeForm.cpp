@@ -15,7 +15,13 @@ void PseudocodeForm::setPseudocodeText(const QString& text) {
     ui.plainTextEdit->setPlainText(text);
 }
 
-void PseudocodeForm::highlight(std::initializer_list<int> lineNumbers) {
+void PseudocodeForm::setHighlightPriority(int priority) { m_priority = priority; }
+
+void PseudocodeForm::highlight(std::initializer_list<int> lineNumbers, int priority) {
+    if (isHidden() || priority < m_priority) {
+        return;
+    }
+
     m_currentlyHighlightedLines = lineNumbers;
 
     if (m_highlightAnimation) {
@@ -25,7 +31,7 @@ void PseudocodeForm::highlight(std::initializer_list<int> lineNumbers) {
     m_highlightAnimation = new QVariantAnimation(this);
     m_highlightAnimation->setStartValue(1);
     m_highlightAnimation->setEndValue(255);
-    m_highlightAnimation->setDuration(500);
+    m_highlightAnimation->setDuration(k_animationDurationMs);
     m_highlightAnimation->setEasingCurve(QEasingCurve::InOutQuad);
 
     connect(m_highlightAnimation, &QVariantAnimation::valueChanged, this,

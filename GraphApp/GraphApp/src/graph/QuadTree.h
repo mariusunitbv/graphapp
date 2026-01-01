@@ -2,10 +2,10 @@
 
 #include "Node.h"
 
+using QuadTreePtr_t = std::unique_ptr<class QuadTree>;
+
 class QuadTree {
    public:
-    ~QuadTree();
-
     void setBoundary(const QRect& boundary);
     const QRect& getBoundary() const;
 
@@ -24,10 +24,10 @@ class QuadTree {
     bool isSubdivided() const;
     bool canSubdivide() const;
 
-    QuadTree* getNorthWest() const;
-    QuadTree* getNorthEast() const;
-    QuadTree* getSouthWest() const;
-    QuadTree* getSouthEast() const;
+    const QuadTreePtr_t& getNorthWest() const;
+    const QuadTreePtr_t& getNorthEast() const;
+    const QuadTreePtr_t& getSouthWest() const;
+    const QuadTreePtr_t& getSouthEast() const;
 
     bool intersectsAnotherNode(QPoint pos, float minDistance, NodeIndex_t indexToIgnore = -1) const;
     std::optional<NodeIndex_t> getNodeAtPosition(QPoint pos, float minDistance,
@@ -46,10 +46,10 @@ class QuadTree {
 
     QRect m_boundary{};
 
-    QuadTree* m_northWest{nullptr};
-    QuadTree* m_northEast{nullptr};
-    QuadTree* m_southWest{nullptr};
-    QuadTree* m_southEast{nullptr};
+    QuadTreePtr_t m_northWest{};
+    QuadTreePtr_t m_northEast{};
+    QuadTreePtr_t m_southWest{};
+    QuadTreePtr_t m_southEast{};
 
     std::vector<TreeNode> m_nodes{};
 

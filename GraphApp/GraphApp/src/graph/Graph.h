@@ -11,6 +11,9 @@ class Graph : public QGraphicsView {
 
     bool buildFromAdjacencyListString(const QString& text);
     GraphManager& getGraphManager();
+
+    QRgb getDefaultNodeColor() const;
+    QRgb getDefaultNodeOutlineColor() const;
     void toggleDarkMode();
 
     void setSceneSize(QSize size);
@@ -24,11 +27,13 @@ class Graph : public QGraphicsView {
 
    protected:
     void wheelEvent(QWheelEvent* event) final;
+    void scrollContentsBy(int dx, int dy) final;
+    void resizeEvent(QResizeEvent* event) final;
 
     void mousePressEvent(QMouseEvent* event) final;
     void mouseReleaseEvent(QMouseEvent* event) final;
 
-    void keyPressEvent(QKeyEvent* event) final;
+    void keyReleaseEvent(QKeyEvent* event) final;
 
     void drawForeground(QPainter* painter, const QRectF& rect) final;
 
@@ -52,4 +57,7 @@ class Graph : public QGraphicsView {
     static constexpr double k_minScale = 0.1;
     static constexpr double k_maxScale = 5.;
     static constexpr double k_zoomStep = 0.1;
+
+    static constexpr QRgb k_white = qRgb(255, 255, 255);
+    static constexpr QRgb k_black = qRgb(20, 20, 20);
 };

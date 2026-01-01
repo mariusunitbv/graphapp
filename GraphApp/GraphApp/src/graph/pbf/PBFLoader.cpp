@@ -28,6 +28,7 @@ void PBFLoader::tryLoad() {
         m_graphManager->setDrawNodesEnabled(false);
         m_graphManager->setAllowEditing(false);
         m_graphManager->setCollisionsCheckEnabled(false);
+        m_graphManager->setOrientedGraph(true);
 
         parseAndComputeBounds();
         addNodesToGraph();

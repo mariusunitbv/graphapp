@@ -6,6 +6,7 @@
 #include "storage/AdjacencyMatrix.h"
 
 Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScene()) {
+    setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     setFrameStyle(QFrame::NoFrame);
     toggleDarkMode();
 
@@ -18,14 +19,14 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
     m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
     setScene(m_scene);
     setSceneSize({30720, 17280});
+    centerOn(m_scene->width() / 2, m_scene->height() / 2);
 
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     m_scene->addItem(&m_graphManager);
     m_graphManager.setPos(0, 0);
-
-    centerOn(m_scene->width() / 2, m_scene->height() / 2);
+    m_graphManager.updateVisibleSceneRect();
 
     m_zoomTextStopTimer.setSingleShot(true);
     connect(&m_zoomTextStopTimer, &QTimer::timeout, [this]() {
@@ -124,22 +125,16 @@ bool Graph::buildFromAdjacencyListString(const QString& text) {
 
 GraphManager& Graph::getGraphManager() { return m_graphManager; }
 
+QRgb Graph::getDefaultNodeColor() const { return m_darkMode ? k_black : k_white; }
+
+QRgb Graph::getDefaultNodeOutlineColor() const { return m_darkMode ? k_white : k_black; }
+
 void Graph::toggleDarkMode() {
-    constexpr auto black = qRgb(20, 20, 20);
-    constexpr auto white = qRgb(255, 255, 255);
-
-    if (m_darkMode) {
-        setBackgroundBrush(QColor::fromRgb(white));
-        m_graphManager.setNodeDefaultColor(white);
-        m_graphManager.setNodeOutlineDefaultColor(black);
-
-    } else {
-        setBackgroundBrush(QColor::fromRgb(black));
-        m_graphManager.setNodeDefaultColor(black);
-        m_graphManager.setNodeOutlineDefaultColor(white);
-    }
-
     m_darkMode = !m_darkMode;
+
+    setBackgroundBrush(QColor::fromRgb(getDefaultNodeColor()));
+    m_graphManager.setNodeDefaultColor(getDefaultNodeColor());
+    m_graphManager.setNodeOutlineDefaultColor(getDefaultNodeOutlineColor());
 }
 
 void Graph::setSceneSize(QSize size) {
@@ -220,6 +215,22 @@ void Graph::wheelEvent(QWheelEvent* event) {
 
     m_edgeUpdateTimer.stop();
     m_edgeUpdateTimer.start(500);
+
+    m_graphManager.updateVisibleSceneRect();
+}
+
+void Graph::scrollContentsBy(int dx, int dy) {
+    QGraphicsView::scrollContentsBy(dx, dy);
+    m_graphManager.updateVisibleSceneRect();
+}
+
+void Graph::resizeEvent(QResizeEvent* event) {
+    QGraphicsView::resizeEvent(event);
+
+    m_graphManager.updateVisibleSceneRect();
+
+    m_edgeUpdateTimer.stop();
+    m_edgeUpdateTimer.start(500);
 }
 
 void Graph::mousePressEvent(QMouseEvent* event) {
@@ -243,14 +254,16 @@ void Graph::mouseReleaseEvent(QMouseEvent* event) {
     QGraphicsView::mouseReleaseEvent(event);
 }
 
-void Graph::keyPressEvent(QKeyEvent* event) {
+void Graph::keyReleaseEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Space) {
         emit spacePressed();
-    } else if (event->key() == Qt::Key_Escape) {
-        emit escapePressed();
+        return;
+    } else if (event->key() == Qt::Key_Escape && m_graphManager.runningAlgorithm()) {
+        m_graphManager.cancelAlgorithms();
+        return;
     }
 
-    QGraphicsView::keyPressEvent(event);
+    QGraphicsView::keyReleaseEvent(event);
 }
 
 void Graph::drawForeground(QPainter* painter, const QRectF& rect) {

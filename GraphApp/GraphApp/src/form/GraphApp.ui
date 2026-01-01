@@ -89,7 +89,6 @@
     </property>
     <addaction name="actionBuild_Adjacency_List"/>
     <addaction name="actionRandom_Graph"/>
-    <addaction name="actionBuild_Visible_Edge_Cache"/>
     <addaction name="actionFill_Graph_With_Nodes"/>
     <addaction name="actionReset_Graph"/>
     <addaction name="separator"/>
@@ -105,27 +104,13 @@
     <addaction name="actionChange_Scene_Dimensions"/>
     <addaction name="action_Custom_Load_Map"/>
    </widget>
-   <widget class="QMenu" name="menuAlgorithms">
-    <property name="title">
-     <string>Algorithms</string>
-    </property>
-    <addaction name="actionInverted_Graph"/>
-    <addaction name="actionGenericTraversal"/>
-    <addaction name="actionGeneric_Total_Traversal"/>
-    <addaction name="actionPath_s_y"/>
-    <addaction name="actionBreadth_Traversal"/>
-    <addaction name="actionDepth_Traversal"/>
-    <addaction name="actionDepth_Total_Traversal"/>
-    <addaction name="actionConnected_Components"/>
-    <addaction name="actionStrongly_Connected_Components"/>
-    <addaction name="actionDijkstra_s_algorithm"/>
-   </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
      <string>View</string>
     </property>
     <addaction name="actionDraw_Nodes"/>
     <addaction name="actionDraw_Edges"/>
+    <addaction name="actionRefresh_Edges_Cache"/>
     <addaction name="actionDraw_Quad_Trees"/>
     <addaction name="actionCenter_on_Node"/>
     <addaction name="actionToggle_Light_Dark_Mode"/>
@@ -135,10 +120,20 @@
      <string>Traversals</string>
     </property>
     <addaction name="actionGeneric"/>
+    <addaction name="actionGeneric_Total_Traversal_2"/>
+    <addaction name="separator"/>
+    <addaction name="actionPath"/>
+    <addaction name="separator"/>
+    <addaction name="actionBreadth_Traversal_2"/>
+    <addaction name="actionDepth_Traversal_2"/>
+    <addaction name="actionDepth_Total_Traversal_2"/>
+    <addaction name="separator"/>
+    <addaction name="actionTopological_Sort"/>
+    <addaction name="actionConnected_Components_2"/>
+    <addaction name="actionStrongly_Connected_Components_2"/>
    </widget>
    <addaction name="menuGraph"/>
    <addaction name="menuTraversals"/>
-   <addaction name="menuAlgorithms"/>
    <addaction name="menuView"/>
   </widget>
   <action name="actionGenericTraversal">
@@ -265,6 +260,9 @@
    <property name="text">
     <string>Draw Nodes</string>
    </property>
+   <property name="shortcut">
+    <string>N</string>
+   </property>
   </action>
   <action name="actionDraw_Edges">
    <property name="checkable">
@@ -275,6 +273,9 @@
    </property>
    <property name="text">
     <string>Draw Edges</string>
+   </property>
+   <property name="shortcut">
+    <string>E</string>
    </property>
   </action>
   <action name="actionDraw_Quad_Trees">
@@ -359,12 +360,60 @@
   </action>
   <action name="actionGeneric">
    <property name="text">
-    <string>Generic</string>
+    <string>Generic Traversal</string>
    </property>
   </action>
   <action name="actionInverted_Graph_2">
    <property name="text">
     <string>Inverted Graph</string>
+   </property>
+  </action>
+  <action name="actionGeneric_Total_Traversal_2">
+   <property name="text">
+    <string>Generic Total Traversal</string>
+   </property>
+  </action>
+  <action name="actionPath">
+   <property name="text">
+    <string>Path Reconstruction</string>
+   </property>
+  </action>
+  <action name="actionBreadth_Traversal_2">
+   <property name="text">
+    <string>Breadth Traversal</string>
+   </property>
+  </action>
+  <action name="actionDepth_Traversal_2">
+   <property name="text">
+    <string>Depth Traversal</string>
+   </property>
+  </action>
+  <action name="actionDepth_Total_Traversal_2">
+   <property name="text">
+    <string>Depth Total Traversal</string>
+   </property>
+  </action>
+  <action name="actionTopological_Sort">
+   <property name="text">
+    <string>Topological Sort</string>
+   </property>
+  </action>
+  <action name="actionConnected_Components_2">
+   <property name="text">
+    <string>Connected Components</string>
+   </property>
+  </action>
+  <action name="actionStrongly_Connected_Components_2">
+   <property name="text">
+    <string>Strongly Connected Components</string>
+   </property>
+  </action>
+  <action name="actionRefresh_Edges_Cache">
+   <property name="text">
+    <string>Refresh Edges Cache</string>
+   </property>
+   <property name="shortcut">
+    <string>F5</string>
    </property>
   </action>
  </widget>

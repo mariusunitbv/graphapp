@@ -14,6 +14,7 @@ class GraphApp : public QMainWindow {
 
    protected:
     void keyPressEvent(QKeyEvent* event) final;
+    void closeEvent(QCloseEvent* event) final;
 
    private:
     void onStartedAlgorithm();

@@ -57,9 +57,9 @@ void ConnectedComponents::showPseudocodeForm() {
 }
 
 void ConnectedComponents::onFinishedAlgorithm() {
-    m_graph->getGraphManager().clearAlgorithmPaths();
+    m_graph->getGraphManager().clearAlgorithmPath(ANALYZED_EDGE);
 
-    ITimedAlgorithm::onFinishedAlgorithm();
+    DepthFirstTotalTraversal::onFinishedAlgorithm();
 }
 
 void ConnectedComponents::updateAlgorithmInfoText() const {

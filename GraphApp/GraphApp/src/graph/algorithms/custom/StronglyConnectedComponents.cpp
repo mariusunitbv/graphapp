@@ -75,7 +75,7 @@ void StronglyConnectedComponents::onFirstTraversalFinished() {
 void StronglyConnectedComponents::onSecondTraversalFinished() {
     m_pseudocodeForm.highlight({6});
 
-    m_graph->getGraphManager().clearAlgorithmPaths();
+    m_graph->getGraphManager().clearAlgorithmPath(DepthFirstTraversal::ANALYZED_EDGE);
 
     ITimedAlgorithm::start();
 }

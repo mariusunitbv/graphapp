@@ -38,6 +38,7 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
 
         AdjacencyListBuilder dialog(ui.graph, this);
         if (dialog.exec() == QDialog::Accepted) {
+            graphManager.markEdgesDirty();
             graphManager.buildEdgeCache();
         }
     });

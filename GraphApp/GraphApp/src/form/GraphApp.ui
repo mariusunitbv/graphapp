@@ -410,7 +410,7 @@
   </action>
   <action name="actionRefresh_Edges_Cache">
    <property name="text">
-    <string>Refresh Edges Cache</string>
+    <string>Refresh Edge Cache</string>
    </property>
    <property name="shortcut">
     <string>F5</string>

@@ -17,6 +17,11 @@
 #include "../graph/algorithms/custom/ConnectedComponents.h"
 #include "../graph/algorithms/custom/StronglyConnectedComponents.h"
 
+#include "../graph/algorithms/mst/GenericMST.h"
+#include "../graph/algorithms/mst/PrimMST.h"
+#include "../graph/algorithms/mst/KruskalMST.h"
+#include "../graph/algorithms/mst/BoruvkaMST.h"
+
 #include "../graph/pbf/PBFLoader.h"
 
 GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
@@ -340,8 +345,101 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         ctc->start();
     });
 
-    connect(ui.actionDijkstra_s_algorithm, &QAction::triggered,
-            [this]() { ui.graph->getGraphManager().dijkstra(); });
+    connect(ui.actionGeneric_2, &QAction::triggered, [this]() {
+        if (ui.graph->getGraphManager().getNodesCount() == 0) {
+            QMessageBox::warning(this, "Warning", "The graph has no nodes!");
+            return;
+        }
+
+        if (ui.graph->getGraphManager().getOrientedGraph()) {
+            QMessageBox::warning(
+                this, "Warning",
+                "The graph is oriented! Connected components can only be found in non-oriented "
+                "graphs.");
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto mst = new GenericMST(ui.graph);
+        connect(mst, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(mst, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        mst->showPseudocodeForm();
+        mst->start();
+    });
+
+    connect(ui.actionPrim, &QAction::triggered, [this]() {
+        if (ui.graph->getGraphManager().getNodesCount() == 0) {
+            QMessageBox::warning(this, "Warning", "The graph has no nodes!");
+            return;
+        }
+
+        if (ui.graph->getGraphManager().getOrientedGraph()) {
+            QMessageBox::warning(
+                this, "Warning",
+                "The graph is oriented! Connected components can only be found in non-oriented "
+                "graphs.");
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto mst = new PrimMST(ui.graph);
+        connect(mst, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(mst, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        mst->showPseudocodeForm();
+        mst->start();
+    });
+
+    connect(ui.actionKruskal_s_Algorithm, &QAction::triggered, [this]() {
+        if (ui.graph->getGraphManager().getNodesCount() == 0) {
+            QMessageBox::warning(this, "Warning", "The graph has no nodes!");
+            return;
+        }
+
+        if (ui.graph->getGraphManager().getOrientedGraph()) {
+            QMessageBox::warning(
+                this, "Warning",
+                "The graph is oriented! Connected components can only be found in non-oriented "
+                "graphs.");
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto mst = new KruskalMST(ui.graph);
+        connect(mst, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(mst, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        mst->showPseudocodeForm();
+        mst->start();
+    });
+
+    connect(ui.actionBoruvka_s_Algorithm, &QAction::triggered, [this]() {
+        if (ui.graph->getGraphManager().getNodesCount() == 0) {
+            QMessageBox::warning(this, "Warning", "The graph has no nodes!");
+            return;
+        }
+
+        if (ui.graph->getGraphManager().getOrientedGraph()) {
+            QMessageBox::warning(
+                this, "Warning",
+                "The graph is oriented! Connected components can only be found in non-oriented "
+                "graphs.");
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto mst = new BoruvkaMST(ui.graph);
+        connect(mst, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(mst, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        mst->showPseudocodeForm();
+        mst->start();
+    });
 
     connect(ui.actionDraw_Nodes, &QAction::toggled,
             [this](bool checked) { ui.graph->getGraphManager().setDrawNodesEnabled(checked); });
@@ -414,6 +512,7 @@ void GraphApp::closeEvent(QCloseEvent* event) {
 void GraphApp::onStartedAlgorithm() {
     ui.menuGraph->setEnabled(false);
     ui.menuTraversals->setEnabled(false);
+    ui.menuMST->setEnabled(false);
     ui.graph->getGraphManager().setAllowEditing(false);
 }
 
@@ -427,6 +526,7 @@ void GraphApp::onFinishedAlgorithm() {
 void GraphApp::onEndedAlgorithm() {
     ui.menuGraph->setEnabled(true);
     ui.menuTraversals->setEnabled(true);
+    ui.menuMST->setEnabled(true);
     ui.graph->getGraphManager().setAllowEditing(true);
 }
 

@@ -132,8 +132,18 @@
     <addaction name="actionConnected_Components_2"/>
     <addaction name="actionStrongly_Connected_Components_2"/>
    </widget>
+   <widget class="QMenu" name="menuMST">
+    <property name="title">
+     <string>MST</string>
+    </property>
+    <addaction name="actionGeneric_2"/>
+    <addaction name="actionPrim"/>
+    <addaction name="actionKruskal_s_Algorithm"/>
+    <addaction name="actionBoruvka_s_Algorithm"/>
+   </widget>
    <addaction name="menuGraph"/>
    <addaction name="menuTraversals"/>
+   <addaction name="menuMST"/>
    <addaction name="menuView"/>
   </widget>
   <action name="actionGenericTraversal">
@@ -414,6 +424,31 @@
    </property>
    <property name="shortcut">
     <string>F5</string>
+   </property>
+  </action>
+  <action name="actionGeneric_2">
+   <property name="text">
+    <string>Generic Algorithm</string>
+   </property>
+  </action>
+  <action name="actionPrim">
+   <property name="text">
+    <string>Prim's Algorithm</string>
+   </property>
+  </action>
+  <action name="actionKruskal_s_Algorithm">
+   <property name="text">
+    <string>Kruskal's Algorithm</string>
+   </property>
+  </action>
+  <action name="actionBoruvka_s_Algorithm">
+   <property name="text">
+    <string>Boruvka's Algorithm</string>
+   </property>
+  </action>
+  <action name="actionHomework">
+   <property name="text">
+    <string>Homework</string>
    </property>
   </action>
  </widget>

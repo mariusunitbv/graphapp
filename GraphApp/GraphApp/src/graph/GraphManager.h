@@ -85,8 +85,6 @@ class GraphManager : public QGraphicsObject {
     void disableAddingAlgorithmEdges();
     void enableAddingAlgorithmEdges();
 
-    void dijkstra();
-
     void updateVisibleSceneRect();
     QRectF boundingRect() const override;
 
@@ -143,7 +141,6 @@ class GraphManager : public QGraphicsObject {
     std::vector<NodeData> m_nodes;
     QuadTree m_quadTree;
     EdgeCache m_edgeCache;
-    QPainterPath m_algorithmPath;
     std::unique_ptr<IGraphStorage> m_graphStorage{};
 
     std::vector<IAlgorithm*> m_runningAlgorithms;

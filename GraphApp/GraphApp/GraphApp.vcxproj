@@ -161,6 +161,11 @@
     <QtUic Include="src\form\adjacency_list\AdjacencyListBuilder.ui" />
     <QtUic Include="src\form\GraphApp.ui" />
     <QtMoc Include="src\form\GraphApp.h" />
+    <ClCompile Include="src\graph\algorithms\mst\BoruvkaMST.cpp" />
+    <ClCompile Include="src\graph\algorithms\mst\GenericMST.cpp" />
+    <ClCompile Include="src\graph\algorithms\mst\KruskalMST.cpp" />
+    <ClCompile Include="src\graph\algorithms\mst\PrimMST.cpp" />
+    <ClCompile Include="src\utils\DisjointSet.cpp" />
     <ClCompile Include="src\form\adjacency_list\AdjacencyListBuilder.cpp" />
     <ClCompile Include="src\form\loading_screen\LoadingScreen.cpp" />
     <ClCompile Include="src\form\scene_size\SceneSizeInput.cpp" />
@@ -201,6 +206,11 @@
     <QtMoc Include="src\graph\algorithms\custom\TopologicalSort.h" />
     <QtMoc Include="src\graph\algorithms\custom\ConnectedComponents.h" />
     <QtMoc Include="src\graph\algorithms\custom\StronglyConnectedComponents.h" />
+    <QtMoc Include="src\graph\algorithms\mst\GenericMST.h" />
+    <QtMoc Include="src\graph\algorithms\mst\PrimMST.h" />
+    <QtMoc Include="src\graph\algorithms\mst\KruskalMST.h" />
+    <QtMoc Include="src\graph\algorithms\mst\BoruvkaMST.h" />
+    <ClInclude Include="src\utils\DisjointSet.h" />
     <ClInclude Include="src\graph\storage\AdjacencyList.h" />
     <ClInclude Include="src\graph\storage\IGraphStorage.h" />
     <ClInclude Include="src\graph\pbf\PBFLoader.h" />

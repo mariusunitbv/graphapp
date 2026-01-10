@@ -64,6 +64,10 @@ void ITimedAlgorithm::unmarkAllNodes() {
 }
 
 void ITimedAlgorithm::onTimerTimeout() {
+    if (m_cancelRequested) {
+        return;
+    }
+
     for (int i = 0; i < m_iterationsPerStep; ++i) {
         if (!step()) {
             m_stepTimer.stop();

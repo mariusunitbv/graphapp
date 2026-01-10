@@ -462,80 +462,6 @@ void GraphManager::disableAddingAlgorithmEdges() { m_addingAlgorithmEdgesAllowed
 
 void GraphManager::enableAddingAlgorithmEdges() { m_addingAlgorithmEdgesAllowed = true; }
 
-void GraphManager::dijkstra() {
-    if (m_selectedNodes.size() != 2) {
-        QMessageBox::warning(nullptr, "Dijkstra Error",
-                             "Please select exactly two nodes to run Dijkstra's algorithm.");
-        return;
-    }
-
-    m_algorithmPath.clear();
-
-    std::vector<int32_t> minDistances(m_nodes.size(), std::numeric_limits<int32_t>::max());
-    std::vector<NodeIndex_t> previousNodes(m_nodes.size(), -1);
-
-    NodeIndex_t startNode = *m_selectedNodes.rbegin(), endNode = *m_selectedNodes.begin();
-    if (m_nodes[startNode].getSelectOrder() > m_nodes[endNode].getSelectOrder()) {
-        std::swap(startNode, endNode);
-    }
-
-    minDistances[startNode] = 0;
-
-    using QueueElement = std::pair<int32_t, NodeIndex_t>;
-    std::priority_queue<QueueElement, std::vector<QueueElement>, std::greater<QueueElement>>
-        priorityQueue;
-    priorityQueue.emplace(0, startNode);
-
-    while (!priorityQueue.empty()) {
-        const auto [currentDistance, currentNode] = priorityQueue.top();
-        priorityQueue.pop();
-
-        if (currentNode == endNode) {
-            break;
-        }
-
-        if (currentDistance > minDistances[currentNode]) {
-            continue;
-        }
-
-        m_graphStorage->forEachOutgoingEdgeWithOpposites(
-            currentNode, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
-                if (cost < 0) {
-                    throw std::runtime_error(
-                        "Dijkstra's algorithm does not support graphs with negative edge weights.");
-                }
-
-                const auto newDistance = currentDistance + cost;
-                if (newDistance < minDistances[neighbourIndex]) {
-                    minDistances[neighbourIndex] = newDistance;
-                    previousNodes[neighbourIndex] = currentNode;
-                    priorityQueue.emplace(newDistance, neighbourIndex);
-                }
-            });
-    }
-
-    if (minDistances[endNode] == std::numeric_limits<int32_t>::max()) {
-        QMessageBox::information(nullptr, "Dijkstra Result",
-                                 "No path found between the selected nodes.");
-        return;
-    }
-
-    uint64_t totalCost = 0;
-    for (NodeIndex_t at = endNode; at != -1; at = previousNodes[at]) {
-        const auto nextNode = previousNodes[at];
-        if (nextNode != -1) {
-            m_algorithmPath.moveTo(m_nodes[nextNode].getPosition());
-            m_algorithmPath.lineTo(m_nodes[at].getPosition());
-            totalCost += static_cast<uint64_t>(m_graphStorage->getEdge(nextNode, at).value());
-        }
-
-        m_nodes[at].setFillColor(qRgb(255, 255, 0));
-    }
-
-    QMessageBox::information(nullptr, "Dijkstra Result",
-                             QString("Path found with total cost: %1").arg(totalCost));
-}
-
 void GraphManager::updateVisibleSceneRect() {
     QGraphicsScene* scene = this->scene();
     if (!scene) {
@@ -730,6 +656,8 @@ void GraphManager::drawNodes(QPainter* painter) const {
         const auto& rect = node.getBoundingRect();
 
         if (m_currentLod >= 1 && m_drawEdges) {
+            painter->setPen(QColor::fromRgb(m_nodeOutlineDefaultColor));
+
             m_graphStorage->forEachOutgoingEdge(
                 nodeIndex, [&](NodeIndex_t neighbourIndex, CostType_t cost) {
                     const auto oppositeEdge =

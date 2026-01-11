@@ -96,7 +96,8 @@ void PBFLoader::parseAndComputeBounds() {
     while (auto buffer = reader.read()) {
         apply(buffer, locationHandler);
         for (const auto& way : buffer.select<Way>()) {
-            if (!way.tags().get_value_by_key("highway")) {
+            if (!way.tags().get_value_by_key("highway") &&
+                !way.tags().get_value_by_key("boundary")) {
                 continue;
             }
 
@@ -120,7 +121,7 @@ void PBFLoader::parseAndComputeBounds() {
                 const auto loc2 = index.get(nodes[i + 1].ref());
 
                 const auto mercatorPos = projection(loc1);
-                const auto distance = std::round(geom::haversine::distance(loc1, loc2));
+                const auto distance = std::ceil(geom::haversine::distance(loc1, loc2));
                 mercatorPoints.emplace_back(QPointF{mercatorPos.x, mercatorPos.y}, distance);
 
                 m_minX = std::min(m_minX, mercatorPos.x);
@@ -206,13 +207,13 @@ void PBFLoader::connectNodes() {
             }
 
             if (prevNodeIndex == INVALID_NODE) {
+                accumulatedDistance = distance;
                 prevNodeIndex = nodeIndex;
                 continue;
             }
 
-            accumulatedDistance += distance;
-
             if (prevNodeIndex == nodeIndex) {
+                accumulatedDistance += distance;
                 continue;
             }
 
@@ -221,7 +222,7 @@ void PBFLoader::connectNodes() {
                 m_graphManager->addEdge(nodeIndex, prevNodeIndex, accumulatedDistance);
             }
 
-            accumulatedDistance = 0;
+            accumulatedDistance = distance;
             prevNodeIndex = nodeIndex;
         }
 

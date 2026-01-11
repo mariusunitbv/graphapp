@@ -134,16 +134,24 @@
    </widget>
    <widget class="QMenu" name="menuMST">
     <property name="title">
-     <string>MST</string>
+     <string>MSTs</string>
     </property>
     <addaction name="actionGeneric_2"/>
     <addaction name="actionPrim"/>
     <addaction name="actionKruskal_s_Algorithm"/>
     <addaction name="actionBoruvka_s_Algorithm"/>
    </widget>
+   <widget class="QMenu" name="menuPaths">
+    <property name="title">
+     <string>Minimum Paths</string>
+    </property>
+    <addaction name="actionFloyd_Warshall"/>
+    <addaction name="actionFloyd_Warshall_Path_Reconstruction"/>
+   </widget>
    <addaction name="menuGraph"/>
    <addaction name="menuTraversals"/>
    <addaction name="menuMST"/>
+   <addaction name="menuPaths"/>
    <addaction name="menuView"/>
   </widget>
   <action name="actionGenericTraversal">
@@ -449,6 +457,16 @@
   <action name="actionHomework">
    <property name="text">
     <string>Homework</string>
+   </property>
+  </action>
+  <action name="actionFloyd_Warshall">
+   <property name="text">
+    <string>Floyd-Warshall</string>
+   </property>
+  </action>
+  <action name="actionFloyd_Warshall_Path_Reconstruction">
+   <property name="text">
+    <string>Floyd-Warshall Path Reconstruction</string>
    </property>
   </action>
  </widget>

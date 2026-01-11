@@ -165,6 +165,8 @@
     <ClCompile Include="src\graph\algorithms\mst\GenericMST.cpp" />
     <ClCompile Include="src\graph\algorithms\mst\KruskalMST.cpp" />
     <ClCompile Include="src\graph\algorithms\mst\PrimMST.cpp" />
+    <ClCompile Include="src\graph\algorithms\paths\FloydWarshall.cpp" />
+    <ClCompile Include="src\graph\algorithms\paths\FloydWarshallPath.cpp" />
     <ClCompile Include="src\utils\DisjointSet.cpp" />
     <ClCompile Include="src\form\adjacency_list\AdjacencyListBuilder.cpp" />
     <ClCompile Include="src\form\loading_screen\LoadingScreen.cpp" />
@@ -210,6 +212,8 @@
     <QtMoc Include="src\graph\algorithms\mst\PrimMST.h" />
     <QtMoc Include="src\graph\algorithms\mst\KruskalMST.h" />
     <QtMoc Include="src\graph\algorithms\mst\BoruvkaMST.h" />
+    <QtMoc Include="src\graph\algorithms\paths\FloydWarshall.h" />
+    <QtMoc Include="src\graph\algorithms\paths\FloydWarshallPath.h" />
     <ClInclude Include="src\utils\DisjointSet.h" />
     <ClInclude Include="src\graph\storage\AdjacencyList.h" />
     <ClInclude Include="src\graph\storage\IGraphStorage.h" />

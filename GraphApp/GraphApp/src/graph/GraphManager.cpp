@@ -75,10 +75,25 @@ std::optional<NodeIndex_t> GraphManager::getNode(const QPoint& pos, float minDis
 
 std::optional<NodeIndex_t> GraphManager::getSelectedNode() const {
     if (m_selectedNodes.empty()) {
-        return std::optional<NodeIndex_t>();
+        return std::nullopt;
     }
 
     return *m_selectedNodes.begin();
+}
+
+std::optional<std::pair<NodeIndex_t, NodeIndex_t>> GraphManager::getTwoSelectedNodes() const {
+    if (m_selectedNodes.size() < 2) {
+        return std::nullopt;
+    }
+
+    const auto firstNode = *m_selectedNodes.begin();
+    const auto secondNode = *(++m_selectedNodes.begin());
+
+    if (m_nodes[firstNode].getSelectOrder() < m_nodes[secondNode].getSelectOrder()) {
+        return std::make_pair(firstNode, secondNode);
+    }
+
+    return std::make_pair(secondNode, firstNode);
 }
 
 bool GraphManager::hasNeighbour(NodeIndex_t index, NodeIndex_t neighbour) const {

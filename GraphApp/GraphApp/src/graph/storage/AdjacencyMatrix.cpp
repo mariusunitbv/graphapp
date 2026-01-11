@@ -18,12 +18,17 @@ void AdjacencyMatrix::removeEdge(NodeIndex_t i, NodeIndex_t j) {
 }
 
 std::optional<CostType_t> AdjacencyMatrix::getEdge(NodeIndex_t start, NodeIndex_t end) const {
-    const auto hasEdge = read(start, end) & FLAG_BIT;
-    if (!hasEdge) {
+    const auto raw = read(start, end);
+    if (!(raw & FLAG_BIT)) {
         return std::nullopt;
     }
 
-    return read(start, end) & COST_MASK;
+    auto val = raw & COST_MASK;
+    if (val & (FLAG_BIT >> 1)) {
+        val |= ~COST_MASK;
+    }
+
+    return static_cast<CostType_t>(val);
 }
 
 void AdjacencyMatrix::forEachOutgoingEdge(

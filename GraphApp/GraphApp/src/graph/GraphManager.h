@@ -30,6 +30,7 @@ class GraphManager : public QGraphicsObject {
     NodeData& getNode(NodeIndex_t index);
     std::optional<NodeIndex_t> getNode(const QPoint& pos, float minDistance = NodeData::k_radius);
     std::optional<NodeIndex_t> getSelectedNode() const;
+    std::optional<std::pair<NodeIndex_t, NodeIndex_t>> getTwoSelectedNodes() const;
 
     bool hasNeighbour(NodeIndex_t index, NodeIndex_t neighbour) const;
 

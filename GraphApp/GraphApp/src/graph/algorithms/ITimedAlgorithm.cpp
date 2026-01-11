@@ -40,6 +40,8 @@ void ITimedAlgorithm::start() {
 }
 
 void ITimedAlgorithm::stepAll() {
+    m_stepDelay = 0;
+
     while (step()) {
     }
 

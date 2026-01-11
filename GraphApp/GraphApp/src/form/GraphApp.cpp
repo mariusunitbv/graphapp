@@ -12,6 +12,8 @@
 #include "../graph/algorithms/traversals/DepthFirstTotalTraversal.h"
 
 #include "../graph/algorithms/paths/PathReconstruction.h"
+#include "../graph/algorithms/paths/FloydWarshall.h"
+#include "../graph/algorithms/paths/FloydWarshallPath.h"
 
 #include "../graph/algorithms/custom/TopologicalSort.h"
 #include "../graph/algorithms/custom/ConnectedComponents.h"
@@ -417,6 +419,46 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         mst->start();
     });
 
+    connect(ui.actionFloyd_Warshall, &QAction::triggered, [this]() {
+        if (ui.graph->getGraphManager().getNodesCount() == 0) {
+            QMessageBox::warning(this, "Warning", "The graph has no nodes!");
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto path = new FloydWarshall(ui.graph);
+        connect(path, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(path, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        path->showPseudocodeForm();
+        path->start();
+    });
+
+    connect(ui.actionFloyd_Warshall_Path_Reconstruction, &QAction::triggered, [this]() {
+        if (ui.graph->getGraphManager().getNodesCount() == 0) {
+            QMessageBox::warning(this, "Warning", "The graph has no nodes!");
+            return;
+        }
+
+        if (!ui.graph->getGraphManager().getTwoSelectedNodes()) {
+            QMessageBox::warning(
+                this, "Warning",
+                "Less than two nodes are selected! Please select two nodes to reconstruct the "
+                "path between them.");
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto path = new FloydWarshallPath(ui.graph);
+        connect(path, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(path, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        path->showPseudocodeForm();
+        path->start();
+    });
+
     connect(ui.actionBoruvka_s_Algorithm, &QAction::triggered, [this]() {
         if (ui.graph->getGraphManager().getNodesCount() == 0) {
             QMessageBox::warning(this, "Warning", "The graph has no nodes!");
@@ -513,6 +555,7 @@ void GraphApp::onStartedAlgorithm() {
     ui.menuGraph->setEnabled(false);
     ui.menuTraversals->setEnabled(false);
     ui.menuMST->setEnabled(false);
+    ui.menuPaths->setEnabled(false);
     ui.graph->getGraphManager().setAllowEditing(false);
 }
 
@@ -527,6 +570,7 @@ void GraphApp::onEndedAlgorithm() {
     ui.menuGraph->setEnabled(true);
     ui.menuTraversals->setEnabled(true);
     ui.menuMST->setEnabled(true);
+    ui.menuPaths->setEnabled(true);
     ui.graph->getGraphManager().setAllowEditing(true);
 }
 

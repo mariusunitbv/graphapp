@@ -2,9 +2,6 @@
 
 #include "Graph.h"
 
-#include "storage/AdjacencyList.h"
-#include "storage/AdjacencyMatrix.h"
-
 Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScene()) {
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     setFrameStyle(QFrame::NoFrame);
@@ -37,6 +34,8 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
 
     m_edgeUpdateTimer.setSingleShot(true);
     connect(&m_edgeUpdateTimer, &QTimer::timeout, [this]() { m_graphManager.buildEdgeCache(); });
+
+    setupShortcuts();
 }
 
 Graph::~Graph() {
@@ -168,13 +167,7 @@ Graph* Graph::getInvertedGraph() const {
 
     auto& invertedGraphManager = invertedGraph->m_graphManager;
     invertedGraphManager.setSceneDimensions(m_scene->sceneRect().size().toSize());
-
-    const auto storageType = m_graphManager.getGraphStorage()->type();
-    if (storageType == IGraphStorage::Type::ADJACENCY_LIST) {
-        invertedGraphManager.m_graphStorage = std::make_unique<AdjacencyList>();
-    } else if (storageType == IGraphStorage::Type::ADJACENCY_MATRIX) {
-        invertedGraphManager.m_graphStorage = std::make_unique<AdjacencyMatrix>();
-    }
+    invertedGraphManager.setGraphStorageType(m_graphManager.getGraphStorage()->type());
 
     invertedGraphManager.setCollisionsCheckEnabled(false);
     for (const auto& node : m_graphManager.m_nodes) {
@@ -254,18 +247,6 @@ void Graph::mouseReleaseEvent(QMouseEvent* event) {
     QGraphicsView::mouseReleaseEvent(event);
 }
 
-void Graph::keyReleaseEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Space) {
-        emit spacePressed();
-        return;
-    } else if (event->key() == Qt::Key_Escape && m_graphManager.runningAlgorithm()) {
-        m_graphManager.cancelAlgorithms();
-        return;
-    }
-
-    QGraphicsView::keyReleaseEvent(event);
-}
-
 void Graph::drawForeground(QPainter* painter, const QRectF& rect) {
     painter->save();
     painter->resetTransform();
@@ -276,6 +257,39 @@ void Graph::drawForeground(QPainter* painter, const QRectF& rect) {
     painter->restore();
 
     QGraphicsView::drawForeground(painter, rect);
+}
+
+void Graph::setupShortcuts() {
+    new QShortcut(Qt::Key_Space, this, [this]() { emit spacePressed(); });
+    new QShortcut(Qt::Key_Return, this, [this]() { emit enterPressed(); });
+
+    new QShortcut(Qt::Key_Delete, this, [this]() {
+        if (m_graphManager.m_editingEnabled) {
+            m_graphManager.removeSelectedNodes();
+        }
+    });
+
+    new QShortcut(Qt::Key_Escape, this, [this]() {
+        if (m_graphManager.runningAlgorithm()) {
+            m_graphManager.cancelAlgorithms();
+        } else {
+            m_graphManager.deselectNodes();
+        }
+    });
+
+    new QShortcut(Qt::Key_P, this, [this]() {
+        if (m_graphManager.runningAlgorithm() && m_graphManager.m_algorithmInfoTextSize < 40) {
+            m_graphManager.m_algorithmInfoTextItem->setFont(
+                QFont(QApplication::font().family(), ++m_graphManager.m_algorithmInfoTextSize));
+        }
+    });
+
+    new QShortcut(Qt::Key_L, this, [this]() {
+        if (m_graphManager.runningAlgorithm() && m_graphManager.m_algorithmInfoTextSize > 6) {
+            m_graphManager.m_algorithmInfoTextItem->setFont(
+                QFont(QApplication::font().family(), --m_graphManager.m_algorithmInfoTextSize));
+        }
+    });
 }
 
 int Graph::getZoomPercentage() { return static_cast<int>(std::round(m_currentZoomScale * 100)); }

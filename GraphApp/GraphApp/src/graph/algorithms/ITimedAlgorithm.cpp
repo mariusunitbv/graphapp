@@ -4,8 +4,6 @@
 
 ITimedAlgorithm::ITimedAlgorithm(Graph* graph) : IAlgorithm(graph) {
     connect(m_graph, &Graph::spacePressed, this, &ITimedAlgorithm::onSpacePressed);
-    m_stepConnection =
-        connect(&m_stepTimer, &QTimer::timeout, this, &ITimedAlgorithm::onTimerTimeout);
 
     markAllNodesUnvisited();
 }
@@ -35,6 +33,8 @@ void ITimedAlgorithm::start() {
     if (m_stepDelay == 0) {
         stepAll();
     } else {
+        m_stepConnection =
+            connect(&m_stepTimer, &QTimer::timeout, this, &ITimedAlgorithm::onTimerTimeout);
         m_stepTimer.start(m_stepDelay);
     }
 }

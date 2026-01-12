@@ -23,7 +23,7 @@ class Graph : public QGraphicsView {
 
    signals:
     void spacePressed();
-    void escapePressed();
+    void enterPressed();
 
    protected:
     void wheelEvent(QWheelEvent* event) final;
@@ -33,11 +33,11 @@ class Graph : public QGraphicsView {
     void mousePressEvent(QMouseEvent* event) final;
     void mouseReleaseEvent(QMouseEvent* event) final;
 
-    void keyReleaseEvent(QKeyEvent* event) final;
-
     void drawForeground(QPainter* painter, const QRectF& rect) final;
 
    private:
+    void setupShortcuts();
+
     int getZoomPercentage();
 
     void drawZoomText(QPainter* painter);

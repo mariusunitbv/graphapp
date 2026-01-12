@@ -57,7 +57,3 @@ class AdjacencyMatrix final : public IGraphStorage {
     size_t m_nodeCount{0};
     std::vector<UnsignedCostType_t> m_matrix{};
 };
-
-static_assert(std::is_same_v<CostType_t, int8_t> || std::is_same_v<CostType_t, int16_t> ||
-                  std::is_same_v<CostType_t, int32_t>,
-              "CostType_t must be int8_t, int16_t, or int32_t");

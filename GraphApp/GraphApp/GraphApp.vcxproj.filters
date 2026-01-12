@@ -34,6 +34,7 @@
     <ClCompile Include="src\graph\algorithms\mst\BoruvkaMST.cpp" />
     <ClCompile Include="src\graph\algorithms\paths\FloydWarshall.cpp" />
     <ClCompile Include="src\graph\algorithms\paths\FloydWarshallPath.cpp" />
+    <ClCompile Include="src\graph\algorithms\mfa\FordFulkerson.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="src\form\GraphApp.h" />
@@ -60,6 +61,7 @@
     <QtMoc Include="src\graph\algorithms\mst\BoruvkaMST.h" />
     <QtMoc Include="src\graph\algorithms\paths\FloydWarshall.h" />
     <QtMoc Include="src\graph\algorithms\paths\FloydWarshallPath.h" />
+    <QtMoc Include="src\graph\algorithms\mfa\FordFulkerson.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

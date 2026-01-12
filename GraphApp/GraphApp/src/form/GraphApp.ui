@@ -110,6 +110,8 @@
     </property>
     <addaction name="actionDraw_Nodes"/>
     <addaction name="actionDraw_Edges"/>
+    <addaction name="actionIncrease_Edge_Thickness"/>
+    <addaction name="actionDecrease_Edge_Thickness"/>
     <addaction name="actionRefresh_Edges_Cache"/>
     <addaction name="actionDraw_Quad_Trees"/>
     <addaction name="actionCenter_on_Node"/>
@@ -148,10 +150,17 @@
     <addaction name="actionFloyd_Warshall"/>
     <addaction name="actionFloyd_Warshall_Path_Reconstruction"/>
    </widget>
+   <widget class="QMenu" name="menuMFAs">
+    <property name="title">
+     <string>MFAs</string>
+    </property>
+    <addaction name="actionFord_Fulkerson_s_Algorithm"/>
+   </widget>
    <addaction name="menuGraph"/>
    <addaction name="menuTraversals"/>
    <addaction name="menuMST"/>
    <addaction name="menuPaths"/>
+   <addaction name="menuMFAs"/>
    <addaction name="menuView"/>
   </widget>
   <action name="actionGenericTraversal">
@@ -467,6 +476,27 @@
   <action name="actionFloyd_Warshall_Path_Reconstruction">
    <property name="text">
     <string>Floyd-Warshall Path Reconstruction</string>
+   </property>
+  </action>
+  <action name="actionFord_Fulkerson_s_Algorithm">
+   <property name="text">
+    <string>Ford-Fulkerson Algorithm</string>
+   </property>
+  </action>
+  <action name="actionIncrease_Edge_Thickness">
+   <property name="text">
+    <string>Increase Edge Thickness</string>
+   </property>
+   <property name="shortcut">
+    <string>=</string>
+   </property>
+  </action>
+  <action name="actionDecrease_Edge_Thickness">
+   <property name="text">
+    <string>Decrease Edge Thickness</string>
+   </property>
+   <property name="shortcut">
+    <string>-</string>
    </property>
   </action>
  </widget>

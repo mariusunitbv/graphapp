@@ -86,6 +86,9 @@ class GraphManager : public QGraphicsObject {
     void disableAddingAlgorithmEdges();
     void enableAddingAlgorithmEdges();
 
+    void increaseEdgeThickness();
+    void decreaseEdgeThickness();
+
     void updateVisibleSceneRect();
     QRectF boundingRect() const override;
 
@@ -95,8 +98,6 @@ class GraphManager : public QGraphicsObject {
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
-
-    void keyReleaseEvent(QKeyEvent* event) override;
 
    private:
     void drawEdgeCache(QPainter* painter) const;
@@ -147,8 +148,8 @@ class GraphManager : public QGraphicsObject {
     std::vector<IAlgorithm*> m_runningAlgorithms;
     std::map<int64_t, AlgorithmPath> m_algorithmPaths;
     QGraphicsTextItem* m_algorithmInfoTextItem{nullptr};
-    std::chrono::steady_clock::time_point m_timeSinceAlgorithmFinished;
     uint8_t m_algorithmInfoTextSize{14};
+    uint8_t m_additionalEdgeThickness{0};
 
     std::set<NodeIndex_t, std::greater<NodeIndex_t>> m_selectedNodes{};
 

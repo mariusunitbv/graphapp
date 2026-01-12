@@ -21,12 +21,15 @@ GraphManager::GraphManager() : m_graphStorage(std::make_unique<AdjacencyList>())
 }
 
 void GraphManager::setGraphStorageType(IGraphStorage::Type type) {
-    if (type == IGraphStorage::Type::ADJACENCY_LIST) {
-        m_graphStorage = std::make_unique<AdjacencyList>();
-    } else if (type == IGraphStorage::Type::ADJACENCY_MATRIX) {
-        m_graphStorage = std::make_unique<AdjacencyMatrix>();
-    } else {
-        throw std::runtime_error("Unknown graph storage type.");
+    switch (type) {
+        case IGraphStorage::Type::ADJACENCY_LIST:
+            m_graphStorage = std::make_unique<AdjacencyList>();
+            break;
+        case IGraphStorage::Type::ADJACENCY_MATRIX:
+            m_graphStorage = std::make_unique<AdjacencyMatrix>();
+            break;
+        default:
+            throw std::runtime_error("Unknown graph storage type.");
     }
 }
 
@@ -82,7 +85,7 @@ std::optional<NodeIndex_t> GraphManager::getSelectedNode() const {
 }
 
 std::optional<std::pair<NodeIndex_t, NodeIndex_t>> GraphManager::getTwoSelectedNodes() const {
-    if (m_selectedNodes.size() < 2) {
+    if (m_selectedNodes.size() != 2) {
         return std::nullopt;
     }
 
@@ -119,11 +122,19 @@ bool GraphManager::addNode(const QPoint& pos) {
 }
 
 void GraphManager::addEdge(NodeIndex_t start, NodeIndex_t end, int32_t cost) {
-    constexpr auto numBits = sizeof(CostType_t) * 8 - 1;
-    constexpr auto maxCost = (1 << (numBits - 1)) - 1;
-    constexpr auto minCost = -(1 << (numBits - 1));
+    if (m_graphStorage->type() == IGraphStorage::Type::ADJACENCY_MATRIX) {
+        constexpr auto numBits = sizeof(CostType_t) * 8 - 1;
+        constexpr auto maxCost = (1 << (numBits - 1)) - 1;
+        constexpr auto minCost = -(1 << (numBits - 1));
 
-    cost = std::clamp(cost, minCost, maxCost);
+        cost = std::clamp(cost, minCost, maxCost);
+    } else if (m_graphStorage->type() == IGraphStorage::Type::ADJACENCY_LIST) {
+        constexpr auto maxCost = std::numeric_limits<CostType_t>::max();
+        constexpr auto minCost = std::numeric_limits<CostType_t>::min();
+
+        cost = std::clamp(cost, minCost, maxCost);
+    }
+
     m_graphStorage->addEdge(start, end, cost);
 }
 
@@ -404,14 +415,10 @@ void GraphManager::unregisterAlgorithm(IAlgorithm* algorithm) {
     if (it != m_runningAlgorithms.end()) {
         m_runningAlgorithms.erase(it);
 
-        if (!runningAlgorithm()) {
-            m_timeSinceAlgorithmFinished = std::chrono::steady_clock::now();
-
-            if (m_algorithmInfoTextItem) {
-                scene()->removeItem(m_algorithmInfoTextItem);
-                delete m_algorithmInfoTextItem;
-                m_algorithmInfoTextItem = nullptr;
-            }
+        if (!runningAlgorithm() && m_algorithmInfoTextItem) {
+            scene()->removeItem(m_algorithmInfoTextItem);
+            delete m_algorithmInfoTextItem;
+            m_algorithmInfoTextItem = nullptr;
         }
     }
 }
@@ -476,6 +483,24 @@ void GraphManager::setAlgorithmInfoText(const QString& text) {
 void GraphManager::disableAddingAlgorithmEdges() { m_addingAlgorithmEdgesAllowed = false; }
 
 void GraphManager::enableAddingAlgorithmEdges() { m_addingAlgorithmEdgesAllowed = true; }
+
+void GraphManager::increaseEdgeThickness() {
+    if (m_additionalEdgeThickness >= 8) {
+        return;
+    }
+
+    ++m_additionalEdgeThickness;
+    update(m_sceneRect);
+}
+
+void GraphManager::decreaseEdgeThickness() {
+    if (m_additionalEdgeThickness == 0) {
+        return;
+    }
+
+    --m_additionalEdgeThickness;
+    update(m_sceneRect);
+}
 
 void GraphManager::updateVisibleSceneRect() {
     QGraphicsScene* scene = this->scene();
@@ -597,29 +622,14 @@ void GraphManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
     QGraphicsObject::mouseReleaseEvent(event);
 }
 
-void GraphManager::keyReleaseEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Delete && m_editingEnabled) {
-        removeSelectedNodes();
-    } else if (event->key() == Qt::Key_Escape && !runningAlgorithm()) {
-        deselectNodes();
-    } else if (event->key() == Qt::Key_P && runningAlgorithm() && m_algorithmInfoTextSize < 40) {
-        m_algorithmInfoTextItem->setFont(
-            QFont(QApplication::font().family(), ++m_algorithmInfoTextSize));
-    } else if (event->key() == Qt::Key_L && runningAlgorithm() && m_algorithmInfoTextSize > 6) {
-        m_algorithmInfoTextItem->setFont(
-            QFont(QApplication::font().family(), --m_algorithmInfoTextSize));
-    }
-
-    QGraphicsObject::keyReleaseEvent(event);
-}
-
 void GraphManager::drawEdgeCache(QPainter* painter) const {
     if (!m_drawEdges) {
         return;
     }
 
-    painter->setPen(QPen{
-        QColor::fromRgb(runningAlgorithm() ? qRgb(200, 200, 200) : m_nodeOutlineDefaultColor), 2.});
+    painter->setPen(
+        QPen{QColor::fromRgb(runningAlgorithm() ? qRgb(200, 200, 200) : m_nodeOutlineDefaultColor),
+             2. + m_additionalEdgeThickness});
     painter->setBrush(Qt::NoBrush);
     painter->drawPath(m_edgeCache.m_edgePath);
 }
@@ -631,7 +641,7 @@ void GraphManager::drawAlgorithmEdges(QPainter* painter) const {
 
     painter->setBrush(Qt::NoBrush);
     for (auto it = m_algorithmPaths.rbegin(); it != m_algorithmPaths.rend(); ++it) {
-        painter->setPen(QPen{QColor::fromRgb(it->second.m_color), 3});
+        painter->setPen(QPen{QColor::fromRgb(it->second.m_color), 3. + m_additionalEdgeThickness});
         painter->drawPath(it->second.m_path);
 
         if (m_drawNodes && m_orientedGraph && m_shouldDrawArrows) {
@@ -901,13 +911,6 @@ void GraphManager::removeSelectedNodes() {
 }
 
 void GraphManager::deselectNodes() {
-    using namespace std::chrono;
-
-    const auto now = steady_clock::now();
-    if (duration_cast<milliseconds>(now - m_timeSinceAlgorithmFinished).count() < 750) {
-        return;
-    }
-
     for (const auto nodeIndex : m_selectedNodes) {
         auto& node = m_nodes[nodeIndex];
 

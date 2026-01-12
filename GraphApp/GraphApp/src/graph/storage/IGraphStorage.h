@@ -2,7 +2,10 @@
 
 #include "../Node.h"
 
-using CostType_t = int16_t;
+using CostType_t = int32_t;
+static_assert(std::is_same_v<CostType_t, int8_t> || std::is_same_v<CostType_t, int16_t> ||
+                  std::is_same_v<CostType_t, int32_t>,
+              "CostType_t must be int8_t, int16_t, or int32_t");
 
 class IGraphStorage {
    public:

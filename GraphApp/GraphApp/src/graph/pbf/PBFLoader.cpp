@@ -19,6 +19,15 @@ void PBFLoader::tryLoad() {
         return;
     }
 
+    const auto response =
+        QMessageBox::information(nullptr, "Parse Boundaries",
+                                 "Do you want to parse boundaries too?\n"
+                                 "By default only roads are parsed.",
+                                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (response == QMessageBox::Yes) {
+        m_shouldParseBoundaries = true;
+    }
+
     m_accuracy = NodeData::k_radius / accuracy;
     m_loadingScreen = new LoadingScreen("Loading .pbf file");
     m_loadingScreen->forceShow();
@@ -96,8 +105,14 @@ void PBFLoader::parseAndComputeBounds() {
     while (auto buffer = reader.read()) {
         apply(buffer, locationHandler);
         for (const auto& way : buffer.select<Way>()) {
-            if (!way.tags().get_value_by_key("highway") &&
-                !way.tags().get_value_by_key("boundary")) {
+            const bool isHighway = way.tags().get_value_by_key("highway") != nullptr;
+            const bool isBoundary = way.tags().get_value_by_key("boundary") != nullptr;
+
+            if (!isHighway && !isBoundary) {
+                continue;
+            }
+
+            if (isBoundary && !m_shouldParseBoundaries) {
                 continue;
             }
 

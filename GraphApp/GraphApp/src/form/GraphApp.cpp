@@ -24,6 +24,8 @@
 #include "../graph/algorithms/mst/KruskalMST.h"
 #include "../graph/algorithms/mst/BoruvkaMST.h"
 
+#include "../graph/algorithms/mfa/FordFulkerson.h"
+
 #include "../graph/pbf/PBFLoader.h"
 
 GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
@@ -197,11 +199,11 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
     });
 
     connect(ui.actionPath, &QAction::triggered, [this]() {
-        const auto selectedNodeOpt = ui.graph->getGraphManager().getSelectedNode();
-        if (!selectedNodeOpt) {
+        const auto selectedNodesOpt = ui.graph->getGraphManager().getTwoSelectedNodes();
+        if (!selectedNodesOpt) {
             QMessageBox::warning(this, "Warning",
-                                 "No node is selected! Please select a node to start the traversal "
-                                 "for the path reconstructing algorithm.");
+                                 "Please select exactly two nodes to reconstruct the "
+                                 "path between them.");
             return;
         }
 
@@ -212,7 +214,7 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         connect(path, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
 
         path->showPseudocodeForm();
-        path->start(selectedNodeOpt.value());
+        path->start(selectedNodesOpt->first, selectedNodesOpt->second);
     });
 
     connect(ui.actionBreadth_Traversal_2, &QAction::triggered, [this]() {
@@ -419,46 +421,6 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         mst->start();
     });
 
-    connect(ui.actionFloyd_Warshall, &QAction::triggered, [this]() {
-        if (ui.graph->getGraphManager().getNodesCount() == 0) {
-            QMessageBox::warning(this, "Warning", "The graph has no nodes!");
-            return;
-        }
-
-        onStartedAlgorithm();
-
-        const auto path = new FloydWarshall(ui.graph);
-        connect(path, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
-        connect(path, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
-
-        path->showPseudocodeForm();
-        path->start();
-    });
-
-    connect(ui.actionFloyd_Warshall_Path_Reconstruction, &QAction::triggered, [this]() {
-        if (ui.graph->getGraphManager().getNodesCount() == 0) {
-            QMessageBox::warning(this, "Warning", "The graph has no nodes!");
-            return;
-        }
-
-        if (!ui.graph->getGraphManager().getTwoSelectedNodes()) {
-            QMessageBox::warning(
-                this, "Warning",
-                "Less than two nodes are selected! Please select two nodes to reconstruct the "
-                "path between them.");
-            return;
-        }
-
-        onStartedAlgorithm();
-
-        const auto path = new FloydWarshallPath(ui.graph);
-        connect(path, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
-        connect(path, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
-
-        path->showPseudocodeForm();
-        path->start();
-    });
-
     connect(ui.actionBoruvka_s_Algorithm, &QAction::triggered, [this]() {
         if (ui.graph->getGraphManager().getNodesCount() == 0) {
             QMessageBox::warning(this, "Warning", "The graph has no nodes!");
@@ -483,11 +445,71 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         mst->start();
     });
 
+    connect(ui.actionFloyd_Warshall, &QAction::triggered, [this]() {
+        if (ui.graph->getGraphManager().getNodesCount() == 0) {
+            QMessageBox::warning(this, "Warning", "The graph has no nodes!");
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto fw = new FloydWarshall(ui.graph);
+        connect(fw, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(fw, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        fw->showPseudocodeForm();
+        fw->start();
+    });
+
+    connect(ui.actionFloyd_Warshall_Path_Reconstruction, &QAction::triggered, [this]() {
+        const auto selectedNodesOpt = ui.graph->getGraphManager().getTwoSelectedNodes();
+        if (!selectedNodesOpt) {
+            QMessageBox::warning(this, "Warning",
+                                 "Please select exactly two nodes to reconstruct the "
+                                 "path between them.");
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto path = new FloydWarshallPath(ui.graph);
+        connect(path, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(path, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        path->showPseudocodeForm();
+        path->start(selectedNodesOpt->first, selectedNodesOpt->second);
+    });
+
+    connect(ui.actionFord_Fulkerson_s_Algorithm, &QAction::triggered, [this]() {
+        const auto selectedNodesOpt = ui.graph->getGraphManager().getTwoSelectedNodes();
+        if (!selectedNodesOpt) {
+            QMessageBox::warning(this, "Warning",
+                                 "Please select exactly two nodes to reconstruct the "
+                                 "path between them.");
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto mfa = new FordFulkerson(ui.graph);
+        connect(mfa, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(mfa, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        mfa->showPseudocodeForm();
+        mfa->start(selectedNodesOpt->first, selectedNodesOpt->second);
+    });
+
     connect(ui.actionDraw_Nodes, &QAction::toggled,
             [this](bool checked) { ui.graph->getGraphManager().setDrawNodesEnabled(checked); });
 
     connect(ui.actionDraw_Edges, &QAction::toggled,
             [this](bool checked) { ui.graph->getGraphManager().setDrawEdgesEnabled(checked); });
+
+    connect(ui.actionIncrease_Edge_Thickness, &QAction::triggered,
+            [this]() { ui.graph->getGraphManager().increaseEdgeThickness(); });
+
+    connect(ui.actionDecrease_Edge_Thickness, &QAction::triggered,
+            [this]() { ui.graph->getGraphManager().decreaseEdgeThickness(); });
 
     connect(ui.actionRefresh_Edges_Cache, &QAction::triggered, [this]() {
         ui.graph->getGraphManager().markEdgesDirty();
@@ -556,6 +578,9 @@ void GraphApp::onStartedAlgorithm() {
     ui.menuTraversals->setEnabled(false);
     ui.menuMST->setEnabled(false);
     ui.menuPaths->setEnabled(false);
+    ui.menuMFAs->setEnabled(false);
+
+    m_editingAllowedBeforeAlgorithm = ui.graph->getGraphManager().getAllowEditing();
     ui.graph->getGraphManager().setAllowEditing(false);
 }
 
@@ -571,7 +596,9 @@ void GraphApp::onEndedAlgorithm() {
     ui.menuTraversals->setEnabled(true);
     ui.menuMST->setEnabled(true);
     ui.menuPaths->setEnabled(true);
-    ui.graph->getGraphManager().setAllowEditing(true);
+    ui.menuMFAs->setEnabled(true);
+
+    ui.graph->getGraphManager().setAllowEditing(m_editingAllowedBeforeAlgorithm);
 }
 
 void GraphApp::saveGraph() {

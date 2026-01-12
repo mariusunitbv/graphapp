@@ -8,12 +8,13 @@ class FloydWarshallPath : public ITimedAlgorithm {
    public:
     FloydWarshallPath(Graph* graph);
 
-    void start() override;
+    void start(NodeIndex_t start, NodeIndex_t end);
     bool step() override;
     void showPseudocodeForm() override;
 
    private:
     void updateAlgorithmInfoText() const override;
+    void onEnterPressed();
 
     FloydWarshall* m_floydWarshallAlgorithm{nullptr};
 

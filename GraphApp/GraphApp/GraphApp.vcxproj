@@ -161,6 +161,7 @@
     <QtUic Include="src\form\adjacency_list\AdjacencyListBuilder.ui" />
     <QtUic Include="src\form\GraphApp.ui" />
     <QtMoc Include="src\form\GraphApp.h" />
+    <ClCompile Include="src\graph\algorithms\mfa\FordFulkerson.cpp" />
     <ClCompile Include="src\graph\algorithms\mst\BoruvkaMST.cpp" />
     <ClCompile Include="src\graph\algorithms\mst\GenericMST.cpp" />
     <ClCompile Include="src\graph\algorithms\mst\KruskalMST.cpp" />
@@ -214,6 +215,7 @@
     <QtMoc Include="src\graph\algorithms\mst\BoruvkaMST.h" />
     <QtMoc Include="src\graph\algorithms\paths\FloydWarshall.h" />
     <QtMoc Include="src\graph\algorithms\paths\FloydWarshallPath.h" />
+    <QtMoc Include="src\graph\algorithms\mfa\FordFulkerson.h" />
     <ClInclude Include="src\utils\DisjointSet.h" />
     <ClInclude Include="src\graph\storage\AdjacencyList.h" />
     <ClInclude Include="src\graph\storage\IGraphStorage.h" />

@@ -54,8 +54,8 @@ bool FloydWarshall::step() {
     colorNodesForCurrentStep();
     m_pseudocodeForm.highlight({11, 12, 13});
 
-    const auto& distIK = m_distanceMatrix[m_currentI * nodeCount + m_currentK];
-    const auto& distKJ = m_distanceMatrix[m_currentK * nodeCount + m_currentJ];
+    const auto distIK = m_distanceMatrix[m_currentI * nodeCount + m_currentK];
+    const auto distKJ = m_distanceMatrix[m_currentK * nodeCount + m_currentJ];
     auto& distIJ = m_distanceMatrix[m_currentI * nodeCount + m_currentJ];
 
     if (distIK != MAX_COST && distKJ != MAX_COST) {
@@ -200,13 +200,13 @@ void FloydWarshall::runParallelized() {
                 return;
             }
 
-            const auto& distIK = m_distanceMatrix[i * nodeCount + k];
+            const auto distIK = m_distanceMatrix[i * nodeCount + k];
             if (distIK == MAX_COST) {
                 return;
             }
 
             for (NodeIndex_t j = 0; j < nodeCount; ++j) {
-                const auto& distKJ = m_distanceMatrix[k * nodeCount + j];
+                const auto distKJ = m_distanceMatrix[k * nodeCount + j];
                 if (distKJ == MAX_COST) {
                     continue;
                 }

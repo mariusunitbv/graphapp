@@ -25,4 +25,5 @@ class GraphApp : public QMainWindow {
     void loadGraph();
 
     Ui::GraphAppClass ui;
+    bool m_editingAllowedBeforeAlgorithm{true};
 };

@@ -8,7 +8,7 @@ class PathReconstruction : public ITimedAlgorithm {
    public:
     PathReconstruction(Graph* graph);
 
-    void start(NodeIndex_t start);
+    void start(NodeIndex_t start, NodeIndex_t end);
     bool step() override;
     void showPseudocodeForm() override;
 

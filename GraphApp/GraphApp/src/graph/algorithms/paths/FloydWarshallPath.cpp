@@ -2,31 +2,40 @@
 
 #include "FloydWarshallPath.h"
 
+#include "../form/loading_screen/LoadingScreen.h"
+
 FloydWarshallPath::FloydWarshallPath(Graph* graph)
     : ITimedAlgorithm(graph), m_floydWarshallAlgorithm(new FloydWarshall(graph)) {
     m_floydWarshallAlgorithm->setParent(this);
-}
 
-void FloydWarshallPath::start() {
+    connect(graph, &Graph::enterPressed, this, &FloydWarshallPath::onEnterPressed);
+
     auto& graphManager = m_graph->getGraphManager();
+
+    LoadingScreen loadingScreen("Running Floyd-Warshall..");
+    loadingScreen.forceShow();
 
     graphManager.disableAddingAlgorithmEdges();
     m_floydWarshallAlgorithm->stepAll();
     graphManager.enableAddingAlgorithmEdges();
+}
 
-    const auto selectedNodes = graphManager.getTwoSelectedNodes();
-    m_startNodeIndex = selectedNodes->first;
-    m_endNodeIndex = selectedNodes->second;
+void FloydWarshallPath::start(NodeIndex_t start, NodeIndex_t end) {
+    if (m_floydWarshallAlgorithm->m_negativeLoopCycle) {
+        return cancelAlgorithm();
+    }
+
+    auto& graphManager = m_graph->getGraphManager();
+
+    m_startNodeIndex = start;
+    m_endNodeIndex = end;
     m_currentNodeIndex = m_endNodeIndex;
+    m_totalPathCost = 0;
 
     ITimedAlgorithm::start();
 }
 
 bool FloydWarshallPath::step() {
-    if (m_floydWarshallAlgorithm->m_negativeLoopCycle) {
-        return false;
-    }
-
     if (m_currentNodeIndex == m_startNodeIndex) {
         QMessageBox::information(
             nullptr, "Path",
@@ -79,3 +88,18 @@ void FloydWarshallPath::showPseudocodeForm() {
 }
 
 void FloydWarshallPath::updateAlgorithmInfoText() const {}
+
+void FloydWarshallPath::onEnterPressed() {
+    const auto selectedNodesOpt = m_graph->getGraphManager().getTwoSelectedNodes();
+    if (!selectedNodesOpt) {
+        QMessageBox::warning(nullptr, "Floyd-Warshall Path",
+                             "Please select exactly two nodes to find the shortest path "
+                             "between them.");
+        return;
+    }
+
+    m_graph->getGraphManager().clearAlgorithmPath(FloydWarshall::SHORTEST_PATH);
+    markAllNodesUnvisited();
+
+    this->start(selectedNodesOpt->first, selectedNodesOpt->second);
+}

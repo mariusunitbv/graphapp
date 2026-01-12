@@ -7,7 +7,7 @@ PathReconstruction::PathReconstruction(Graph* graph)
     m_genericTraversal->setParent(this);
 }
 
-void PathReconstruction::start(NodeIndex_t start) {
+void PathReconstruction::start(NodeIndex_t start, NodeIndex_t end) {
     auto& graphManager = m_graph->getGraphManager();
 
     graphManager.disableAddingAlgorithmEdges();
@@ -17,28 +17,19 @@ void PathReconstruction::start(NodeIndex_t start) {
 
     setDefaultColorToVisitedNodes();
 
-    bool ok = false;
-    const auto destinationNode = QInputDialog::getInt(
-        nullptr, "Destination Node", "Enter the destination node index:", 0, 0,
-        static_cast<int>(m_graph->getGraphManager().getNodesCount() - 1), 1, &ok);
-    if (!ok) {
-        return cancelAlgorithm();
-    }
-
-    if (getNodeState(destinationNode) == NodeData::State::UNVISITED) {
-        setNodeState(destinationNode, NodeData::State::UNREACHABLE);
+    if (getNodeState(end) == NodeData::State::UNVISITED) {
+        setNodeState(end, NodeData::State::UNREACHABLE);
         m_pseudocodeForm.highlight({10});
 
         QMessageBox::information(
-            nullptr, "Path",
-            QString("Node %1 is unreachable from Node %2.").arg(destinationNode).arg(start));
+            nullptr, "Path", QString("Node %1 is unreachable from Node %2.").arg(end).arg(start));
 
         emit finished();
 
         return;
     }
 
-    m_currentNode = destinationNode;
+    m_currentNode = end;
 
     ITimedAlgorithm::start();
 }

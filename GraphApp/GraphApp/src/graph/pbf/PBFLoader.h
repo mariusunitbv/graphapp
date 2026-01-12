@@ -29,6 +29,7 @@ class PBFLoader {
     std::vector<WayData> m_ways{};
     QHash<QPoint, NodeIndex_t> m_screenToNodes{};
     float m_accuracy{};
+    bool m_shouldParseBoundaries{false};
 
     qreal m_minX{std::numeric_limits<qreal>::max()};
     qreal m_maxX{std::numeric_limits<qreal>::min()};

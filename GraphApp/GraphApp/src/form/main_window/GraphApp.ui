@@ -17,7 +17,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>Graph Visualization Tool</string>
+   <string>Graph Tool</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QGridLayout" name="gridLayout">
@@ -147,6 +147,7 @@
     <property name="title">
      <string>Minimum Paths</string>
     </property>
+    <addaction name="actionDijkstra_s_Algorithm"/>
     <addaction name="actionFloyd_Warshall"/>
     <addaction name="actionFloyd_Warshall_Path_Reconstruction"/>
    </widget>
@@ -324,11 +325,6 @@
     <string>Shift+F5</string>
    </property>
   </action>
-  <action name="actionDijkstra_s_algorithm">
-   <property name="text">
-    <string>Dijkstra's algorithm</string>
-   </property>
-  </action>
   <action name="actionToggle_Light_Dark_Mode">
    <property name="text">
     <string>Toggle Light/Dark Mode</string>
@@ -497,6 +493,11 @@
    </property>
    <property name="shortcut">
     <string>-</string>
+   </property>
+  </action>
+  <action name="actionDijkstra_s_Algorithm">
+   <property name="text">
+    <string>Dijkstra's Algorithm</string>
    </property>
   </action>
  </widget>

@@ -73,6 +73,12 @@ void KruskalMST::updateAlgorithmInfoText() const {
     graphManager.setAlgorithmInfoText(infoLines.join("\n"));
 }
 
+void KruskalMST::resetForUndo() {
+    m_disjointSet = std::make_unique<DisjointSet>(m_graph->getGraphManager().getNodesCount());
+    m_mstEdges.clear();
+    m_currentEdgeIndex = 0;
+}
+
 void KruskalMST::sortEdgesByCost() {
     const auto n = m_graph->getGraphManager().getNodesCount();
     m_sortedEdges.reserve(n * (n - 1) / 2);

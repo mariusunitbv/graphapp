@@ -15,6 +15,7 @@ class GenericMST : public ITimedAlgorithm {
 
    private:
     void updateAlgorithmInfoText() const override;
+    void resetForUndo() override;
 
     void pickRandomNonEmptyComponent();
     void deselectCurrentComponent();
@@ -26,8 +27,10 @@ class GenericMST : public ITimedAlgorithm {
 
     std::vector<GenericMSTComponentInfo> m_components;
     std::unique_ptr<DisjointSet> m_disjointSet;
+
     size_t m_currentIteration{0};
     size_t m_currentComponentIndex{INVALID_COMPONENT};
+    std::vector<uint32_t> m_componentPickOrder;
 
     static constexpr auto MST_EDGE = 0;
     static constexpr auto INVALID_COMPONENT = std::numeric_limits<size_t>::max();

@@ -89,6 +89,11 @@ void FloydWarshallPath::showPseudocodeForm() {
 
 void FloydWarshallPath::updateAlgorithmInfoText() const {}
 
+void FloydWarshallPath::resetForUndo() {
+    m_currentNodeIndex = m_endNodeIndex;
+    m_totalPathCost = 0;
+}
+
 void FloydWarshallPath::onEnterPressed() {
     const auto selectedNodesOpt = m_graph->getGraphManager().getTwoSelectedNodes();
     if (!selectedNodesOpt) {

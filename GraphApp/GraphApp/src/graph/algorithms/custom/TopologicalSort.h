@@ -14,6 +14,7 @@ class TopologicalSort final : public DepthFirstTotalTraversal {
    private:
     void onFinishedAlgorithm() override;
     void updateAlgorithmInfoText() const override;
+    void resetForUndo() override;
 
     void onPickedNewStartNode(NodeIndex_t startNode);
     void onVisitedNode(NodeIndex_t node);

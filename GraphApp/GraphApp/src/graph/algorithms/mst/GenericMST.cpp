@@ -12,6 +12,11 @@ GenericMST::GenericMST(Graph* graph) : ITimedAlgorithm(graph) {
         m_components[index].m_nodes.push_back(index);
     }
 
+    m_componentPickOrder.resize(nodeCount);
+    std::iota(m_componentPickOrder.begin(), m_componentPickOrder.end(), 0);
+    std::shuffle(m_componentPickOrder.begin(), m_componentPickOrder.end(),
+                 Random::get().getEngine());
+
     m_disjointSet = std::make_unique<DisjointSet>(nodeCount);
 
     graph->getGraphManager().setAlgorithmPathColor(MST_EDGE, qRgb(60, 179, 113));
@@ -145,11 +150,26 @@ void GenericMST::updateAlgorithmInfoText() const {
     graphManager.setAlgorithmInfoText(N_A.join("\n"));
 }
 
+void GenericMST::resetForUndo() {
+    const auto nodeCount = m_graph->getGraphManager().getNodesCount();
+    for (NodeIndex_t nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex) {
+        auto& component = m_components[nodeIndex];
+        component.m_nodes = std::vector<NodeIndex_t>{nodeIndex};
+        component.m_edges.clear();
+    }
+
+    m_disjointSet = std::make_unique<DisjointSet>(nodeCount);
+    m_currentIteration = 0;
+    m_currentComponentIndex = INVALID_COMPONENT;
+}
+
 void GenericMST::pickRandomNonEmptyComponent() {
-    do {
-        m_currentComponentIndex =
-            Random::get().getSize(0, m_graph->getGraphManager().getNodesCount() - 1);
-    } while (m_components[m_currentComponentIndex].m_nodes.empty());
+    for (const auto componentIndex : m_componentPickOrder) {
+        if (!m_components[componentIndex].m_nodes.empty()) {
+            m_currentComponentIndex = componentIndex;
+            break;
+        }
+    }
 
     for (const auto nodeIndex : m_components[m_currentComponentIndex].m_nodes) {
         setNodeState(nodeIndex, NodeData::State::ANALYZING);

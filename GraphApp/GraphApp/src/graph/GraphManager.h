@@ -6,7 +6,7 @@
 
 class IAlgorithm;
 
-constexpr size_t NODE_LIMIT = 50'000'000;
+constexpr size_t NODE_LIMIT = 100'000'000;
 
 class GraphManager : public QGraphicsObject {
     Q_OBJECT
@@ -25,6 +25,7 @@ class GraphManager : public QGraphicsObject {
     void reset();
 
     size_t getNodesCount() const;
+    size_t getSelectedNodesCount() const;
     void reserveNodes(size_t count);
 
     NodeData& getNode(NodeIndex_t index);

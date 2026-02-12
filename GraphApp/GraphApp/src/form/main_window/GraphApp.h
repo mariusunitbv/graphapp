@@ -26,4 +26,6 @@ class GraphApp : public QMainWindow {
 
     Ui::GraphAppClass ui;
     bool m_editingAllowedBeforeAlgorithm{true};
+
+    static constexpr auto k_jsonLoadVersion = 100;
 };

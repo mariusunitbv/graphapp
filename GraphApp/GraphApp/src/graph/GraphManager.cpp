@@ -68,6 +68,8 @@ void GraphManager::reset() {
 
 size_t GraphManager::getNodesCount() const { return m_nodes.size(); }
 
+size_t GraphManager::getSelectedNodesCount() const { return m_selectedNodes.size(); }
+
 void GraphManager::reserveNodes(size_t count) { m_nodes.reserve(count); }
 
 NodeData& GraphManager::getNode(NodeIndex_t index) { return m_nodes[index]; }
@@ -457,6 +459,8 @@ void GraphManager::addAlgorithmEdge(NodeIndex_t start, NodeIndex_t end, size_t p
 
         addArrowToPath(m_algorithmPaths[priority].m_arrowPath, lineEnd, directionNormalized);
     }
+
+    update(m_sceneRect);
 }
 
 void GraphManager::setAlgorithmPathColor(size_t priority, QRgb color) {
@@ -472,7 +476,12 @@ void GraphManager::clearAlgorithmPath(size_t priority) {
     m_algorithmPaths[priority].m_arrowPath.clear();
 }
 
-void GraphManager::clearAlgorithmPaths() { m_algorithmPaths.clear(); }
+void GraphManager::clearAlgorithmPaths() {
+    for (auto& [_, algorithmPath] : m_algorithmPaths) {
+        algorithmPath.m_path.clear();
+        algorithmPath.m_arrowPath.clear();
+    }
+}
 
 void GraphManager::setAlgorithmInfoText(const QString& text) {
     if (m_algorithmInfoTextItem) {

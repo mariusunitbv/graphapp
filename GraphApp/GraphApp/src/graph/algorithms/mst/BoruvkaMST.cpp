@@ -154,3 +154,16 @@ void BoruvkaMST::updateAlgorithmInfoText() const {
 
     graphManager.setAlgorithmInfoText(infoLines.join("\n"));
 }
+
+void BoruvkaMST::resetForUndo() {
+    const auto nodeCount = m_graph->getGraphManager().getNodesCount();
+
+    m_components.resize(nodeCount);
+    for (uint32_t i = 0; i < nodeCount; ++i) {
+        m_components[i].m_nodes = std::vector<NodeIndex_t>{i};
+    }
+
+    m_mstEdges.clear();
+    m_disjointSet = std::make_unique<DisjointSet>(nodeCount);
+    m_shouldPickEdges = true;
+}

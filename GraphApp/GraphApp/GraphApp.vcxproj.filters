@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="src\form\GraphApp.cpp" />
+    <ClCompile Include="src\form\main_window\GraphApp.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\pch\pch.cpp" />
     <ClCompile Include="src\graph\Graph.cpp" />
@@ -35,9 +35,12 @@
     <ClCompile Include="src\graph\algorithms\paths\FloydWarshall.cpp" />
     <ClCompile Include="src\graph\algorithms\paths\FloydWarshallPath.cpp" />
     <ClCompile Include="src\graph\algorithms\mfa\FordFulkerson.cpp" />
+    <ClCompile Include="src\graph\algorithms\paths\Dijkstra.cpp" />
+    <ClCompile Include="src\form\pbf_loader\PbfLoadSettings.cpp" />
+    <ClCompile Include="src\form\playback_settings\PlaybackSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="src\form\GraphApp.h" />
+    <QtMoc Include="src\form\main_window\GraphApp.h" />
     <QtMoc Include="src\graph\Graph.h" />
     <QtMoc Include="src\form\pseudocode\PseudocodeForm.h" />
     <QtMoc Include="src\graph\GraphManager.h" />
@@ -62,6 +65,9 @@
     <QtMoc Include="src\graph\algorithms\paths\FloydWarshall.h" />
     <QtMoc Include="src\graph\algorithms\paths\FloydWarshallPath.h" />
     <QtMoc Include="src\graph\algorithms\mfa\FordFulkerson.h" />
+    <QtMoc Include="src\graph\algorithms\paths\Dijkstra.h" />
+    <QtMoc Include="src\form\pbf_loader\PbfLoadSettings.h" />
+    <QtMoc Include="src\form\playback_settings\PlaybackSettings.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />
@@ -75,10 +81,15 @@
     <ClInclude Include="src\utils\DisjointSet.h" />
   </ItemGroup>
   <ItemGroup>
-    <QtUic Include="src\form\GraphApp.ui" />
+    <QtUic Include="src\form\main_window\GraphApp.ui" />
     <QtUic Include="src\form\pseudocode\PseudocodeForm.ui" />
     <QtUic Include="src\form\loading_screen\LoadingScreen.ui" />
     <QtUic Include="src\form\adjacency_list\AdjacencyListBuilder.ui" />
     <QtUic Include="src\form\scene_size\SceneSizeInput.ui" />
+    <QtUic Include="src\form\pbf_loader\PbfLoadSettings.ui" />
+    <QtUic Include="src\form\playback_settings\PlaybackSettings.ui" />
+  </ItemGroup>
+  <ItemGroup>
+    <QtRcc Include="assets\resources.qrc" />
   </ItemGroup>
 </Project>

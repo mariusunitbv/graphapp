@@ -29,7 +29,7 @@ void PathReconstruction::start(NodeIndex_t start, NodeIndex_t end) {
         return;
     }
 
-    m_currentNode = end;
+    m_endNode = m_currentNode = end;
 
     ITimedAlgorithm::start();
 }
@@ -46,17 +46,17 @@ bool PathReconstruction::step() {
         return true;
     }
 
-    if (getNodeState(m_currentNode) != NodeData::State::ANALYZED) {
-        setNodeState(m_currentNode, NodeData::State::ANALYZED);
-        m_graph->getGraphManager().addAlgorithmEdge(m_currentNode, m_latestMarkedNode,
-                                                    GenericTraversal::ANALYZED_EDGE);
-        m_pseudocodeForm.highlight({6, 7});
-        return true;
+    const auto parent = m_genericTraversal->m_nodesInfo[m_currentNode].m_parentNode;
+    if (parent == INVALID_NODE) {
+        return false;
     }
 
-    m_latestMarkedNode = m_currentNode;
-    m_currentNode = m_genericTraversal->m_nodesInfo[m_currentNode].m_parentNode;
-    m_pseudocodeForm.highlight({8});
+    setNodeState(parent, NodeData::State::ANALYZED);
+    m_graph->getGraphManager().addAlgorithmEdge(parent, m_currentNode,
+                                                GenericTraversal::ANALYZED_EDGE);
+
+    m_currentNode = parent;
+    m_pseudocodeForm.highlight({6, 7, 8});
 
     return true;
 }
@@ -79,12 +79,56 @@ void PathReconstruction::showPseudocodeForm() {
     m_pseudocodeForm.highlight({1});
 }
 
-void PathReconstruction::updateAlgorithmInfoText() const {}
+void PathReconstruction::updateAlgorithmInfoText() const {
+    auto& graphManager = m_graph->getGraphManager();
+
+    const auto nodeCount = graphManager.getNodesCount();
+    if (nodeCount > 100) {
+        graphManager.setAlgorithmInfoText("Too many nodes to show information");
+        return;
+    }
+
+    QStringList infoLines;
+
+    QStringList p;
+    for (NodeIndex_t nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex) {
+        if (m_genericTraversal->m_nodesInfo[nodeIndex].m_parentNode == INVALID_NODE) {
+            p << "-";
+        } else {
+            p << QString::number(m_genericTraversal->m_nodesInfo[nodeIndex].m_parentNode);
+        }
+    }
+
+    infoLines << "p: [" + p.join(", ") + "]";
+    infoLines << "";
+    infoLines << "y = " + QString::number(m_currentNode);
+
+    graphManager.setAlgorithmInfoText(infoLines.join("\n"));
+}
+
+void PathReconstruction::resetForUndo() {
+    setDefaultColorForUndo();
+
+    m_currentNode = m_endNode;
+    m_firstStep = true;
+}
 
 void PathReconstruction::setDefaultColorToVisitedNodes() {
     auto& graphManager = m_graph->getGraphManager();
     for (NodeIndex_t i = 0; i < graphManager.getNodesCount(); ++i) {
         if (getNodeState(i) != NodeData::State::UNVISITED) {
+            setNodeState(i, NodeData::State::NONE);
+            graphManager.getNode(i).setFillColor(m_graph->getDefaultNodeColor());
+        }
+    }
+}
+
+void PathReconstruction::setDefaultColorForUndo() {
+    auto& graphManager = m_graph->getGraphManager();
+
+    for (NodeIndex_t i = 0; i < m_genericTraversal->m_nodesInfo.size(); ++i) {
+        const auto& nodeInfo = m_genericTraversal->m_nodesInfo[i];
+        if (nodeInfo.m_visitOrder != 0) {
             setNodeState(i, NodeData::State::NONE);
             graphManager.getNode(i).setFillColor(m_graph->getDefaultNodeColor());
         }

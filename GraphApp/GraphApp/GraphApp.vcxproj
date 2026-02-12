@@ -159,13 +159,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <QtUic Include="src\form\adjacency_list\AdjacencyListBuilder.ui" />
-    <QtUic Include="src\form\GraphApp.ui" />
-    <QtMoc Include="src\form\GraphApp.h" />
+    <QtUic Include="src\form\main_window\GraphApp.ui" />
+    <QtMoc Include="src\form\main_window\GraphApp.h" />
+    <ClCompile Include="src\form\pbf_loader\PbfLoadSettings.cpp" />
+    <ClCompile Include="src\form\playback_settings\PlaybackSettings.cpp" />
     <ClCompile Include="src\graph\algorithms\mfa\FordFulkerson.cpp" />
     <ClCompile Include="src\graph\algorithms\mst\BoruvkaMST.cpp" />
     <ClCompile Include="src\graph\algorithms\mst\GenericMST.cpp" />
     <ClCompile Include="src\graph\algorithms\mst\KruskalMST.cpp" />
     <ClCompile Include="src\graph\algorithms\mst\PrimMST.cpp" />
+    <ClCompile Include="src\graph\algorithms\paths\Dijkstra.cpp" />
     <ClCompile Include="src\graph\algorithms\paths\FloydWarshall.cpp" />
     <ClCompile Include="src\graph\algorithms\paths\FloydWarshallPath.cpp" />
     <ClCompile Include="src\utils\DisjointSet.cpp" />
@@ -190,7 +193,7 @@
     <ClCompile Include="src\form\pseudocode\PseudocodeForm.cpp" />
     <ClCompile Include="src\graph\GraphManager.cpp" />
     <ClCompile Include="src\random\Random.cpp" />
-    <ClCompile Include="src\form\GraphApp.cpp" />
+    <ClCompile Include="src\form\main_window\GraphApp.cpp" />
     <ClCompile Include="src\graph\Graph.cpp" />
     <ClCompile Include="src\graph\Node.cpp" />
     <ClCompile Include="src\main.cpp" />
@@ -216,6 +219,9 @@
     <QtMoc Include="src\graph\algorithms\paths\FloydWarshall.h" />
     <QtMoc Include="src\graph\algorithms\paths\FloydWarshallPath.h" />
     <QtMoc Include="src\graph\algorithms\mfa\FordFulkerson.h" />
+    <QtMoc Include="src\graph\algorithms\paths\Dijkstra.h" />
+    <QtMoc Include="src\form\pbf_loader\PbfLoadSettings.h" />
+    <QtMoc Include="src\form\playback_settings\PlaybackSettings.h" />
     <ClInclude Include="src\utils\DisjointSet.h" />
     <ClInclude Include="src\graph\storage\AdjacencyList.h" />
     <ClInclude Include="src\graph\storage\IGraphStorage.h" />
@@ -232,8 +238,13 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <QtUic Include="src\form\loading_screen\LoadingScreen.ui" />
+    <QtUic Include="src\form\pbf_loader\PbfLoadSettings.ui" />
+    <QtUic Include="src\form\playback_settings\PlaybackSettings.ui" />
     <QtUic Include="src\form\pseudocode\PseudocodeForm.ui" />
     <QtUic Include="src\form\scene_size\SceneSizeInput.ui" />
+  </ItemGroup>
+  <ItemGroup>
+    <QtRcc Include="assets\resources.qrc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

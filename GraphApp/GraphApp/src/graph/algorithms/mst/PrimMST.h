@@ -13,6 +13,7 @@ class PrimMST : public ITimedAlgorithm {
 
    private:
     void updateAlgorithmInfoText() const override;
+    void resetForUndo() override;
 
     void pickLowestCostNode();
 

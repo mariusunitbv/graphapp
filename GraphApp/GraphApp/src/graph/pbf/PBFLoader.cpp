@@ -2,33 +2,46 @@
 
 #include "PBFLoader.h"
 
+#include "../form/pbf_loader/PbfLoadSettings.h"
+
 PBFLoader::PBFLoader(GraphManager* graphManager, const QString& pbfFile)
     : m_graphManager(graphManager) {
     m_pbfPath = pbfFile.toStdString();
 }
 
 void PBFLoader::tryLoad() {
-    bool ok = false;
-    const auto accuracy = QInputDialog::getDouble(
-        nullptr, "Accuracy",
-        "A smaller accuracy will merge near nodes, but a bigger accuracy\n"
-        "may crash the app if loading a bigger map!\nAlso the scene dimensions are also affecting "
-        "the accuracy.\n\nEntered accuracy (1 -> 7):",
-        3, 1, 7, 1, &ok);
-    if (!ok) {
+    PbfLoadSettings settingsDialog;
+    if (settingsDialog.exec() != QDialog::Accepted) {
         return;
     }
 
-    const auto response =
-        QMessageBox::information(nullptr, "Parse Boundaries",
-                                 "Do you want to parse boundaries too?\n"
-                                 "By default only roads are parsed.",
-                                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-    if (response == QMessageBox::Yes) {
-        m_shouldParseBoundaries = true;
-    }
+    m_shouldParseBoundaries = settingsDialog.parseBoundaries();
 
-    m_accuracy = NodeData::k_radius / accuracy;
+    m_parseMotorways = settingsDialog.parseMotorways();
+    m_parseMotorwayLinks = settingsDialog.parseMotorwayLinks();
+
+    m_parseTrunks = settingsDialog.parseTrunks();
+    m_parseTrunkLinks = settingsDialog.parseTrunkLinks();
+
+    m_parsePrimarys = settingsDialog.parsePrimarys();
+    m_parsePrimaryLinks = settingsDialog.parsePrimaryLinks();
+
+    m_parseSecondarys = settingsDialog.parseSecondarys();
+    m_parseSecondaryLinks = settingsDialog.parseSecondaryLinks();
+
+    m_parseTertiarys = settingsDialog.parseTertiarys();
+    m_parseTertiaryLinks = settingsDialog.parseTertiaryLinks();
+
+    m_parseUnclassifieds = settingsDialog.parseUnclassifieds();
+    m_parseResidentials = settingsDialog.parseResidentials();
+    m_parseLivingStreets = settingsDialog.parseLivingStreets();
+    m_parseServices = settingsDialog.parseServices();
+    m_parsePedestrians = settingsDialog.parsePedestrians();
+
+    const auto mergeFactor = settingsDialog.getMergeFactor();
+    const float accuracy = 9.f - mergeFactor;
+
+    m_accuracy = mergeFactor == 0 ? 0.f : NodeData::k_radius / accuracy;
     m_loadingScreen = new LoadingScreen("Loading .pbf file");
     m_loadingScreen->forceShow();
 
@@ -39,6 +52,7 @@ void PBFLoader::tryLoad() {
         m_graphManager->setCollisionsCheckEnabled(false);
         m_graphManager->setOrientedGraph(true);
 
+        checkIfNodeForWaysNeeded();
         parseAndComputeBounds();
         addNodesToGraph();
         connectNodes();
@@ -91,53 +105,78 @@ QPoint PBFLoader::mercatorToGraphPosition(const QPointF& mercatorPos) const {
     return QPointF{x, y}.toPoint();
 }
 
-void PBFLoader::parseAndComputeBounds() {
+void PBFLoader::checkIfNodeForWaysNeeded() {
     using namespace osmium;
 
-    index::map::SparseMemArray<unsigned_object_id_type, Location> index;
-    handler::NodeLocationsForWays locationHandler(index);
-    geom::MercatorProjection projection;
-
-    std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
-    io::Reader reader(m_pbfPath, osm_entity_bits::node | osm_entity_bits::way,
-                      osmium::io::read_meta::no);
+    io::Reader reader(m_pbfPath, osm_entity_bits::node | osm_entity_bits::way, io::read_meta::no);
 
     while (auto buffer = reader.read()) {
-        apply(buffer, locationHandler);
         for (const auto& way : buffer.select<Way>()) {
-            const bool isHighway = way.tags().get_value_by_key("highway") != nullptr;
-            const bool isBoundary = way.tags().get_value_by_key("boundary") != nullptr;
+            const auto highwayKey = way.tags().get_value_by_key("highway");
+            const auto boundaryKey = way.tags().get_value_by_key("boundary");
 
-            if (!isHighway && !isBoundary) {
+            if (!highwayKey && !boundaryKey) {
                 continue;
             }
 
-            if (isBoundary && !m_shouldParseBoundaries) {
+            const auto& nodes = way.nodes();
+            for (const auto& node : nodes) {
+                if (!node.location().valid()) {
+                    m_nodeForWaysNeeded = true;
+                    return;
+                }
+            }
+        }
+    }
+}
+
+void PBFLoader::parseAndComputeBounds() {
+    using namespace osmium;
+
+    std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
+
+    index::map::FlexMem<unsigned_object_id_type, Location> index;
+    handler::NodeLocationsForWays handler(index);
+    io::Reader reader(m_pbfPath, osm_entity_bits::node | osm_entity_bits::way, io::read_meta::no);
+
+    while (auto buffer = reader.read()) {
+        if (m_nodeForWaysNeeded) {
+            apply(buffer, handler);
+        }
+
+        for (const auto& way : buffer.select<Way>()) {
+            const auto highwayKey = way.tags().get_value_by_key("highway");
+            const auto boundaryKey = way.tags().get_value_by_key("boundary");
+
+            if (!highwayKey && !boundaryKey) {
+                continue;
+            }
+
+            if (boundaryKey && !m_shouldParseBoundaries) {
+                continue;
+            }
+
+            if (highwayKey && shouldSkipHighway(highwayKey)) {
+                continue;
+            }
+
+            const auto& nodes = way.nodes();
+            if (nodes.size() < 2) {
                 continue;
             }
 
             WayData wayData;
-            wayData.m_oneWay = [&way]() {
-                auto oneWay = way.tags().get_value_by_key("oneway");
-                if (!oneWay) {
-                    return false;
-                }
 
-                return std::strcmp(oneWay, "yes") == 0 || std::strcmp(oneWay, "true") == 0 ||
-                       std::strcmp(oneWay, "1") == 0;
-            }();
+            const auto oneWay = way.tags().get_value_by_key("oneway");
+            wayData.m_oneWay = oneWay && (*oneWay == 'y' || *oneWay == 't' || *oneWay == '1');
 
-            auto& mercatorPoints = wayData.m_mercatorPoints;
-            mercatorPoints.reserve(way.nodes().size());
+            auto& locations = wayData.m_locations;
+            locations.reserve(nodes.size());
 
-            const auto& nodes = way.nodes();
-            for (size_t i = 0; i < nodes.size() - 1; ++i) {
-                const auto loc1 = index.get(nodes[i].ref());
-                const auto loc2 = index.get(nodes[i + 1].ref());
-
-                const auto mercatorPos = projection(loc1);
-                const auto distance = std::ceil(geom::haversine::distance(loc1, loc2));
-                mercatorPoints.emplace_back(QPointF{mercatorPos.x, mercatorPos.y}, distance);
+            for (const auto& node : nodes) {
+                const auto loc = m_nodeForWaysNeeded ? index.get(node.ref()) : node.location();
+                const auto mercatorPos = m_projection(loc);
+                locations.push_back(loc);
 
                 m_minX = std::min(m_minX, mercatorPos.x);
                 m_maxX = std::max(m_maxX, mercatorPos.x);
@@ -145,25 +184,14 @@ void PBFLoader::parseAndComputeBounds() {
                 m_maxY = std::max(m_maxY, mercatorPos.y);
             }
 
-            if (!mercatorPoints.empty()) {
-                const auto loc = index.get(nodes.back().ref());
-                const auto mercatorPos = projection(loc);
-                mercatorPoints.emplace_back(QPointF{mercatorPos.x, mercatorPos.y}, 0);
+            m_ways.push_back(std::move(wayData));
+        }
 
-                m_minX = std::min(m_minX, mercatorPos.x);
-                m_maxX = std::max(m_maxX, mercatorPos.x);
-                m_minY = std::min(m_minY, mercatorPos.y);
-                m_maxY = std::max(m_maxY, mercatorPos.y);
-
-                m_ways.push_back(std::move(wayData));
-            }
-
-            const auto now = std::chrono::steady_clock::now();
-            const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate);
-            if (elapsed.count() >= 2) {
-                lastUpdate = now;
-                m_loadingScreen->setText(QString("Parsed %1 ways").arg(m_ways.size()));
-            }
+        const auto now = std::chrono::steady_clock::now();
+        const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate);
+        if (elapsed.count() >= 2) {
+            lastUpdate = now;
+            m_loadingScreen->setText(QString("Parsed %1 ways").arg(m_ways.size()));
         }
     }
 }
@@ -172,17 +200,21 @@ void PBFLoader::addNodesToGraph() {
     std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
 
     for (const auto& [points, _] : m_ways) {
-        for (const auto& [mercatorPos, _] : points) {
-            const auto screenPos = mercatorToGraphPosition(mercatorPos);
+        for (const auto loc : points) {
+            const auto mercatorPosCoord = m_projection(loc);
+            const QPointF mercatorPos{mercatorPosCoord.x, mercatorPosCoord.y};
 
+            const auto screenPos = mercatorToGraphPosition(mercatorPos);
             if (m_screenToNodes.contains(screenPos)) {
                 continue;
             }
 
-            const auto nearestNode = m_graphManager->getNode(screenPos, m_accuracy);
-            if (nearestNode.has_value()) {
-                m_screenToNodes.emplace(screenPos, nearestNode.value());
-                continue;
+            if (m_accuracy > 0.f) {
+                const auto nearestNode = m_graphManager->getNode(screenPos, m_accuracy);
+                if (nearestNode.has_value()) {
+                    m_screenToNodes.emplace(screenPos, nearestNode.value());
+                    continue;
+                }
             }
 
             if (!m_graphManager->addNode(screenPos)) {
@@ -190,15 +222,15 @@ void PBFLoader::addNodesToGraph() {
                     "Failed to add node to the graph.\nNode is out of bounds!");
             }
 
-            const auto now = std::chrono::steady_clock::now();
-            const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate);
-            if (elapsed.count() >= 2) {
-                lastUpdate = now;
-                m_loadingScreen->setText(
-                    QString("Added %1 nodes").arg(m_graphManager->getNodesCount()));
-            }
-
             m_screenToNodes.emplace(screenPos, m_graphManager->getNodesCount() - 1);
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate);
+        if (elapsed.count() >= 2) {
+            lastUpdate = now;
+            m_loadingScreen->setText(
+                QString("Added %1 nodes").arg(m_graphManager->getNodesCount()));
         }
     }
 }
@@ -211,44 +243,120 @@ void PBFLoader::connectNodes() {
 
     for (const auto& [points, oneWay] : m_ways) {
         NodeIndex_t prevNodeIndex = INVALID_NODE;
-        int64_t accumulatedDistance{};
+        osmium::Location prevLocation;
+        int64_t distance{};
 
-        for (const auto& [mercatorPos, distance] : points) {
+        for (const auto loc : points) {
+            const auto mercatorPosCoord = m_projection(loc);
+            const QPointF mercatorPos{mercatorPosCoord.x, mercatorPosCoord.y};
+
             const auto screenPos = mercatorToGraphPosition(mercatorPos);
-
             const auto nodeIndex = m_screenToNodes.value(screenPos, INVALID_NODE);
             if (nodeIndex == INVALID_NODE) {
                 throw std::runtime_error("Failed to find node for way connection.");
             }
 
             if (prevNodeIndex == INVALID_NODE) {
-                accumulatedDistance = distance;
                 prevNodeIndex = nodeIndex;
+                prevLocation = loc;
+
                 continue;
             }
+
+            const auto haversineDist = osmium::geom::haversine::distance(prevLocation, loc);
+            distance += static_cast<int64_t>(std::ceil(haversineDist));
 
             if (prevNodeIndex == nodeIndex) {
-                accumulatedDistance += distance;
+                prevLocation = loc;
                 continue;
             }
 
-            m_graphManager->addEdge(prevNodeIndex, nodeIndex, accumulatedDistance);
+            m_graphManager->addEdge(prevNodeIndex, nodeIndex, distance);
             if (!oneWay) {
-                m_graphManager->addEdge(nodeIndex, prevNodeIndex, accumulatedDistance);
+                m_graphManager->addEdge(nodeIndex, prevNodeIndex, distance);
             }
 
-            accumulatedDistance = distance;
             prevNodeIndex = nodeIndex;
+            prevLocation = loc;
+            distance = 0;
         }
+
+        ++connectedWays;
 
         const auto now = std::chrono::steady_clock::now();
         const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate);
         if (elapsed.count() >= 2) {
             lastUpdate = now;
-            m_loadingScreen->setText(QString("Connected %1 ways").arg(++connectedWays));
+            m_loadingScreen->setText(QString("Connected %1 ways").arg(connectedWays));
         }
     }
 
     m_loadingScreen->close();
     m_graphManager->buildEdgeCache();
+}
+
+bool PBFLoader::shouldSkipHighway(const std::string_view highwayKey) const {
+    const auto endsInInk = highwayKey.ends_with("ink");
+
+    if (!m_parseMotorways && highwayKey.starts_with("mo") && !endsInInk) {
+        return true;
+    }
+
+    if (!m_parseMotorwayLinks && highwayKey.starts_with("mo") && endsInInk) {
+        return true;
+    }
+
+    if (!m_parseTrunks && highwayKey.starts_with("tru") && !endsInInk) {
+        return true;
+    }
+
+    if (!m_parseTrunkLinks && highwayKey.starts_with("tru") && endsInInk) {
+        return true;
+    }
+
+    if (!m_parsePrimarys && highwayKey.starts_with("pri") && !endsInInk) {
+        return true;
+    }
+
+    if (!m_parsePrimaryLinks && highwayKey.starts_with("pri") && endsInInk) {
+        return true;
+    }
+
+    if (!m_parseSecondarys && highwayKey.starts_with("sec") && !endsInInk) {
+        return true;
+    }
+
+    if (!m_parseSecondaryLinks && highwayKey.starts_with("sec") && endsInInk) {
+        return true;
+    }
+
+    if (!m_parseTertiarys && highwayKey.starts_with("ter") && !endsInInk) {
+        return true;
+    }
+
+    if (!m_parseTertiaryLinks && highwayKey.starts_with("ter") && endsInInk) {
+        return true;
+    }
+
+    if (!m_parseUnclassifieds && highwayKey.starts_with("unc")) {
+        return true;
+    }
+
+    if (!m_parseResidentials && highwayKey.starts_with("res")) {
+        return true;
+    }
+
+    if (!m_parseLivingStreets && highwayKey.starts_with("liv")) {
+        return true;
+    }
+
+    if (!m_parseServices && highwayKey.starts_with("ser")) {
+        return true;
+    }
+
+    if (!m_parsePedestrians && highwayKey.starts_with("ped")) {
+        return true;
+    }
+
+    return false;
 }

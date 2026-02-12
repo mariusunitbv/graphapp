@@ -14,6 +14,7 @@ BreadthFirstTraversal::BreadthFirstTraversal(Graph* graph) : ITimedAlgorithm(gra
 }
 
 void BreadthFirstTraversal::start(NodeIndex_t startNode) {
+    m_startNode = startNode;
     setStartNode(startNode);
 
     ITimedAlgorithm::start();
@@ -157,4 +158,15 @@ void BreadthFirstTraversal::updateAlgorithmInfoText() const {
     infoLines << "l: [" + l.join(", ") + "]";
 
     graphManager.setAlgorithmInfoText(infoLines.join("\n"));
+}
+
+void BreadthFirstTraversal::resetForUndo() {
+    for (auto& info : m_nodesInfo) {
+        info.m_parentNode = INVALID_NODE;
+        info.m_length = std::numeric_limits<uint32_t>::max();
+    }
+
+    m_traversalContainer.clear();
+
+    setStartNode(m_startNode);
 }

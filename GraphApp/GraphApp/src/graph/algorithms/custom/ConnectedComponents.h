@@ -15,6 +15,7 @@ class ConnectedComponents final : public DepthFirstTotalTraversal {
    private:
     void onFinishedAlgorithm() override;
     void updateAlgorithmInfoText() const override;
+    void resetForUndo() override;
 
     void colorCurrentConnectedComponent();
 
@@ -23,6 +24,7 @@ class ConnectedComponents final : public DepthFirstTotalTraversal {
     void onAnalyzingNode(NodeIndex_t node);
     void onAnalyzedNode(NodeIndex_t node);
 
+    std::vector<QRgb> m_componentColors;
     std::vector<NodeIndex_t> m_currentConnectedComponent;
     std::vector<std::vector<NodeIndex_t>> m_connectedComponents;
 };

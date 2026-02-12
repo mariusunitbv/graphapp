@@ -13,6 +13,7 @@ DepthFirstTraversal::DepthFirstTraversal(Graph* graph) : ITimedAlgorithm(graph) 
 }
 
 void DepthFirstTraversal::start(NodeIndex_t startNode) {
+    m_startNode = startNode;
     setStartNode(startNode);
 
     ITimedAlgorithm::start();
@@ -198,6 +199,24 @@ void DepthFirstTraversal::updateAlgorithmInfoText() const {
     infoLines << "T = {" + T.join(", ") + "}";
 
     graphManager.setAlgorithmInfoText(infoLines.join("\n"));
+}
+
+void DepthFirstTraversal::resetForUndo() {
+    for (auto& info : m_nodesInfo) {
+        info.m_parentNode = INVALID_NODE;
+        info.m_discoveryTime = info.m_analyzeTime = MAX_TIME;
+    }
+
+    m_traversalContainer.clear();
+
+    m_currentTime = 0;
+
+    m_treeEdges.clear();
+    m_forwardEdges.clear();
+    m_backEdges.clear();
+    m_crossEdges.clear();
+
+    setStartNode(m_startNode);
 }
 
 void DepthFirstTraversal::updateEdgeClassification(NodeIndex_t node) {

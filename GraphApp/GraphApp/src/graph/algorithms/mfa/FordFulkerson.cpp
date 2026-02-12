@@ -11,3 +11,5 @@ bool FordFulkerson::step() { return false; }
 void FordFulkerson::showPseudocodeForm() {}
 
 void FordFulkerson::updateAlgorithmInfoText() const {}
+
+void FordFulkerson::resetForUndo() {}

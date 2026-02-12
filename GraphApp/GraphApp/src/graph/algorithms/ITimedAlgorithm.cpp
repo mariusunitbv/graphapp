@@ -2,31 +2,26 @@
 
 #include "ITimedAlgorithm.h"
 
+#include "../form/playback_settings/PlaybackSettings.h"
+
 ITimedAlgorithm::ITimedAlgorithm(Graph* graph) : IAlgorithm(graph) {
+    connect(m_graph, &Graph::leftArrowPressed, this, &ITimedAlgorithm::onLeftArrowPressed);
+    connect(m_graph, &Graph::rightArrowPressed, this, &ITimedAlgorithm::onRightArrowPressed);
     connect(m_graph, &Graph::spacePressed, this, &ITimedAlgorithm::onSpacePressed);
 
     markAllNodesUnvisited();
 }
 
 void ITimedAlgorithm::start() {
-    bool ok = false;
-
-    m_stepDelay = QInputDialog::getInt(
-        nullptr, "Step Delay", "Enter step delay in milliseconds:", 1000, 0, 30000, 500, &ok);
-    if (!ok) {
+    PlaybackSettings settingsDialog;
+    if (settingsDialog.exec() != QDialog::Accepted) {
         return cancelAlgorithm();
     }
 
-    if (m_stepDelay > 0) {
-        m_iterationsPerStep =
-            QInputDialog::getInt(nullptr, "Iterations Per Step",
-                                 "Enter number of iterations per step:", 1, 1, 100000, 1, &ok);
-        if (!ok) {
-            return cancelAlgorithm();
-        }
-    }
+    m_stepDelay = settingsDialog.runInstantly() ? 0 : settingsDialog.getStepDelay();
+    m_iterationsPerStep = settingsDialog.getIterationsPerStep();
 
-    if (m_stepDelay < PseudocodeForm::k_animationDurationMs || m_iterationsPerStep > 1) {
+    if (!settingsDialog.showPseudocode()) {
         m_pseudocodeForm.close();
     }
 
@@ -35,7 +30,10 @@ void ITimedAlgorithm::start() {
     } else {
         m_stepConnection =
             connect(&m_stepTimer, &QTimer::timeout, this, &ITimedAlgorithm::onTimerTimeout);
-        m_stepTimer.start(m_stepDelay);
+
+        if (!settingsDialog.startPaused()) {
+            m_stepTimer.start(m_stepDelay);
+        }
     }
 }
 
@@ -72,26 +70,75 @@ void ITimedAlgorithm::onTimerTimeout() {
 
     for (int i = 0; i < m_iterationsPerStep; ++i) {
         if (!step()) {
-            m_stepTimer.stop();
             updateAlgorithmInfoText();
-
             emit finished();
 
             return;
         }
     }
 
+    ++m_currentIteration;
     updateAlgorithmInfoText();
 }
 
-void ITimedAlgorithm::onSpacePressed() {
-    if (!m_stepTimer.isActive()) {
+void ITimedAlgorithm::onLeftArrowPressed() {
+    if (m_currentIteration == 0 || !m_stepConnection) {
         return;
     }
 
+    const auto timerWasActive = m_stepTimer.isActive();
+
+    --m_currentIteration;
+    m_stepTimer.stop();
+
+    markAllNodesUnvisited();
+    resetForUndo();
+
+    m_graph->getGraphManager().clearAlgorithmPaths();
+    for (size_t i = 0; i < m_currentIteration; ++i) {
+        for (int j = 0; j < m_iterationsPerStep; ++j) {
+            step();
+        }
+    }
+
+    updateAlgorithmInfoText();
+
+    if (timerWasActive) {
+        m_stepTimer.start();
+    }
+
+    m_graph->notifyLeftArrowPressed();
+}
+
+void ITimedAlgorithm::onRightArrowPressed() {
+    if (!m_stepConnection) {
+        return;
+    }
+
+    const auto timerWasActive = m_stepTimer.isActive();
+
     m_stepTimer.stop();
     onTimerTimeout();
-    m_stepTimer.start(m_stepDelay);
+
+    if (timerWasActive) {
+        m_stepTimer.start(m_stepDelay);
+    }
+
+    m_graph->notifyRightArrowPressed();
+}
+
+void ITimedAlgorithm::onSpacePressed() {
+    if (!m_stepConnection) {
+        return;
+    }
+
+    if (m_stepTimer.isActive()) {
+        m_graph->notifyAlgorithmPaused();
+        m_stepTimer.stop();
+    } else {
+        m_graph->notifyAlgorithmResumed();
+        m_stepTimer.start(m_stepDelay);
+    }
 }
 
 void ITimedAlgorithm::cancelAlgorithm() {

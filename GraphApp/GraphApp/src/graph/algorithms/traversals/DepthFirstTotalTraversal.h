@@ -11,8 +11,9 @@ class DepthFirstTotalTraversal : public DepthFirstTraversal {
     bool step() override;
     void showPseudocodeForm() override;
 
-   private:
+   protected:
     bool pickNewStartNode();
+    void resetForUndo() override;
 
     size_t m_currentRandomIndex{0};
     std::vector<NodeIndex_t> m_randomOrderNodes;

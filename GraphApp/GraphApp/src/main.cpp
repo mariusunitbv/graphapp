@@ -1,9 +1,11 @@
 #include <pch.h>
 
-#include "form/GraphApp.h"
+#include "form/main_window/GraphApp.h"
 
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
+
+    app.setWindowIcon(QIcon(":/assets/icon.png"));
 
     QSurfaceFormat format;
     format.setDepthBufferSize(24);

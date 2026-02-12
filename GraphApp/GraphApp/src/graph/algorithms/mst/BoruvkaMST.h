@@ -15,6 +15,7 @@ class BoruvkaMST : public ITimedAlgorithm {
 
    private:
     void updateAlgorithmInfoText() const override;
+    void resetForUndo() override;
 
     struct BoruvkaMSTComponentInfo {
         std::vector<NodeIndex_t> m_nodes;

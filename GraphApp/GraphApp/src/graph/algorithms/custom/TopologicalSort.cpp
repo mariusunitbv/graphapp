@@ -157,6 +157,12 @@ void TopologicalSort::updateAlgorithmInfoText() const {
     graphManager.setAlgorithmInfoText(infoLines.join("\n"));
 }
 
+void TopologicalSort::resetForUndo() {
+    m_topologicalOrder.clear();
+
+    DepthFirstTotalTraversal::resetForUndo();
+}
+
 void TopologicalSort::onPickedNewStartNode(NodeIndex_t startNode) {
     if (m_stepTimer.isActive()) {
         m_pseudocodeForm.highlight({20, 21}, TS_PSEUDOCODE_PRIORITY);

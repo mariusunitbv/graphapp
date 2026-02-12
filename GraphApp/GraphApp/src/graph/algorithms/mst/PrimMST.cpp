@@ -126,6 +126,19 @@ void PrimMST::updateAlgorithmInfoText() const {
     graphManager.setAlgorithmInfoText(infoLines.join("\n"));
 }
 
+void PrimMST::resetForUndo() {
+    for (auto& info : m_nodeInfo) {
+        info.m_parent = INVALID_NODE;
+        info.m_minimalCost = std::numeric_limits<CostType_t>::max();
+        info.m_inMST = false;
+        info.m_minimalCostInitialized = false;
+    }
+
+    m_nodeInfo[0].setCost(0);
+
+    m_currentNode = INVALID_NODE;
+}
+
 void PrimMST::pickLowestCostNode() {
     std::optional<CostType_t> minimalCost;
     for (NodeIndex_t i = 0; i < m_graph->getGraphManager().getNodesCount(); ++i) {

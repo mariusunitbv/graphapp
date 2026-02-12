@@ -15,6 +15,7 @@ class FloydWarshall : public ITimedAlgorithm {
 
    private:
     void updateAlgorithmInfoText() const override;
+    void resetForUndo() override;
     void colorNodesForCurrentStep();
     void uncolorPreviousNodes();
     void runParallelized();

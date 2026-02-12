@@ -13,6 +13,7 @@ class GenericTotalTraversal : public GenericTraversal {
 
    private:
     bool pickNewStartNode();
+    void resetForUndo() override;
 
     size_t m_currentRandomIndex{0};
     std::vector<NodeIndex_t> m_randomOrderNodes;

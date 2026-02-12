@@ -21,7 +21,14 @@ class Graph : public QGraphicsView {
 
     Graph* getInvertedGraph() const;
 
+    void notifyLeftArrowPressed();
+    void notifyRightArrowPressed();
+    void notifyAlgorithmResumed();
+    void notifyAlgorithmPaused();
+
    signals:
+    void leftArrowPressed();
+    void rightArrowPressed();
     void spacePressed();
     void enterPressed();
 
@@ -42,6 +49,10 @@ class Graph : public QGraphicsView {
 
     void drawZoomText(QPainter* painter);
     void drawWatermark(QPainter* painter);
+    void drawLeftArrow(QPainter* painter);
+    void drawRightArrow(QPainter* painter);
+    void drawResumedAlgorithm(QPainter* painter);
+    void drawPausedAlgorithm(QPainter* painter);
 
     QGraphicsScene* m_scene;
     GraphManager m_graphManager;
@@ -50,9 +61,18 @@ class Graph : public QGraphicsView {
     bool m_isDragging{false};
     bool m_darkMode{false};
     bool m_shouldDrawZoom{false};
+    bool m_shouldDrawLeftArrow{false};
+    bool m_shouldDrawRightArrow{false};
+    bool m_shouldDrawResumedAlgorithm{false};
+    bool m_shouldDrawPausedAlgorithm{false};
 
     QTimer m_zoomTextStopTimer;
     double m_currentZoomScale{1.};
+
+    QTimer m_leftArrowStopTimer;
+    QTimer m_rightArrowStopTimer;
+    QTimer m_resumedAlgorithmStopTimer;
+    QTimer m_pausedAlgorithmStopTimer;
 
     static constexpr double k_minScale = 0.1;
     static constexpr double k_maxScale = 5.;

@@ -18,19 +18,27 @@ class GenericTraversal : public ITimedAlgorithm {
     void setStartNode(NodeIndex_t startNode);
     void onFinishedAlgorithm() override;
     void updateAlgorithmInfoText() const override;
-
-    void pickRandomNodeFromTraversalContainer();
+    void resetForUndo() override;
 
     struct GenericInfo {
+        struct Comparator {
+            bool operator()(GenericInfo* a, GenericInfo* b) const {
+                return a->m_randomVisitOrder > b->m_randomVisitOrder;
+            }
+        };
+
         NodeIndex_t m_parentNode{INVALID_NODE};
         uint32_t m_visitOrder{0};
+        uint32_t m_randomVisitOrder{0};
     };
 
     std::vector<GenericInfo> m_nodesInfo;
-    std::vector<NodeIndex_t> m_traversalContainer;
-    size_t m_traversalContainerIndex{0};
+    std::priority_queue<GenericInfo*, std::vector<GenericInfo*>, GenericInfo::Comparator>
+        m_traversalContainer;
+
     uint32_t m_currentVisitOrder{0};
 
+    NodeIndex_t m_startNode{INVALID_NODE};
     NodeIndex_t m_currentNode{INVALID_NODE};
     bool m_shouldMarkLastNodeVisited{false};
     bool m_isTotalTraversal{false};

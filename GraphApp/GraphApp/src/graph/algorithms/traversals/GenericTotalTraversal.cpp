@@ -62,3 +62,9 @@ bool GenericTotalTraversal::pickNewStartNode() {
 
     return false;
 }
+
+void GenericTotalTraversal::resetForUndo() {
+    m_currentRandomIndex = 0;
+
+    GenericTraversal::resetForUndo();
+}

@@ -2,7 +2,7 @@
 
 #include "StronglyConnectedComponents.h"
 
-#include "../form/GraphApp.h"
+#include "../form/main_window/GraphApp.h"
 #include "../random/Random.h"
 
 StronglyConnectedComponents::StronglyConnectedComponents(Graph* graph)
@@ -25,7 +25,9 @@ bool StronglyConnectedComponents::step() {
         return false;
     }
 
-    colorStronglyConnectedComponent(components[m_currentComponentIndex++]);
+    colorStronglyConnectedComponent(components[m_currentComponentIndex]);
+    ++m_currentComponentIndex;
+
     return true;
 }
 
@@ -45,6 +47,12 @@ void StronglyConnectedComponents::showPseudocodeForm() {
 }
 
 void StronglyConnectedComponents::updateAlgorithmInfoText() const {}
+
+void StronglyConnectedComponents::resetForUndo() {
+    colorAnalyzedNodes();
+
+    m_currentComponentIndex = 0;
+}
 
 void StronglyConnectedComponents::onFirstTraversalFinished() {
     m_pseudocodeForm.highlight({4});
@@ -74,8 +82,13 @@ void StronglyConnectedComponents::onFirstTraversalFinished() {
 
 void StronglyConnectedComponents::onSecondTraversalFinished() {
     m_pseudocodeForm.highlight({6});
-
     m_graph->getGraphManager().clearAlgorithmPath(DepthFirstTraversal::ANALYZED_EDGE);
+
+    const auto componentsCount = m_invertedDepthTraversal->m_stronglyConnectedComponents.size();
+    m_componentColors.reserve(componentsCount);
+    for (size_t i = 0; i < componentsCount; ++i) {
+        m_componentColors.push_back(Random::get().getColor());
+    }
 
     ITimedAlgorithm::start();
 }
@@ -85,7 +98,7 @@ void StronglyConnectedComponents::colorStronglyConnectedComponent(
     const auto algPathEntry = -static_cast<int64_t>(m_currentComponentIndex) - 1;
     auto& graphManager = m_graph->getGraphManager();
 
-    const auto color = Random::get().getColor();
+    const auto color = m_componentColors[m_currentComponentIndex];
     graphManager.setAlgorithmPathColor(algPathEntry, color);
 
     std::unordered_set<NodeIndex_t> componentSet(component.begin(), component.end());
@@ -101,6 +114,12 @@ void StronglyConnectedComponents::colorStronglyConnectedComponent(
                     graphManager.addAlgorithmEdge(nodeIndex, neighbour, algPathEntry);
                 }
             });
+    }
+}
+
+void StronglyConnectedComponents::colorAnalyzedNodes() {
+    for (NodeIndex_t i = 0; i < m_graph->getGraphManager().getNodesCount(); ++i) {
+        setNodeState(i, NodeData::State::ANALYZED);
     }
 }
 

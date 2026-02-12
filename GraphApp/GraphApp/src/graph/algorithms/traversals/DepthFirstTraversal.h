@@ -18,6 +18,7 @@ class DepthFirstTraversal : public ITimedAlgorithm {
     void setStartNode(NodeIndex_t startNode);
     void onFinishedAlgorithm() override;
     void updateAlgorithmInfoText() const override;
+    void resetForUndo() override;
 
     void updateEdgeClassification(NodeIndex_t node);
 
@@ -31,6 +32,7 @@ class DepthFirstTraversal : public ITimedAlgorithm {
     std::deque<NodeIndex_t> m_traversalContainer;
     uint32_t m_currentTime{0};
 
+    NodeIndex_t m_startNode{INVALID_NODE};
     bool m_isTotalTraversal{false};
 
     std::vector<std::pair<NodeIndex_t, NodeIndex_t>> m_treeEdges;

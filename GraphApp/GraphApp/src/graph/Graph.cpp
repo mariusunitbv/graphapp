@@ -35,6 +35,34 @@ Graph::Graph(QWidget* parent) : QGraphicsView(parent), m_scene(new QGraphicsScen
     m_edgeUpdateTimer.setSingleShot(true);
     connect(&m_edgeUpdateTimer, &QTimer::timeout, [this]() { m_graphManager.buildEdgeCache(); });
 
+    m_leftArrowStopTimer.setSingleShot(true);
+    connect(&m_leftArrowStopTimer, &QTimer::timeout, [this]() {
+        m_shouldDrawLeftArrow = false;
+        m_leftArrowStopTimer.stop();
+        viewport()->update();
+    });
+
+    m_rightArrowStopTimer.setSingleShot(true);
+    connect(&m_rightArrowStopTimer, &QTimer::timeout, [this]() {
+        m_shouldDrawRightArrow = false;
+        m_rightArrowStopTimer.stop();
+        viewport()->update();
+    });
+
+    m_resumedAlgorithmStopTimer.setSingleShot(true);
+    connect(&m_resumedAlgorithmStopTimer, &QTimer::timeout, [this]() {
+        m_shouldDrawResumedAlgorithm = false;
+        m_resumedAlgorithmStopTimer.stop();
+        viewport()->update();
+    });
+
+    m_pausedAlgorithmStopTimer.setSingleShot(true);
+    connect(&m_pausedAlgorithmStopTimer, &QTimer::timeout, [this]() {
+        m_shouldDrawPausedAlgorithm = false;
+        m_pausedAlgorithmStopTimer.stop();
+        viewport()->update();
+    });
+
     setupShortcuts();
 }
 
@@ -186,6 +214,42 @@ Graph* Graph::getInvertedGraph() const {
     return invertedGraph;
 }
 
+void Graph::notifyLeftArrowPressed() {
+    m_shouldDrawLeftArrow = true;
+    m_shouldDrawRightArrow = false;
+
+    m_rightArrowStopTimer.stop();
+    m_leftArrowStopTimer.start(500);
+}
+
+void Graph::notifyRightArrowPressed() {
+    m_shouldDrawRightArrow = true;
+    m_shouldDrawLeftArrow = false;
+
+    m_leftArrowStopTimer.stop();
+    m_rightArrowStopTimer.start(500);
+}
+
+void Graph::notifyAlgorithmResumed() {
+    m_shouldDrawResumedAlgorithm = true;
+    m_shouldDrawPausedAlgorithm = false;
+
+    m_pausedAlgorithmStopTimer.stop();
+    m_resumedAlgorithmStopTimer.start(1200);
+
+    viewport()->update();
+}
+
+void Graph::notifyAlgorithmPaused() {
+    m_shouldDrawPausedAlgorithm = true;
+    m_shouldDrawResumedAlgorithm = false;
+
+    m_resumedAlgorithmStopTimer.stop();
+    m_pausedAlgorithmStopTimer.start(1200);
+
+    viewport()->update();
+}
+
 void Graph::wheelEvent(QWheelEvent* event) {
     double newScale = m_currentZoomScale;
 
@@ -227,16 +291,28 @@ void Graph::resizeEvent(QResizeEvent* event) {
 }
 
 void Graph::mousePressEvent(QMouseEvent* event) {
-    if (event->button() == Qt::LeftButton && event->modifiers() & Qt::AltModifier) {
+    if (event->button() == Qt::RightButton) {
         setDragMode(QGraphicsView::ScrollHandDrag);
         m_isDragging = true;
+
+        event = new QMouseEvent(QEvent::MouseButtonPress, event->pos(), event->globalPosition(),
+                                Qt::LeftButton, Qt::LeftButton, Qt::AltModifier);
+    } else if (event->button() == Qt::LeftButton && event->modifiers() & Qt::AltModifier) {
+        if (m_isDragging) {
+            return;
+        } else {
+            setDragMode(QGraphicsView::ScrollHandDrag);
+            m_isDragging = true;
+        }
     }
 
     QGraphicsView::mousePressEvent(event);
 }
 
 void Graph::mouseReleaseEvent(QMouseEvent* event) {
-    if (event->button() == Qt::LeftButton && m_isDragging) {
+    if ((event->button() == Qt::RightButton ||
+         (event->button() == Qt::LeftButton && event->modifiers() & Qt::AltModifier)) &&
+        m_isDragging) {
         setDragMode(QGraphicsView::NoDrag);
         m_isDragging = false;
 
@@ -253,6 +329,10 @@ void Graph::drawForeground(QPainter* painter, const QRectF& rect) {
 
     drawZoomText(painter);
     drawWatermark(painter);
+    drawLeftArrow(painter);
+    drawRightArrow(painter);
+    drawResumedAlgorithm(painter);
+    drawPausedAlgorithm(painter);
 
     painter->restore();
 
@@ -260,6 +340,8 @@ void Graph::drawForeground(QPainter* painter, const QRectF& rect) {
 }
 
 void Graph::setupShortcuts() {
+    new QShortcut(Qt::Key_Left, this, [this]() { emit leftArrowPressed(); });
+    new QShortcut(Qt::Key_Right, this, [this]() { emit rightArrowPressed(); });
     new QShortcut(Qt::Key_Space, this, [this]() { emit spacePressed(); });
     new QShortcut(Qt::Key_Return, this, [this]() { emit enterPressed(); });
 
@@ -338,4 +420,109 @@ void Graph::drawWatermark(QPainter* painter) {
 
     painter->setPen(m_darkMode ? Qt::white : Qt::black);
     painter->drawText(textRect, Qt::AlignCenter, watermarkText);
+}
+
+void Graph::drawRightArrow(QPainter* painter) {
+    if (!m_shouldDrawRightArrow) {
+        return;
+    }
+
+    const auto viewRect = viewport()->rect();
+
+    const int triangleHeight = 50;
+    const int triangleWidth = 40;
+
+    int paddingLeft = 0;
+    if (m_shouldDrawPausedAlgorithm || m_shouldDrawResumedAlgorithm) {
+        paddingLeft = 50;
+    }
+
+    const int x = viewRect.left() + 10 + paddingLeft;
+    const int y = viewRect.bottom() - triangleHeight - 30;
+
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(m_darkMode ? Qt::white : Qt::black);
+
+    QPoint first[3] = {QPoint(x, y), QPoint(x, y + triangleHeight),
+                       QPoint(x + triangleWidth, y + triangleHeight / 2)};
+
+    QPoint second[3] = {QPoint(x + triangleWidth, y), QPoint(x + triangleWidth, y + triangleHeight),
+                        QPoint(x + 2 * triangleWidth, y + triangleHeight / 2)};
+
+    painter->drawPolygon(first, 3);
+    painter->drawPolygon(second, 3);
+}
+
+void Graph::drawLeftArrow(QPainter* painter) {
+    if (!m_shouldDrawLeftArrow) {
+        return;
+    }
+
+    const auto viewRect = viewport()->rect();
+
+    const int triangleHeight = 50;
+    const int triangleWidth = 40;
+
+    int paddingLeft = 0;
+    if (m_shouldDrawPausedAlgorithm || m_shouldDrawResumedAlgorithm) {
+        paddingLeft = 50;
+    }
+
+    const int x = viewRect.left() + 10 + paddingLeft;
+    const int y = viewRect.bottom() - triangleHeight - 30;
+
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(m_darkMode ? Qt::white : Qt::black);
+
+    QPoint first[3] = {QPoint(x + triangleWidth, y), QPoint(x + triangleWidth, y + triangleHeight),
+                       QPoint(x, y + triangleHeight / 2)};
+
+    QPoint second[3] = {QPoint(x + 2 * triangleWidth, y),
+                        QPoint(x + 2 * triangleWidth, y + triangleHeight),
+                        QPoint(x + triangleWidth, y + triangleHeight / 2)};
+
+    painter->drawPolygon(first, 3);
+    painter->drawPolygon(second, 3);
+}
+
+void Graph::drawResumedAlgorithm(QPainter* painter) {
+    if (!m_shouldDrawResumedAlgorithm) {
+        return;
+    }
+
+    const auto viewRect = viewport()->rect();
+
+    const int triangleHeight = 50;
+    const int triangleWidth = 40;
+
+    const int x = viewRect.left() + 10;
+    const int y = viewRect.bottom() - triangleHeight - 30;
+
+    QPoint points[3] = {QPoint(x, y), QPoint(x, y + triangleHeight),
+                        QPoint(x + triangleWidth, y + triangleHeight / 2)};
+
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(m_darkMode ? Qt::white : Qt::black);
+    painter->drawPolygon(points, 3);
+}
+
+void Graph::drawPausedAlgorithm(QPainter* painter) {
+    if (!m_shouldDrawPausedAlgorithm) {
+        return;
+    }
+
+    const auto viewRect = viewport()->rect();
+
+    const int barWidth = 15;
+    const int barHeight = 50;
+    const int spacing = 10;
+
+    const int x = viewRect.left() + 10;
+    const int y = viewRect.bottom() - barHeight - 30;
+
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(m_darkMode ? Qt::white : Qt::black);
+
+    painter->drawRect(x, y, barWidth, barHeight);
+    painter->drawRect(x + barWidth + spacing, y, barWidth, barHeight);
 }

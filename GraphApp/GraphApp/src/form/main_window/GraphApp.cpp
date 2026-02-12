@@ -2,8 +2,8 @@
 
 #include "GraphApp.h"
 
-#include "scene_size/SceneSizeInput.h"
-#include "adjacency_list/AdjacencyListBuilder.h"
+#include "../scene_size/SceneSizeInput.h"
+#include "../adjacency_list/AdjacencyListBuilder.h"
 
 #include "../graph/algorithms/traversals/GenericTraversal.h"
 #include "../graph/algorithms/traversals/GenericTotalTraversal.h"
@@ -12,6 +12,7 @@
 #include "../graph/algorithms/traversals/DepthFirstTotalTraversal.h"
 
 #include "../graph/algorithms/paths/PathReconstruction.h"
+#include "../graph/algorithms/paths/Dijkstra.h"
 #include "../graph/algorithms/paths/FloydWarshall.h"
 #include "../graph/algorithms/paths/FloydWarshallPath.h"
 
@@ -445,6 +446,30 @@ GraphApp::GraphApp(QWidget* parent) : QMainWindow(parent) {
         mst->start();
     });
 
+    connect(ui.actionDijkstra_s_Algorithm, &QAction::triggered, [this]() {
+        const auto selectedNodesCount = ui.graph->getGraphManager().getSelectedNodesCount();
+        if (selectedNodesCount != 1 && selectedNodesCount != 2) {
+            QMessageBox::warning(
+                this, "Warning",
+                "Select either exactly one node or exactly two nodes for the path between them.");
+            return;
+        }
+
+        onStartedAlgorithm();
+
+        const auto dijkstra = new Dijkstra(ui.graph);
+        connect(dijkstra, &IAlgorithm::finished, this, &GraphApp::onFinishedAlgorithm);
+        connect(dijkstra, &IAlgorithm::aborted, this, &GraphApp::onEndedAlgorithm);
+
+        dijkstra->showPseudocodeForm();
+        if (selectedNodesCount == 1) {
+            dijkstra->start(ui.graph->getGraphManager().getSelectedNode().value());
+        } else {
+            const auto selectedNodes = ui.graph->getGraphManager().getTwoSelectedNodes();
+            dijkstra->start(selectedNodes->first, selectedNodes->second);
+        }
+    });
+
     connect(ui.actionFloyd_Warshall, &QAction::triggered, [this]() {
         if (ui.graph->getGraphManager().getNodesCount() == 0) {
             QMessageBox::warning(this, "Warning", "The graph has no nodes!");
@@ -623,6 +648,8 @@ void GraphApp::saveGraph() {
         const auto nodeCount = graphManager.getNodesCount();
         const auto storageType = static_cast<int>(graphManager.getGraphStorage()->type());
 
+        sb.append_key_value<"version">(k_jsonLoadVersion);
+        sb.append_comma();
         sb.append_key_value<"scene_width">(graphSize.width());
         sb.append_comma();
         sb.append_key_value<"scene_height">(graphSize.height());
@@ -634,6 +661,12 @@ void GraphApp::saveGraph() {
         sb.append_key_value<"node_count">(nodeCount);
         sb.append_comma();
         sb.append_key_value<"storage_type">(storageType);
+        sb.append_comma();
+        sb.append_key_value<"draw_nodes">(graphManager.getDrawNodesEnabled());
+        sb.append_comma();
+        sb.append_key_value<"draw_edges">(graphManager.getDrawEdgesEnabled());
+        sb.append_comma();
+        sb.append_key_value<"allow_editing">(graphManager.getAllowEditing());
         sb.append_comma();
 
         sb.escape_and_append_with_quotes("nodes");
@@ -709,6 +742,13 @@ void GraphApp::loadGraph() {
 
         graphManager.setCollisionsCheckEnabled(false);
 
+        const auto version = doc["version"].get_int64().value();
+        if (version != k_jsonLoadVersion) {
+            throw std::runtime_error("Incompatible graph version! Expected version " +
+                                     std::to_string(k_jsonLoadVersion) + " but got " +
+                                     std::to_string(version));
+        }
+
         const auto sceneWidth = doc["scene_width"].get_int64().value();
         const auto sceneHeight = doc["scene_height"].get_int64().value();
 
@@ -719,6 +759,15 @@ void GraphApp::loadGraph() {
 
         const auto allowLoops = doc["allow_loops"].get_bool().value();
         graphManager.setAllowLoops(allowLoops);
+
+        const auto drawNodes = doc["draw_nodes"].get_bool().value();
+        graphManager.setDrawNodesEnabled(drawNodes);
+
+        const auto drawEdges = doc["draw_edges"].get_bool().value();
+        graphManager.setDrawEdgesEnabled(drawEdges);
+
+        const auto allowEditing = doc["allow_editing"].get_bool().value();
+        graphManager.setAllowEditing(allowEditing);
 
         const auto nodeCount = doc["node_count"].get_int64().value();
         const auto storageType =
@@ -753,7 +802,7 @@ void GraphApp::loadGraph() {
         graphManager.buildEdgeCache();
     } catch (const std::exception& ex) {
         QMessageBox::warning(this, "Load Graph",
-                             QString("Failed to load graph: %1").arg(ex.what()));
+                             QString("Failed to load graph:\n%1").arg(ex.what()));
     }
 
     graphManager.setCollisionsCheckEnabled(true);

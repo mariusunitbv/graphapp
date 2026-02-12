@@ -63,3 +63,9 @@ bool DepthFirstTotalTraversal::pickNewStartNode() {
 
     return false;
 }
+
+void DepthFirstTotalTraversal::resetForUndo() {
+    m_currentRandomIndex = 0;
+
+    DepthFirstTraversal::resetForUndo();
+}

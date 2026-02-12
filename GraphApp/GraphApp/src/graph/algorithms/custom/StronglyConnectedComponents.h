@@ -34,12 +34,16 @@ class StronglyConnectedComponents : public ITimedAlgorithm {
 
    private:
     void updateAlgorithmInfoText() const override;
+    void resetForUndo() override;
 
     void onFirstTraversalFinished();
     void onSecondTraversalFinished();
     void colorStronglyConnectedComponent(const std::vector<NodeIndex_t>& component);
+    void colorAnalyzedNodes();
 
     DepthFirstTotalTraversal* m_depthTraversal{nullptr};
     CustomDepthFirstTraversal* m_invertedDepthTraversal{nullptr};
+
     size_t m_currentComponentIndex{0};
+    std::vector<QRgb> m_componentColors;
 };

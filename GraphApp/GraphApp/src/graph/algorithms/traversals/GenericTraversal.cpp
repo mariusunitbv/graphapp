@@ -9,7 +9,11 @@ GenericTraversal::GenericTraversal(Graph* graph) : ITimedAlgorithm(graph) {
     const auto nodeCount = graphManager.getNodesCount();
 
     m_nodesInfo.resize(nodeCount);
-    m_traversalContainer.reserve(nodeCount);
+    for (NodeIndex_t i = 0; i < nodeCount; ++i) {
+        m_nodesInfo[i].m_randomVisitOrder = i;
+    }
+
+    std::shuffle(m_nodesInfo.begin(), m_nodesInfo.end(), Random::get().getEngine());
 
     graphManager.setAlgorithmPathColor(ANALYZED_EDGE, qRgb(60, 179, 113));
     graphManager.setAlgorithmPathColor(ANALYZING_EDGE, qRgb(255, 165, 0));
@@ -17,6 +21,7 @@ GenericTraversal::GenericTraversal(Graph* graph) : ITimedAlgorithm(graph) {
 }
 
 void GenericTraversal::start(NodeIndex_t startNode) {
+    m_startNode = startNode;
     setStartNode(startNode);
 
     ITimedAlgorithm::start();
@@ -33,14 +38,11 @@ bool GenericTraversal::step() {
 
         setNodeState(m_currentNode, NodeData::State::VISITED);
 
-        m_currentNode = INVALID_NODE;
         m_shouldMarkLastNodeVisited = false;
         return true;
     }
 
-    if (m_currentNode == INVALID_NODE) {
-        pickRandomNodeFromTraversalContainer();
-    }
+    m_currentNode = std::distance(m_nodesInfo.data(), m_traversalContainer.top());
 
     if (getNodeState(m_currentNode) != NodeData::State::ANALYZING) {
         setNodeState(m_currentNode, NodeData::State::ANALYZING);
@@ -65,7 +67,7 @@ bool GenericTraversal::step() {
 
                 m_nodesInfo[neighbour].m_parentNode = m_currentNode;
                 m_nodesInfo[neighbour].m_visitOrder = ++m_currentVisitOrder;
-                m_traversalContainer.push_back(neighbour);
+                m_traversalContainer.push(&m_nodesInfo[neighbour]);
 
                 if (m_isTotalTraversal) {
                     m_pseudocodeForm.highlight({13, 14});
@@ -88,8 +90,7 @@ bool GenericTraversal::step() {
                 }
             });
 
-        m_traversalContainer.erase(m_traversalContainer.begin() + m_traversalContainerIndex);
-        m_currentNode = INVALID_NODE;
+        m_traversalContainer.pop();
     } else {
         m_shouldMarkLastNodeVisited = true;
     }
@@ -121,7 +122,7 @@ void GenericTraversal::showPseudocodeForm() {
 }
 
 void GenericTraversal::setStartNode(NodeIndex_t startNode) {
-    m_traversalContainer.push_back(startNode);
+    m_traversalContainer.push(&m_nodesInfo[startNode]);
     m_nodesInfo[startNode].m_visitOrder = ++m_currentVisitOrder;
 }
 
@@ -185,7 +186,19 @@ void GenericTraversal::updateAlgorithmInfoText() const {
     graphManager.setAlgorithmInfoText(infoLines.join("\n"));
 }
 
-void GenericTraversal::pickRandomNodeFromTraversalContainer() {
-    m_traversalContainerIndex = Random::get().getSize(0, m_traversalContainer.size() - 1);
-    m_currentNode = m_traversalContainer[m_traversalContainerIndex];
+void GenericTraversal::resetForUndo() {
+    for (auto& info : m_nodesInfo) {
+        info.m_parentNode = INVALID_NODE;
+        info.m_visitOrder = 0;
+    }
+
+    while (!m_traversalContainer.empty()) {
+        m_traversalContainer.pop();
+    }
+
+    m_currentVisitOrder = 0;
+    m_currentNode = INVALID_NODE;
+    m_shouldMarkLastNodeVisited = false;
+
+    setStartNode(m_startNode);
 }

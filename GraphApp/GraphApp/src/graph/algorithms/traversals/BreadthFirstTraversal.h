@@ -16,6 +16,7 @@ class BreadthFirstTraversal : public ITimedAlgorithm {
     void setStartNode(NodeIndex_t startNode);
     void onFinishedAlgorithm() override;
     void updateAlgorithmInfoText() const override;
+    void resetForUndo() override;
 
     struct BFSInfo {
         NodeIndex_t m_parentNode{INVALID_NODE};
@@ -24,6 +25,8 @@ class BreadthFirstTraversal : public ITimedAlgorithm {
 
     std::vector<BFSInfo> m_nodesInfo;
     std::deque<NodeIndex_t> m_traversalContainer;
+
+    NodeIndex_t m_startNode{INVALID_NODE};
 
     static constexpr auto ANALYZED_EDGE = 0;
     static constexpr auto ANALYZING_EDGE = 1;

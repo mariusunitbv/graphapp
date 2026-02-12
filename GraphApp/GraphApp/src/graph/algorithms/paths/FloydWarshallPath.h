@@ -14,6 +14,7 @@ class FloydWarshallPath : public ITimedAlgorithm {
 
    private:
     void updateAlgorithmInfoText() const override;
+    void resetForUndo() override;
     void onEnterPressed();
 
     FloydWarshall* m_floydWarshallAlgorithm{nullptr};

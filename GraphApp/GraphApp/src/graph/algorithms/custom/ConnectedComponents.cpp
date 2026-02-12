@@ -108,11 +108,22 @@ void ConnectedComponents::updateAlgorithmInfoText() const {
     graphManager.setAlgorithmInfoText(infoLines.join("\n"));
 }
 
+void ConnectedComponents::resetForUndo() {
+    m_currentConnectedComponent.clear();
+    m_connectedComponents.clear();
+
+    DepthFirstTotalTraversal::resetForUndo();
+}
+
 void ConnectedComponents::colorCurrentConnectedComponent() {
     const auto algPathEntry = -static_cast<int64_t>(m_connectedComponents.size()) - 1;
     auto& graphManager = m_graph->getGraphManager();
 
-    const auto color = Random::get().getColor();
+    if (m_connectedComponents.size() >= m_componentColors.size()) {
+        m_componentColors.push_back(Random::get().getColor());
+    }
+
+    const auto color = m_componentColors[m_connectedComponents.size()];
     graphManager.setAlgorithmPathColor(algPathEntry, color);
 
     std::unordered_set<NodeIndex_t> componentSet(m_currentConnectedComponent.begin(),

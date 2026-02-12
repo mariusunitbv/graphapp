@@ -159,6 +159,26 @@ void FloydWarshall::updateAlgorithmInfoText() const {
     graphManager.setAlgorithmInfoText(infoLines.join("\n"));
 }
 
+void FloydWarshall::resetForUndo() {
+    const auto nodeCount = m_graph->getGraphManager().getNodesCount();
+    for (NodeIndex_t i = 0; i < nodeCount; ++i) {
+        m_graph->getGraphManager().getGraphStorage()->forEachOutgoingEdgeWithOpposites(
+            i, [&](NodeIndex_t j, CostType_t cost) {
+                m_distanceMatrix[i * nodeCount + j] = cost;
+                m_parentMatrix[i * nodeCount + j] = i;
+            });
+
+        m_distanceMatrix[i * nodeCount + i] = 0;
+        m_parentMatrix[i * nodeCount + i] = INVALID_NODE;
+    }
+
+    m_currentK = m_currentI = m_currentJ = 0;
+    m_prevK = m_prevI = m_prevJ = INVALID_NODE;
+
+    m_firstStep = true;
+    m_negativeLoopCycle = false;
+}
+
 void FloydWarshall::colorNodesForCurrentStep() {
     auto& graphManager = m_graph->getGraphManager();
     const auto nodeCount = graphManager.getNodesCount();

@@ -18,6 +18,6 @@
 #include <osmium/visitor.hpp>
 
 #include <osmium/handler/node_locations_for_ways.hpp>
-#include <osmium/index/map/sparse_mem_array.hpp>
+#include <osmium/index/map/flex_mem.hpp>
 
 #include <simdjson.h>

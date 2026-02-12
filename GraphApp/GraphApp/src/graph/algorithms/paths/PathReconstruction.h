@@ -14,12 +14,16 @@ class PathReconstruction : public ITimedAlgorithm {
 
    protected:
     void updateAlgorithmInfoText() const override;
+    void resetForUndo() override;
 
    private:
     void setDefaultColorToVisitedNodes();
+    void setDefaultColorForUndo();
 
     GenericTraversal* m_genericTraversal{nullptr};
-    NodeIndex_t m_currentNode{INVALID_NODE}, m_latestMarkedNode{INVALID_NODE};
+
+    NodeIndex_t m_endNode{INVALID_NODE};
+    NodeIndex_t m_currentNode{INVALID_NODE};
 
     bool m_firstStep{true};
 };

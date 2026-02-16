@@ -21,7 +21,7 @@ void ITimedAlgorithm::start() {
     m_stepDelay = settingsDialog.runInstantly() ? 0 : settingsDialog.getStepDelay();
     m_iterationsPerStep = settingsDialog.getIterationsPerStep();
 
-    if (!settingsDialog.showPseudocode()) {
+    if (settingsDialog.runInstantly() || !settingsDialog.showPseudocode()) {
         m_pseudocodeForm.close();
     }
 

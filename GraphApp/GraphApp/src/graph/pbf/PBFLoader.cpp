@@ -109,14 +109,12 @@ void PBFLoader::checkIfNodeForWaysNeeded() {
     using namespace osmium;
 
     io::Reader reader(m_pbfPath, osm_entity_bits::node | osm_entity_bits::way, io::read_meta::no);
+    size_t waysChecked{};
 
     while (auto buffer = reader.read()) {
         for (const auto& way : buffer.select<Way>()) {
-            const auto highwayKey = way.tags().get_value_by_key("highway");
-            const auto boundaryKey = way.tags().get_value_by_key("boundary");
-
-            if (!highwayKey && !boundaryKey) {
-                continue;
+            if (waysChecked >= 50) {
+                return;
             }
 
             const auto& nodes = way.nodes();
@@ -126,6 +124,8 @@ void PBFLoader::checkIfNodeForWaysNeeded() {
                     return;
                 }
             }
+
+            ++waysChecked;
         }
     }
 }

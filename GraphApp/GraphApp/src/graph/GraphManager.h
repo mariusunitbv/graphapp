@@ -103,6 +103,7 @@ class GraphManager : public QGraphicsObject {
    private:
     void drawEdgeCache(QPainter* painter) const;
     void drawAlgorithmEdges(QPainter* painter) const;
+    void drawEdgePreview(QPainter* painter) const;
     void drawNodes(QPainter* painter) const;
     void drawQuadTree(QPainter* painter, QuadTree* quadTree) const;
     void updateAlgorithmInfoTextPos();
@@ -117,6 +118,8 @@ class GraphManager : public QGraphicsObject {
 
     void removeSelectedNodes();
     void deselectNodes();
+
+    void handleInteractiveEdgeAction(const QPoint& mousePos);
 
     QPointF mapToScreen(QPointF graphPos) const;
 
@@ -154,8 +157,10 @@ class GraphManager : public QGraphicsObject {
 
     std::set<NodeIndex_t, std::greater<NodeIndex_t>> m_selectedNodes{};
 
-    QPoint m_dragOffset{};
+    QPoint m_dragOffset{}, m_edgePreviewEndPoint{};
     qreal m_currentLod{1.0};
+
+    NodeIndex_t m_edgePreviewStartNode{INVALID_NODE};
 
     QFuture<EdgeCache> m_edgeFuture;
     QFutureWatcher<EdgeCache> m_edgeWatcher;

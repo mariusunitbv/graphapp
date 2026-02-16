@@ -197,6 +197,11 @@ Graph* Graph::getInvertedGraph() const {
     invertedGraphManager.setSceneDimensions(m_scene->sceneRect().size().toSize());
     invertedGraphManager.setGraphStorageType(m_graphManager.getGraphStorage()->type());
 
+    invertedGraphManager.setAllowEditing(m_graphManager.getAllowEditing());
+    invertedGraphManager.setAllowLoops(m_graphManager.getAllowLoops());
+    invertedGraphManager.setDrawNodesEnabled(m_graphManager.getDrawNodesEnabled());
+    invertedGraphManager.setDrawEdgesEnabled(m_graphManager.getDrawEdgesEnabled());
+
     invertedGraphManager.setCollisionsCheckEnabled(false);
     for (const auto& node : m_graphManager.m_nodes) {
         invertedGraphManager.addNode(node.getPosition());

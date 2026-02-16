@@ -537,6 +537,7 @@ void GraphManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* opti
 
     drawEdgeCache(painter);
     drawAlgorithmEdges(painter);
+    drawEdgePreview(painter);
     drawNodes(painter);
     drawQuadTree(painter, &m_quadTree);
 }
@@ -570,6 +571,16 @@ void GraphManager::mousePressEvent(QGraphicsSceneMouseEvent* event) {
                 m_pressedEmptySpace = true;
             }
         }
+    } else if (event->button() == Qt::MiddleButton && getAllowEditing() && !runningAlgorithm()) {
+        const auto point = event->pos().toPoint();
+        const auto nodeOpt = getNode(point);
+        if (nodeOpt.has_value()) {
+            m_edgePreviewStartNode = nodeOpt.value();
+            m_edgePreviewEndPoint = point;
+        }
+
+        event->accept();
+        return;
     }
 
     QGraphicsObject::mousePressEvent(event);
@@ -608,6 +619,12 @@ void GraphManager::mouseMoveEvent(QGraphicsSceneMouseEvent* event) {
                 m_quadTree.insert(node);
             }
         }
+    } else if (event->buttons() & Qt::MiddleButton && getAllowEditing() && !runningAlgorithm()) {
+        m_edgePreviewEndPoint = event->pos().toPoint();
+        update(m_sceneRect);
+
+        event->accept();
+        return;
     }
 
     QGraphicsObject::mouseMoveEvent(event);
@@ -626,6 +643,14 @@ void GraphManager::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
             }
             m_pressedEmptySpace = false;
         }
+    } else if (event->button() == Qt::MiddleButton) {
+        handleInteractiveEdgeAction(event->pos().toPoint());
+
+        m_edgePreviewStartNode = INVALID_NODE;
+        update(m_sceneRect);
+
+        event->accept();
+        return;
     }
 
     QGraphicsObject::mouseReleaseEvent(event);
@@ -657,6 +682,38 @@ void GraphManager::drawAlgorithmEdges(QPainter* painter) const {
             painter->drawPath(it->second.m_arrowPath);
         }
     }
+}
+
+void GraphManager::drawEdgePreview(QPainter* painter) const {
+    if (m_edgePreviewStartNode == INVALID_NODE) {
+        return;
+    }
+
+    QPainterPath edgePreview;
+
+    painter->setPen(QPen{QColor::fromRgb(qRgb(200, 200, 200)), 2. + m_additionalEdgeThickness});
+    painter->setBrush(Qt::NoBrush);
+
+    const auto start = m_nodes[m_edgePreviewStartNode].getPosition();
+    const auto end = m_edgePreviewEndPoint;
+
+    const auto direction = end - start;
+    const auto distance = std::hypot(direction.x(), direction.y());
+
+    if (distance < 0.001) {
+        return;
+    }
+
+    const auto directionNormalized = QPointF{direction.x() / distance, direction.y() / distance};
+
+    if (m_drawNodes && m_orientedGraph && m_shouldDrawArrows) {
+        addArrowToPath(edgePreview, end, directionNormalized);
+    }
+
+    edgePreview.moveTo(start);
+    edgePreview.lineTo(end);
+
+    painter->drawPath(edgePreview);
 }
 
 void GraphManager::drawNodes(QPainter* painter) const {
@@ -928,6 +985,33 @@ void GraphManager::deselectNodes() {
     }
 
     m_selectedNodes.clear();
+}
+
+void GraphManager::handleInteractiveEdgeAction(const QPoint& mousePos) {
+    const auto nodeOpt = getNode(mousePos);
+    if (!nodeOpt.has_value() || m_edgePreviewStartNode == INVALID_NODE) {
+        return;
+    }
+
+    const auto targetNode = nodeOpt.value();
+    if (targetNode == m_edgePreviewStartNode) {
+        return;
+    }
+
+    if (hasNeighbour(m_edgePreviewStartNode, targetNode)) {
+        m_graphStorage->removeEdge(m_edgePreviewStartNode, targetNode);
+        if (!m_orientedGraph) {
+            m_graphStorage->removeEdge(targetNode, m_edgePreviewStartNode);
+        }
+    } else {
+        m_graphStorage->addEdge(m_edgePreviewStartNode, targetNode, 0);
+        if (!m_orientedGraph) {
+            m_graphStorage->addEdge(targetNode, m_edgePreviewStartNode, 0);
+        }
+    }
+
+    m_edgesDirty = true;
+    buildEdgeCache();
 }
 
 QPointF GraphManager::mapToScreen(QPointF graphPos) const {

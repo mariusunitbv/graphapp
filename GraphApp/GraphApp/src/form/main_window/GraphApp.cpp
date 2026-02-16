@@ -577,7 +577,13 @@ void GraphApp::setGraph(Graph* graph) {
     graph->setParent(this);
     ui.gridLayout->addWidget(graph);
     ui.graph = graph;
+
     ui.actionAllow_Editing->setChecked(graph->getGraphManager().getAllowEditing());
+    ui.actionAllow_Loops->setChecked(graph->getGraphManager().getAllowLoops());
+    ui.actionOriented_Graph->setChecked(graph->getGraphManager().getOrientedGraph());
+
+    ui.actionDraw_Nodes->setChecked(graph->getGraphManager().getDrawNodesEnabled());
+    ui.actionDraw_Edges->setChecked(graph->getGraphManager().getDrawEdgesEnabled());
 
     ui.graph->getGraphManager().buildEdgeCache();
 }

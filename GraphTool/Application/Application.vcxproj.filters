@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\pch\pch.cpp" />
+    <ClCompile Include="src\application\application.ixx" />
+    <ClCompile Include="src\application\application_impl.cpp" />
+    <ClCompile Include="src\graph\view\graph_view.ixx" />
+    <ClCompile Include="src\graph\view\graph_view_impl.cpp" />
+    <ClCompile Include="src\graph\view_model\graph_view_model.ixx" />
+    <ClCompile Include="src\graph\view_model\graph_view_model_impl.cpp" />
+    <ClCompile Include="src\graph\model\graph_model.ixx" />
+    <ClCompile Include="src\graph\model\graph_model_impl.cpp" />
+    <ClCompile Include="src\utils\utils.ixx" />
+    <ClCompile Include="src\graph\view\quadtree.ixx" />
+    <ClCompile Include="src\graph\view\quadtree_impl.cpp" />
+    <ClCompile Include="src\utils\utils_impl.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\pch\pch.h" />
+  </ItemGroup>
+</Project>

@@ -1,9 +1,0 @@
-{
-  "dependencies": [
-    "libosmium",
-    {
-      "name": "simdjson",
-      "version>=": "4.2.4"
-    }
-  ]
-}

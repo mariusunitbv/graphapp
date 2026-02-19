@@ -1,0 +1,19 @@
+{
+  "dependencies": [
+    {
+      "name": "glad",
+      "features": [
+        "gl-api-33"
+      ]
+    },
+    {
+      "name": "imgui",
+      "features": [
+        "opengl3-binding",
+        "sdl3-binding"
+      ]
+    },
+    "sdl3",
+    "lodepng"
+  ]
+}

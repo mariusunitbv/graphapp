@@ -12,9 +12,11 @@
     <ClCompile Include="src\graph\model\graph_model.ixx" />
     <ClCompile Include="src\graph\model\graph_model_impl.cpp" />
     <ClCompile Include="src\utils\utils.ixx" />
-    <ClCompile Include="src\graph\view\quadtree.ixx" />
-    <ClCompile Include="src\graph\view\quadtree_impl.cpp" />
+    <ClCompile Include="src\graph\model\quadtree\quadtree.ixx" />
+    <ClCompile Include="src\graph\model\quadtree\quadtree_impl.cpp" />
     <ClCompile Include="src\utils\utils_impl.cpp" />
+    <ClCompile Include="src\math\math.ixx" />
+    <ClCompile Include="src\graph\model\defines\graph_model_defines.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

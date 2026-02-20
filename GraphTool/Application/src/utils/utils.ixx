@@ -3,6 +3,10 @@ module;
 
 export module utils;
 
+import math;
+
+export inline ImVec2 toImVec(Vector2D vec) { return ImVec2(vec.m_x, vec.m_y); }
+
 export template <class... Args>
 struct Callback {
     using Func_t = void (*)(void*, Args...);
@@ -21,26 +25,6 @@ struct Callback {
     void* m_instance{nullptr};
     Func_t m_func{nullptr};
 };
-
-export bool intersects(const ImVec4& a, const ImVec4& b) {
-    return !(a.z < b.x || a.x > b.z || a.w < b.y || a.y > b.w);
-}
-
-export bool contains(const ImVec4& area, const ImVec2& point) {
-    return point.x >= area.x && point.x <= area.x + area.z && point.y >= area.y &&
-           point.y <= area.y + area.w;
-}
-
-export bool contains(const ImVec4& a, const ImVec4& b) {
-    return (b.x >= a.x) && (b.y >= a.y) && (b.z <= a.z) && (b.w <= a.w);
-}
-
-export float distanceSquared(const ImVec2& a, const ImVec2& b) {
-    const auto dx = a.x - b.x;
-    const auto dy = a.y - b.y;
-
-    return dx * dx + dy * dy;
-}
 
 export class TextureLoader {
    public:

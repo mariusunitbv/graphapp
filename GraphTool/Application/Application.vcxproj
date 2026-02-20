@@ -169,14 +169,16 @@
     <ClCompile Include="src\application\application.ixx" />
     <ClCompile Include="src\application\application_impl.cpp" />
     <ClCompile Include="src\graph\model\graph_model.ixx" />
+    <ClCompile Include="src\graph\model\defines\graph_model_defines.ixx" />
     <ClCompile Include="src\graph\model\graph_model_impl.cpp" />
     <ClCompile Include="src\graph\view\graph_view.ixx" />
     <ClCompile Include="src\graph\view\graph_view_impl.cpp" />
-    <ClCompile Include="src\graph\view\quadtree.ixx" />
-    <ClCompile Include="src\graph\view\quadtree_impl.cpp" />
+    <ClCompile Include="src\graph\model\quadtree\quadtree.ixx" />
+    <ClCompile Include="src\graph\model\quadtree\quadtree_impl.cpp" />
     <ClCompile Include="src\graph\view_model\graph_view_model.ixx" />
     <ClCompile Include="src\graph\view_model\graph_view_model_impl.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\math\math.ixx" />
     <ClCompile Include="src\pch\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

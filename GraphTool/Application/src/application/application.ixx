@@ -4,6 +4,8 @@ module;
 export module application;
 
 import graph_view;
+import graph_model;
+import graph_view_model;
 
 export class Application {
    public:
@@ -14,7 +16,7 @@ export class Application {
     void quit();
 
    private:
-    void initializeGraph();
+    void initializeGraph(float width, float height);
     const char* getGlslVersion() const;
 
     void handleMaximizationShortcut();
@@ -25,7 +27,7 @@ export class Application {
     SDL_Window* m_window{nullptr};
     SDL_GLContext m_glContext{nullptr};
 
-    GraphView m_graphView{};
     GraphModel m_graphModel{};
     GraphViewModel m_graphViewModel{};
+    GraphView m_graphView{};
 };

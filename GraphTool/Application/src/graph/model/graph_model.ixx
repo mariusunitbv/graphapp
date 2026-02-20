@@ -4,46 +4,41 @@ module;
 export module graph_model;
 
 export import utils;
+export import graph_model_defines;
 
-export using NodeIndex_t = uint32_t;
-
-export constexpr auto INVALID_NODE = std::numeric_limits<NodeIndex_t>::max() - 1;
-export constexpr auto NODE_LIMIT = 500'000'000;
-
-export struct Node {
-    Node() = default;
-
-    explicit Node(NodeIndex_t index, float x, float y);
-
-    void setIndex(NodeIndex_t index);
-    bool hasColor() const;
-
-    float m_x{0.f}, m_y{0.f};
-
-    NodeIndex_t m_index{0};
-    char m_labelBuffer[11]{};
-
-    uint8_t m_red{0}, m_green{0}, m_blue{0};
-};
+import math;
+import quadtree;
 
 export class GraphModel {
    public:
-    using OnAddNodeCallback_t = Callback<const Node*>;
-
-    void addNode(float x, float y);
+    void addNode(Vector2D worldPos);
     void removeNodes(const std::unordered_set<NodeIndex_t>& nodes);
-    void setOnAddNodeCallback(void* instance, OnAddNodeCallback_t::Func_t callback);
 
     void reserveNodes(size_t nodeCount);
 
+    void beginBulkInsert();
+    void endBulkInsert();
+
+    Node* getNode(NodeIndex_t index);
+    const Node* getNode(NodeIndex_t index) const;
     const std::vector<Node>& getNodes() const;
+
     NodeIndex_t getNodeIndexAfterRemoval(NodeIndex_t originalIndex) const;
 
-    void clearIndexRemap();
+    const QuadTree* getQuadTree() const;
+
+    static BoundingBox2D getNodeBoundingBox(Vector2D worldPos);
 
    private:
+    bool updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds);
+    void removeNodesAndCalculateIndexRemap(const std::unordered_set<NodeIndex_t>& nodes);
+
+    void rebuildQuadTree();
+
     std::vector<Node> m_nodes;
     std::vector<NodeIndex_t> m_indexRemapAfterRemoval;
 
-    OnAddNodeCallback_t m_onAddNodeCallback{};
+    QuadTree m_quadTree;
+
+    bool m_bulkInsertMode{false};
 };

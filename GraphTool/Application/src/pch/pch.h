@@ -7,6 +7,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <span>
 
 #include <source_location>
 #include <stdexcept>

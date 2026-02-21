@@ -6,7 +6,9 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <chrono>
 #include <string>
+#include <ranges>
 #include <span>
 
 #include <source_location>
@@ -20,6 +22,7 @@
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_opengl3.h>
 
@@ -30,3 +33,5 @@
     throw std::runtime_error(std::string(std::source_location::current().file_name()) + ":" + \
                              std::to_string(std::source_location::current().line()) + "\n" +  \
                              std::source_location::current().function_name() + "\n" + message)
+
+#define FORWARD_DECLARE_CLASS(name) export class name

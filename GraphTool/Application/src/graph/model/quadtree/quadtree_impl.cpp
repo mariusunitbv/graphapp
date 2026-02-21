@@ -78,9 +78,9 @@ void QuadTree::fixIndexesAfterNodeRemoval(const std::vector<NodeIndex_t>& indexR
     }
 }
 
-std::vector<VisibleNode> QuadTree::query(std::span<const Node> nodes, const BoundingBox2D& area,
-                                         size_t totalNodeCount) const {
-    std::vector<bool> visitMask(totalNodeCount, false);
+std::vector<VisibleNode> QuadTree::query(std::span<const Node> nodes,
+                                         const BoundingBox2D& area) const {
+    std::vector<bool> visitMask(nodes.size(), false);
     std::vector<VisibleNode> result;
 
     query(nodes, area, visitMask, result);
@@ -88,7 +88,7 @@ std::vector<VisibleNode> QuadTree::query(std::span<const Node> nodes, const Boun
     return result;
 }
 
-NodeIndex_t QuadTree::querySingle(std::span<const Node> nodes, const Vector2D& point,
+NodeIndex_t QuadTree::querySingle(std::span<const Node> nodes, Vector2D point,
                                   float minimumDistance, NodeIndex_t nodeToIgnore) const {
     NodeIndex_t closestNodeIndex = INVALID_NODE;
 
@@ -97,6 +97,54 @@ NodeIndex_t QuadTree::querySingle(std::span<const Node> nodes, const Vector2D& p
                 nodeToIgnore, closestNodeIndex);
 
     return closestNodeIndex;
+}
+
+NodeIndex_t QuadTree::querySingleFast(std::span<const Node> nodes, Vector2D point,
+                                      const BoundingBox2D& area, float minimumDistance,
+                                      NodeIndex_t nodeToIgnore) const {
+    if (!area.intersects(m_bounds)) {
+        return INVALID_NODE;
+    }
+
+    for (const auto nodeIndex : m_nodes) {
+        if (nodeIndex == nodeToIgnore) {
+            continue;
+        }
+
+        const auto nodePosition = nodes[nodeIndex].m_worldPos;
+        const auto distance = nodePosition.distanceSquared(point);
+        if (distance < minimumDistance * minimumDistance) {
+            return nodeIndex;
+        }
+    }
+
+    if (isSubdivided()) {
+        const auto topLeftResult =
+            m_topLeft->querySingleFast(nodes, point, area, minimumDistance, nodeToIgnore);
+        if (topLeftResult != INVALID_NODE) {
+            return topLeftResult;
+        }
+
+        const auto topRightResult =
+            m_topRight->querySingleFast(nodes, point, area, minimumDistance, nodeToIgnore);
+        if (topRightResult != INVALID_NODE) {
+            return topRightResult;
+        }
+
+        const auto bottomLeftResult =
+            m_bottomLeft->querySingleFast(nodes, point, area, minimumDistance, nodeToIgnore);
+        if (bottomLeftResult != INVALID_NODE) {
+            return bottomLeftResult;
+        }
+
+        const auto bottomRightResult =
+            m_bottomRight->querySingleFast(nodes, point, area, minimumDistance, nodeToIgnore);
+        if (bottomRightResult != INVALID_NODE) {
+            return bottomRightResult;
+        }
+    }
+
+    return INVALID_NODE;
 }
 
 bool QuadTree::isSubdivided() const { return m_topLeft != nullptr; }
@@ -154,7 +202,7 @@ void QuadTree::query(std::span<const Node> nodes, const BoundingBox2D& area,
         const auto nodePosition = node.m_worldPos;
         if (area.intersects(GraphModel::getNodeBoundingBox(nodePosition))) {
             visitMask[nodeIndex] = true;
-            result.emplace_back(nodePosition, node.getRGB(), nodeIndex);
+            result.emplace_back(nodePosition, node.getABGR(), nodeIndex);
         }
     }
 
@@ -166,9 +214,9 @@ void QuadTree::query(std::span<const Node> nodes, const BoundingBox2D& area,
     }
 }
 
-void QuadTree::querySingle(std::span<const Node> nodes, const Vector2D& point,
-                           const BoundingBox2D& area, float& minimumDistanceSquared,
-                           NodeIndex_t nodeToIgnore, NodeIndex_t& closestNodeIndex) const {
+void QuadTree::querySingle(std::span<const Node> nodes, Vector2D point, const BoundingBox2D& area,
+                           float& minimumDistanceSquared, NodeIndex_t nodeToIgnore,
+                           NodeIndex_t& closestNodeIndex) const {
     if (!area.intersects(m_bounds)) {
         return;
     }

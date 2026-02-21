@@ -17,6 +17,7 @@
     <ClCompile Include="src\utils\utils_impl.cpp" />
     <ClCompile Include="src\math\math.ixx" />
     <ClCompile Include="src\graph\model\defines\graph_model_defines.ixx" />
+    <ClCompile Include="src\graph\model\defines\graph_model_defines_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

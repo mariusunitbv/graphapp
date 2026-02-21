@@ -23,8 +23,8 @@ void Application::initialize() {
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-    const auto startWidth = 800 * scale;
-    const auto startHeight = 450 * scale;
+    const auto startWidth = 1024 * scale;
+    const auto startHeight = 576 * scale;
 
     m_window = SDL_CreateWindow("Graph Tool", (int)startWidth, (int)startHeight, windowFlags);
     if (!m_window) {
@@ -41,7 +41,6 @@ void Application::initialize() {
     }
 
     SDL_GL_MakeCurrent(m_window, m_glContext);
-    SDL_GL_SetSwapInterval(0);
     SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_ShowWindow(m_window);
 
@@ -50,7 +49,7 @@ void Application::initialize() {
     ImGuiStyle& style = ImGui::GetStyle();
 
     io.IniFilename = io.LogFilename = nullptr;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
 
     style.ScaleAllSizes(scale);
     style.AntiAliasedFill = style.AntiAliasedLines = true;
@@ -65,9 +64,24 @@ void Application::initialize() {
 void Application::run() {
     bool done = false;
 
+    const auto frequency = SDL_GetPerformanceFrequency();
     auto& io = ImGui::GetIO();
 
     while (!done) {
+        const auto frameStart = SDL_GetPerformanceCounter();
+
+        static bool fullscreenState = false;
+        if (fullscreenState != m_graphView.isFullScreen()) {
+            fullscreenState = !fullscreenState;
+            SDL_SetWindowFullscreen(m_window, fullscreenState);
+        }
+
+        static int vsyncState = -1;
+        if (vsyncState != m_graphView.getVsyncMode()) {
+            vsyncState = m_graphView.getVsyncMode();
+            SDL_GL_SetSwapInterval(m_graphView.getVsyncMode());
+        }
+
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL3_ProcessEvent(&event);
@@ -79,13 +93,21 @@ void Application::run() {
                 break;
             }
 
-            if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F) {
-                handleMaximizationShortcut();
-                break;
+            if (event.type == SDL_EVENT_KEY_DOWN) {
+                switch (event.key.key) {
+                    case SDLK_F:
+                        handleMaximizationShortcut();
+                        break;
+                    case SDLK_F11:
+                        m_graphView.toggleFullScreen();
+                        break;
+                }
             }
 
             m_graphViewModel.onSDLEvent(event);
         }
+
+        m_graphViewModel.preRenderUpdate();
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
@@ -101,6 +123,15 @@ void Application::run() {
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(m_window);
+
+        if (m_graphView.getMaxFps() != 0) {
+            const auto targetFrameTime = 1.0 / m_graphView.getMaxFps();
+            const auto elapsed = (double)(SDL_GetPerformanceCounter() - frameStart) / frequency;
+            if (elapsed < targetFrameTime) {
+                const auto remaining = targetFrameTime - elapsed;
+                SDL_Delay((Uint32)(remaining * 1000.0));
+            }
+        }
     }
 
     quit();
@@ -127,7 +158,7 @@ void Application::quit() {
 }
 
 void Application::initializeGraph(float width, float height) {
-    m_graphViewModel.initialize(&m_graphModel, width, height);
+    m_graphViewModel.initialize(&m_graphModel, &m_graphView, width, height);
     m_graphView.initialize(&m_graphModel, &m_graphViewModel);
 
     addNodesForTesting();
@@ -151,14 +182,15 @@ void Application::handleMaximizationShortcut() {
 }
 
 void Application::addNodesForTesting() {
-    constexpr float start = -10000.f;
+    // return;
+    constexpr float start = -5000.f;
     constexpr float end = -start;
     constexpr float step = NODE_RADIUS * 2.f;
 
     constexpr size_t stepsPerAxis = static_cast<size_t>((end - start) / step) + 1;
     constexpr size_t nodeCount = stepsPerAxis * stepsPerAxis;
 
-    static_assert(nodeCount < NODE_LIMIT, "Node count exceeds size_t limits");
+    static_assert(nodeCount < NODE_LIMIT, "Node count exceeds limits");
 
     m_graphModel.reserveNodes(nodeCount);
     std::cout << "Adding " << nodeCount << " nodes for testing..." << std::endl;

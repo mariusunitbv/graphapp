@@ -32,6 +32,11 @@ export struct BoundingBox2D {
 
     auto width() const { return m_max.m_x - m_min.m_x; }
     auto height() const { return m_max.m_y - m_min.m_y; }
+    auto center() const {
+        return Vector2D((m_min.m_x + m_max.m_x) * 0.5f, (m_min.m_y + m_max.m_y) * 0.5f);
+    }
+
+    auto valid() const { return m_min.m_x < m_max.m_x && m_min.m_y < m_max.m_y; }
 
     auto intersects(const BoundingBox2D& other) const {
         return m_min.m_x < other.m_max.m_x && m_max.m_x > other.m_min.m_x &&
@@ -46,3 +51,13 @@ export struct BoundingBox2D {
     Vector2D m_min{};
     Vector2D m_max{};
 };
+
+export inline Vector2D min(Vector2D a, Vector2D b) {
+    return Vector2D(std::min(a.m_x, b.m_x), std::min(a.m_y, b.m_y));
+}
+
+export inline Vector2D max(Vector2D a, Vector2D b) {
+    return Vector2D(std::max(a.m_x, b.m_x), std::max(a.m_y, b.m_y));
+}
+
+export inline ImVec2 toImVec(Vector2D vec) { return ImVec2(vec.m_x, vec.m_y); }

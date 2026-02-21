@@ -10,10 +10,11 @@
       "name": "imgui",
       "features": [
         "opengl3-binding",
-        "sdl3-binding"
+        "sdl3-binding",
+        "docking-experimental"
       ]
     },
-    "sdl3",
-    "lodepng"
+    "lodepng",
+    "sdl3"
   ]
 }

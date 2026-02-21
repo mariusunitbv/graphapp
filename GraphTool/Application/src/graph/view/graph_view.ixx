@@ -4,9 +4,8 @@ module;
 export module graph_view;
 
 import graph_model;
-import graph_view_model;
 
-import quadtree;
+FORWARD_DECLARE_CLASS(GraphViewModel);
 
 struct GraphTheme {
     ImU32 m_backgroundColor{IM_COL32(20, 20, 20, 255)};
@@ -15,10 +14,10 @@ struct GraphTheme {
     ImU32 m_quadTreeColor{IM_COL32(0, 255, 255, 255)};
 
     ImU32 m_nodeColor{m_backgroundColor};
-    ImU32 m_nodeBorderColor{IM_COL32(255, 255, 255, 255)};
-    ImU32 m_selectedNodeBorderColor{IM_COL32(89, 222, 18, 255)};
-    ImU32 m_hoveredNodeBorderColor{IM_COL32(18, 191, 222, 255)};
-    ImU32 m_hoveredAndSelectedNodeBorderColor{IM_COL32(18, 222, 130, 255)};
+    ImU32 m_nodeOutlineColor{IM_COL32(255, 255, 255, 255)};
+    ImU32 m_selectedNodeOutlineColor{IM_COL32(89, 222, 18, 255)};
+    ImU32 m_hoveredNodeOutlineColor{IM_COL32(18, 191, 222, 255)};
+    ImU32 m_hoveredAndSelectedNodeOutlineColor{IM_COL32(18, 222, 130, 255)};
 };
 
 export class GraphView {
@@ -28,22 +27,46 @@ export class GraphView {
     void renderUI();
     void renderScene();
 
+    bool isFocusOnUI() const;
+
+    void openDeleteConfirmationDialog();
+    void openCenterOnNodeDialog();
+
+    void toggleGrid() { m_drawGrid = !m_drawGrid; }
+    void toggleDrawNodes() { m_drawNodes = !m_drawNodes; }
+
+    void toggleFullScreen() { m_appFullScreen = !m_appFullScreen; }
+    bool isFullScreen() const { return m_appFullScreen; }
+    int getMaxFps() const { return m_maxFps; }
+    int getVsyncMode() const;
+
    private:
     void initializeGL();
+    void initializeNodeGL();
+    void initializeGridGL();
 
     GLuint compileShader(GLenum type, const char* source);
 
     void drawMenuBar();
     void drawStatusBar();
+    void drawDeleteConfirmationDialog();
+    void drawCenterOnNodeDialog();
+    void drawFileView();
+    void drawInspector();
+    void drawSettings();
 
     void drawNodesIndexes(ImDrawList* drawList);
     void drawQuadTree(ImDrawList* drawList, const QuadTree* quadTree);
     void drawMinMax(ImDrawList* drawList);
+    void drawSelectBox(ImDrawList* drawList);
+    void drawMousePosition(ImDrawList* drawList);
 
     void drawBackground();
+    void drawGrid();
     void drawNodes();
 
-    ImU32 getNodeColor(const Node* node) const;
+    ImU32 getNodeColor(NodeIndex_t nodeIndex) const;
+    ImU32 getOutlineColor(NodeIndex_t nodeIndex) const;
 
     bool shouldDrawNodes() const;
 
@@ -57,10 +80,55 @@ export class GraphView {
     bool m_drawMinMax{false};
     bool m_drawNodes{true};
 
+    bool m_isDeleteDialogOpen{false};
+    bool m_isCenterOnNodeDialogOpen{false};
+    bool m_isSettingsOpen{false};
+    bool m_showDemoWindow{false};
+    bool m_appFullScreen{false};
+
+    int m_maxFps{360};
+    int m_vsyncMode{0};
+    float m_gridCellSize{100.f};
+
+    struct GLObject {
+        ~GLObject() {
+            if (m_VAO) {
+                glDeleteVertexArrays(1, &m_VAO);
+                m_VAO = 0;
+            }
+
+            if (m_VBO) {
+                glDeleteBuffers(1, &m_VBO);
+                m_VBO = 0;
+            }
+
+            if (m_instanceVBO) {
+                glDeleteBuffers(1, &m_instanceVBO);
+                m_instanceVBO = 0;
+            }
+
+            if (m_shaderProgram) {
+                glDeleteProgram(m_shaderProgram);
+                m_shaderProgram = 0;
+            }
+        }
+
+        GLuint m_VAO{};
+        GLuint m_VBO{};
+        GLuint m_instanceVBO{};
+        GLuint m_shaderProgram{};
+    };
+
     GLuint m_nodeTexture{};
     GLuint m_nodeOutlineTexture{};
+    GLObject m_nodeGLObject;
 
-    GLuint m_shaderProgram{};
-    GLuint m_VAO{}, m_VBO{}, m_EBO{};
-    GLuint m_quadVBO{}, m_instanceVBO{};
+    struct GridLineInstanceData {
+        Vector2D m_worldStart{};
+        Vector2D m_worldEnd{};
+        ImU32 m_color{};
+        float m_thickness{};
+    };
+
+    GLObject m_gridGLObject;
 };

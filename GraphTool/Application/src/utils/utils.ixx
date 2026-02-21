@@ -3,10 +3,6 @@ module;
 
 export module utils;
 
-import math;
-
-export inline ImVec2 toImVec(Vector2D vec) { return ImVec2(vec.m_x, vec.m_y); }
-
 export template <class... Args>
 struct Callback {
     using Func_t = void (*)(void*, Args...);

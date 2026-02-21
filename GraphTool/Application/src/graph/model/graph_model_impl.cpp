@@ -3,34 +3,6 @@ module;
 
 module graph_model;
 
-import quadtree;
-
-Node::Node(NodeIndex_t index, Vector2D worldPos) : m_worldPos{worldPos} { setIndex(index); }
-
-void Node::setIndex(NodeIndex_t index) {
-    m_index = index;
-
-    size_t charCount = 1;
-    while (index >= 10) {
-        index /= 10;
-        ++charCount;
-    }
-
-    if (charCount > sizeof(m_labelBuffer) - 1) {
-        GAPP_THROW("Node index exceeds label buffer size");
-    }
-
-    std::snprintf(m_labelBuffer, charCount + 1, "%u", m_index);
-}
-
-bool Node::hasColor() const { return !(m_red == 0 && m_green == 0 && m_blue == 0); }
-
-uint32_t Node::getRGB() const {
-    constexpr auto ALPHA_MASK = 0xFF000000;
-    return ALPHA_MASK | (static_cast<uint32_t>(m_blue) << 16) |
-           (static_cast<uint32_t>(m_green) << 8) | static_cast<uint32_t>(m_red);
-}
-
 void GraphModel::addNode(Vector2D worldPos) {
     if (m_nodes.size() >= NODE_LIMIT) {
         GAPP_THROW("Node limit reached");
@@ -51,10 +23,14 @@ void GraphModel::addNode(Vector2D worldPos) {
 }
 
 void GraphModel::removeNodes(const std::unordered_set<NodeIndex_t>& nodes) {
-    removeNodesAndCalculateIndexRemap(nodes);
+    // Pre-removal stage.
+    removeNodesFromQuadTree(nodes);
 
-    m_indexRemapAfterRemoval.clear();
-    m_indexRemapAfterRemoval.shrink_to_fit();
+    // Removal stage.
+    const auto indexRemap = removeNodesAndCalculateIndexRemap(nodes);
+
+    // Post-removal stage.
+    m_quadTree.fixIndexesAfterNodeRemoval(indexRemap);
 }
 
 void GraphModel::reserveNodes(size_t nodeCount) { m_nodes.reserve(nodeCount); }
@@ -66,25 +42,40 @@ void GraphModel::endBulkInsert() {
     m_bulkInsertMode = false;
 }
 
+NodeIndex_t GraphModel::getLastNodeIndex() const { return m_nodes.back().m_index; }
+
 Node* GraphModel::getNode(NodeIndex_t index) { return &m_nodes[index]; }
 
 const Node* GraphModel::getNode(NodeIndex_t index) const { return &m_nodes[index]; }
 
-const std::vector<Node>& GraphModel::getNodes() const { return m_nodes; }
-
-NodeIndex_t GraphModel::getNodeIndexAfterRemoval(NodeIndex_t originalIndex) const {
-    if (m_indexRemapAfterRemoval.empty()) {
-        GAPP_THROW("No nodes have been removed, index remap is not available");
+Node* GraphModel::getNodeAtPosition(Vector2D worldPos, bool firstOccurence, float minimumDistance,
+                                    NodeIndex_t nodeToIgnore) {
+    NodeIndex_t closestNodeIndex = INVALID_NODE;
+    if (firstOccurence) {
+        closestNodeIndex = m_quadTree.querySingleFast(
+            m_nodes, worldPos, getNodeBoundingBox(worldPos), minimumDistance, nodeToIgnore);
+    } else {
+        closestNodeIndex = m_quadTree.querySingle(m_nodes, worldPos, minimumDistance, nodeToIgnore);
     }
 
-    if (originalIndex >= m_indexRemapAfterRemoval.size()) {
-        GAPP_THROW("Original index out of bounds for index remap");
+    if (closestNodeIndex == INVALID_NODE) {
+        return nullptr;
     }
 
-    return m_indexRemapAfterRemoval[originalIndex];
+    return &m_nodes[closestNodeIndex];
+}
+
+const Node* GraphModel::getNodeAtPosition(Vector2D worldPos, bool firstOccurence,
+                                          float minimumDistance, NodeIndex_t nodeToIgnore) const {
+    return const_cast<GraphModel*>(this)->getNodeAtPosition(worldPos, firstOccurence,
+                                                            minimumDistance, nodeToIgnore);
 }
 
 const QuadTree* GraphModel::getQuadTree() const { return &m_quadTree; }
+
+std::vector<VisibleNode> GraphModel::queryNodes(const BoundingBox2D& area) const {
+    return m_quadTree.query(m_nodes, area);
+}
 
 BoundingBox2D GraphModel::getNodeBoundingBox(Vector2D worldPos) {
     return BoundingBox2D{worldPos.m_x - NODE_RADIUS, worldPos.m_y - NODE_RADIUS,
@@ -94,37 +85,46 @@ BoundingBox2D GraphModel::getNodeBoundingBox(Vector2D worldPos) {
 bool GraphModel::updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds) {
     constexpr auto MARGIN_PADDING = 5.f;
 
+    bool updated = false;
+
     auto& dynamicBounds = m_quadTree.getBoundsMutable();
     if (bounds.m_min.m_x < dynamicBounds.m_min.m_x) {
         dynamicBounds.m_min.m_x = bounds.m_min.m_x - MARGIN_PADDING;
-        return true;
+        updated = true;
     }
 
     if (bounds.m_min.m_y < dynamicBounds.m_min.m_y) {
         dynamicBounds.m_min.m_y = bounds.m_min.m_y - MARGIN_PADDING;
-        return true;
+        updated = true;
     }
 
     if (bounds.m_max.m_x > dynamicBounds.m_max.m_x) {
         dynamicBounds.m_max.m_x = bounds.m_max.m_x + MARGIN_PADDING;
-        return true;
+        updated = true;
     }
 
     if (bounds.m_max.m_y > dynamicBounds.m_max.m_y) {
         dynamicBounds.m_max.m_y = bounds.m_max.m_y + MARGIN_PADDING;
-        return true;
+        updated = true;
     }
 
-    return false;
+    return updated;
 }
 
-void GraphModel::removeNodesAndCalculateIndexRemap(const std::unordered_set<NodeIndex_t>& nodes) {
-    m_indexRemapAfterRemoval.resize(m_nodes.size());
+void GraphModel::removeNodesFromQuadTree(const std::unordered_set<NodeIndex_t>& nodes) {
+    for (const auto index : nodes) {
+        m_quadTree.remove(index, getNodeBoundingBox(m_nodes[index].m_worldPos));
+    }
+}
+
+std::vector<NodeIndex_t> GraphModel::removeNodesAndCalculateIndexRemap(
+    const std::unordered_set<NodeIndex_t>& nodes) {
+    std::vector<NodeIndex_t> indexRemap(m_nodes.size());
 
     NodeIndex_t writeIndex = 0;
     for (NodeIndex_t readIndex = 0; readIndex < m_nodes.size(); ++readIndex) {
         if (nodes.contains(m_nodes[readIndex].m_index)) {
-            m_indexRemapAfterRemoval[readIndex] = INVALID_NODE;
+            indexRemap[readIndex] = INVALID_NODE;
             continue;
         }
 
@@ -133,10 +133,11 @@ void GraphModel::removeNodesAndCalculateIndexRemap(const std::unordered_set<Node
             m_nodes[writeIndex].setIndex(writeIndex);
         }
 
-        m_indexRemapAfterRemoval[readIndex] = writeIndex++;
+        indexRemap[readIndex] = writeIndex++;
     }
 
     m_nodes.resize(writeIndex);
+    return indexRemap;
 }
 
 void GraphModel::rebuildQuadTree() {

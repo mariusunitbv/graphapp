@@ -16,10 +16,12 @@ export class QuadTree {
 
     void fixIndexesAfterNodeRemoval(const std::vector<NodeIndex_t>& indexRemap);
 
-    std::vector<VisibleNode> query(std::span<const Node> nodes, const BoundingBox2D& area,
-                                   size_t totalNodeCount) const;
-    NodeIndex_t querySingle(std::span<const Node> nodes, const Vector2D& point,
-                            float minimumDistance, NodeIndex_t nodeToIgnore = INVALID_NODE) const;
+    std::vector<VisibleNode> query(std::span<const Node> nodes, const BoundingBox2D& area) const;
+    NodeIndex_t querySingle(std::span<const Node> nodes, Vector2D point, float minimumDistance,
+                            NodeIndex_t nodeToIgnore = INVALID_NODE) const;
+    NodeIndex_t querySingleFast(std::span<const Node> nodes, Vector2D point,
+                                const BoundingBox2D& area, float minimumDistance,
+                                NodeIndex_t nodeToIgnore = INVALID_NODE) const;
 
     bool isSubdivided() const;
     bool canSubdivide() const;
@@ -38,7 +40,7 @@ export class QuadTree {
    private:
     void query(std::span<const Node> nodes, const BoundingBox2D& area, std::vector<bool>& visitMask,
                std::vector<VisibleNode>& result) const;
-    void querySingle(std::span<const Node> nodes, const Vector2D& point, const BoundingBox2D& area,
+    void querySingle(std::span<const Node> nodes, Vector2D point, const BoundingBox2D& area,
                      float& minimumDistanceSquared, NodeIndex_t nodeToIgnore,
                      NodeIndex_t& closestNodeIndex) const;
 

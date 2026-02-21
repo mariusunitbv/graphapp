@@ -101,6 +101,9 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event) {
                 case SDLK_N:
                     m_view->toggleDrawNodes();
                     break;
+                case SDLK_F12:
+                    m_view->toggleSettings();
+                    break;
             }
 
             break;
@@ -120,7 +123,7 @@ std::vector<VisibleNode>& GraphViewModel::getVisibleNodes() {
         return m_visibleNodes;
     }
 
-    const auto extraMargin = m_sceneSize * 0.3f;
+    const auto extraMargin = m_sceneSize * 0.2f;
     m_lastQueryRegionArea = {
         screenToWorld(-extraMargin),
         screenToWorld(m_sceneSize + extraMargin),
@@ -140,17 +143,23 @@ bool GraphViewModel::isNodeSelected(NodeIndex_t nodeIndex) const {
 
 float GraphViewModel::getZoomFactor() const { return m_camera.m_zoom; }
 
+void GraphViewModel::setZoomFactor(float zoom) {
+    m_camera.m_zoom = zoom;
+
+    clampCameraPositionInBounds();
+    invalidateVisibleNodesCache();
+    updateVisibleRegion();
+}
+
 Vector2D GraphViewModel::getCameraPosition() const { return m_camera.m_position; }
 
 const BoundingBox2D& GraphViewModel::getVisibleRegion() const { return m_visibleRegionArea; }
 
 BoundingBox2D GraphViewModel::getVisibleRegionWorldCoordonates(Vector2D additionalPadding) const {
-    const auto topLeft = screenToWorld(-additionalPadding);
-    const auto bottomRight = screenToWorld(m_sceneSize + additionalPadding);
-
-    const auto& graphBounds = m_model->getQuadTree()->getBounds();
-
-    return {max(topLeft, graphBounds.m_min), min(bottomRight, graphBounds.m_max)};
+    BoundingBox2D visibleWorldBounds = {screenToWorld(-additionalPadding),
+                                        screenToWorld(m_sceneSize + additionalPadding)};
+    const auto& graphBounds = m_model->getGraphBounds();
+    return visibleWorldBounds.clamp(graphBounds);
 }
 
 Vector2D GraphViewModel::worldToScreen(Vector2D worldPos) const {
@@ -199,6 +208,7 @@ void GraphViewModel::onCameraPan(float deltaX, float deltaY) {
     m_camera.m_position.m_x += deltaX / m_camera.m_zoom;
     m_camera.m_position.m_y += deltaY / m_camera.m_zoom;
 
+    clampCameraPositionInBounds();
     updateVisibleRegion();
 }
 
@@ -211,6 +221,7 @@ void GraphViewModel::onCameraZoom(float deltaZoom, float cursorX, float cursorY)
     m_camera.m_position.m_x = world.m_x - (cursorX - m_sceneSize.m_x * 0.5f) / m_camera.m_zoom;
     m_camera.m_position.m_y = world.m_y - (cursorY - m_sceneSize.m_y * 0.5f) / m_camera.m_zoom;
 
+    clampCameraPositionInBounds();
     invalidateVisibleNodesCache();
     updateVisibleRegion();
 }
@@ -236,11 +247,17 @@ void GraphViewModel::onMouseClick(float cursorX, float cursorY, bool ctrlPressed
         return;
     }
 
-    if (m_model->getNodeAtPosition(screenToWorld({cursorX, cursorY}), true, 2 * NODE_RADIUS)) {
+    const auto worldPos = screenToWorld({cursorX, cursorY});
+    const auto nodeArea = GraphModel::getNodeBoundingBox(worldPos);
+
+    if (!WORLD_BOUNDS.contains(nodeArea)) {
         return;
     }
 
-    const auto worldPos = screenToWorld({cursorX, cursorY});
+    if (m_model->getNodeAtPosition(screenToWorld({cursorX, cursorY}), true, NODE_DIAMETER)) {
+        return;
+    }
+
     m_model->addNode(worldPos);
 
     const auto lastNodeIndex = m_model->getLastNodeIndex();
@@ -267,8 +284,8 @@ void GraphViewModel::setSelectBoxStart(float cursorX, float cursorY) {
 
 void GraphViewModel::setSelectBoxEnd(float cursorX, float cursorY) {
     const auto worldPos = screenToWorld({cursorX, cursorY});
-    m_selectBoxBounds = BoundingBox2D{min(m_selectBoxStartWorldPos, worldPos),
-                                      max(m_selectBoxStartWorldPos, worldPos)};
+    m_selectBoxBounds = BoundingBox2D{Vector2D::min(m_selectBoxStartWorldPos, worldPos),
+                                      Vector2D::max(m_selectBoxStartWorldPos, worldPos)};
 }
 
 void GraphViewModel::selectNodesInBox() {
@@ -296,6 +313,15 @@ void GraphViewModel::selectNodesInBox() {
     m_selectedNodes.insert(indices.begin(), indices.end());
 
     m_lastSelectBoxQueryTime = now;
+}
+
+void GraphViewModel::clampCameraPositionInBounds() {
+    if (!WORLD_BOUNDS.contains(m_camera.m_position)) {
+        m_camera.m_position.m_x =
+            std::clamp(m_camera.m_position.m_x, WORLD_BOUNDS.m_min.m_x, WORLD_BOUNDS.m_max.m_x);
+        m_camera.m_position.m_y =
+            std::clamp(m_camera.m_position.m_y, WORLD_BOUNDS.m_min.m_y, WORLD_BOUNDS.m_max.m_y);
+    }
 }
 
 void GraphViewModel::updateVisibleRegion() {

@@ -8,9 +8,14 @@ import math;
 export using NodeIndex_t = uint32_t;
 
 export constexpr auto INVALID_NODE = std::numeric_limits<NodeIndex_t>::max();
-export constexpr auto NODE_LIMIT = 500'000'000;
+
+export constexpr auto NODE_LIMIT = 1'000'000'000;
 export constexpr auto NODE_RADIUS = 28.f;
 export constexpr auto NODE_DIAMETER = NODE_RADIUS * 2.f;
+
+export constexpr auto WORLD_BOUNDS_FIXED_SIZE = 500000.f;
+export constexpr BoundingBox2D WORLD_BOUNDS{-WORLD_BOUNDS_FIXED_SIZE, -WORLD_BOUNDS_FIXED_SIZE,
+                                            WORLD_BOUNDS_FIXED_SIZE, WORLD_BOUNDS_FIXED_SIZE};
 
 export struct Node {
     Node() = default;

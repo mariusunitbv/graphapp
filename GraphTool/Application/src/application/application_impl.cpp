@@ -53,20 +53,18 @@ void Application::initialize() {
 
     style.ScaleAllSizes(scale);
     style.AntiAliasedFill = style.AntiAliasedLines = true;
-
-    this->initializeGraph(startWidth, startHeight);
     ImGui::StyleColorsClassic();
 
     ImGui_ImplSDL3_InitForOpenGL(m_window, m_glContext);
     ImGui_ImplOpenGL3_Init(glslVersion);
+
+    this->initializeGraph(startWidth, startHeight);
 }
 
 void Application::run() {
     bool done = false;
 
-    const auto frequency = SDL_GetPerformanceFrequency();
     auto& io = ImGui::GetIO();
-
     while (!done) {
         const auto frameStart = SDL_GetPerformanceCounter();
 
@@ -124,14 +122,7 @@ void Application::run() {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(m_window);
 
-        if (m_graphView.getMaxFps() != 0) {
-            const auto targetFrameTime = 1.0 / m_graphView.getMaxFps();
-            const auto elapsed = (double)(SDL_GetPerformanceCounter() - frameStart) / frequency;
-            if (elapsed < targetFrameTime) {
-                const auto remaining = targetFrameTime - elapsed;
-                SDL_Delay((Uint32)(remaining * 1000.0));
-            }
-        }
+        limitFps(frameStart);
     }
 
     quit();
@@ -201,7 +192,29 @@ void Application::addNodesForTesting() {
             m_graphModel.addNode({x, y});
         }
     }
-    m_graphModel.endBulkInsert();
 
+    std::cout << "Building GridMap." << std::endl;
+    m_graphModel.endBulkInsert();
     std::cout << "Finished adding nodes." << std::endl;
+}
+
+void Application::limitFps(Uint64 frameStart) {
+    static const auto frequency = SDL_GetPerformanceFrequency();
+    const auto flags = SDL_GetWindowFlags(m_window);
+    const auto minimized = flags & SDL_WINDOW_MINIMIZED;
+    const auto unfocused = !(flags & SDL_WINDOW_INPUT_FOCUS);
+
+    auto maxFps = m_graphView.getMaxFps();
+    if (minimized || unfocused) {
+        maxFps = 5;
+    }
+
+    if (m_graphView.isFpsLimitEnabled() || minimized || unfocused) {
+        const auto targetFrameTime = 1.0 / maxFps;
+        const auto elapsed = (double)(SDL_GetPerformanceCounter() - frameStart) / frequency;
+        if (elapsed < targetFrameTime) {
+            const auto remaining = targetFrameTime - elapsed;
+            SDL_Delay((Uint32)(remaining * 1000.0));
+        }
+    }
 }

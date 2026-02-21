@@ -4,7 +4,7 @@ module;
 export module graph_model;
 
 export import graph_model_defines;
-export import quadtree;
+export import gridmap;
 export import utils;
 export import math;
 
@@ -30,7 +30,7 @@ export class GraphModel {
                                   float minimumDistance = NODE_RADIUS,
                                   NodeIndex_t nodeToIgnore = INVALID_NODE) const;
 
-    const QuadTree* getQuadTree() const;
+    const BoundingBox2D& getGraphBounds() const;
     std::vector<VisibleNode> queryNodes(const BoundingBox2D& area) const;
 
     static BoundingBox2D getNodeBoundingBox(Vector2D worldPos);
@@ -38,14 +38,14 @@ export class GraphModel {
    private:
     bool updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds);
 
-    void removeNodesFromQuadTree(const std::unordered_set<NodeIndex_t>& nodes);
+    void removeNodesFromGridMap(const std::unordered_set<NodeIndex_t>& nodes);
     std::vector<NodeIndex_t> removeNodesAndCalculateIndexRemap(
         const std::unordered_set<NodeIndex_t>& nodes);
 
-    void rebuildQuadTree();
+    void rebuildGridMap();
 
     std::vector<Node> m_nodes;
-    QuadTree m_quadTree;
+    GridMap m_gridMap;
 
     bool m_bulkInsertMode{false};
 };

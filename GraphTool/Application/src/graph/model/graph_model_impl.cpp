@@ -9,28 +9,32 @@ void GraphModel::addNode(Vector2D worldPos) {
     }
 
     const auto nodeArea = getNodeBoundingBox(worldPos);
+    if (!WORLD_BOUNDS.contains(nodeArea)) {
+        GAPP_THROW("Node position is out of world bounds");
+    }
+
     if (updateDynamicBoundsIfNeeded(nodeArea)) {
         if (!m_bulkInsertMode) {
-            rebuildQuadTree();
+            rebuildGridMap();
         }
     }
 
     m_nodes.emplace_back(static_cast<NodeIndex_t>(m_nodes.size()), worldPos);
 
     if (!m_bulkInsertMode) {
-        m_quadTree.insert(&m_nodes.back());
+        m_gridMap.insert(&m_nodes.back());
     }
 }
 
 void GraphModel::removeNodes(const std::unordered_set<NodeIndex_t>& nodes) {
     // Pre-removal stage.
-    removeNodesFromQuadTree(nodes);
+    removeNodesFromGridMap(nodes);
 
     // Removal stage.
     const auto indexRemap = removeNodesAndCalculateIndexRemap(nodes);
 
     // Post-removal stage.
-    m_quadTree.fixIndexesAfterNodeRemoval(indexRemap);
+    m_gridMap.fixIndexesAfterNodeRemoval(indexRemap);
 }
 
 void GraphModel::reserveNodes(size_t nodeCount) { m_nodes.reserve(nodeCount); }
@@ -38,7 +42,7 @@ void GraphModel::reserveNodes(size_t nodeCount) { m_nodes.reserve(nodeCount); }
 void GraphModel::beginBulkInsert() { m_bulkInsertMode = true; }
 
 void GraphModel::endBulkInsert() {
-    rebuildQuadTree();
+    rebuildGridMap();
     m_bulkInsertMode = false;
 }
 
@@ -52,10 +56,10 @@ Node* GraphModel::getNodeAtPosition(Vector2D worldPos, bool firstOccurence, floa
                                     NodeIndex_t nodeToIgnore) {
     NodeIndex_t closestNodeIndex = INVALID_NODE;
     if (firstOccurence) {
-        closestNodeIndex = m_quadTree.querySingleFast(
+        closestNodeIndex = m_gridMap.querySingleFast(
             m_nodes, worldPos, getNodeBoundingBox(worldPos), minimumDistance, nodeToIgnore);
     } else {
-        closestNodeIndex = m_quadTree.querySingle(m_nodes, worldPos, minimumDistance, nodeToIgnore);
+        closestNodeIndex = m_gridMap.querySingle(m_nodes, worldPos, minimumDistance, nodeToIgnore);
     }
 
     if (closestNodeIndex == INVALID_NODE) {
@@ -71,10 +75,10 @@ const Node* GraphModel::getNodeAtPosition(Vector2D worldPos, bool firstOccurence
                                                             minimumDistance, nodeToIgnore);
 }
 
-const QuadTree* GraphModel::getQuadTree() const { return &m_quadTree; }
+const BoundingBox2D& GraphModel::getGraphBounds() const { return m_gridMap.getBounds(); }
 
 std::vector<VisibleNode> GraphModel::queryNodes(const BoundingBox2D& area) const {
-    return m_quadTree.query(m_nodes, area);
+    return m_gridMap.query(m_nodes, area);
 }
 
 BoundingBox2D GraphModel::getNodeBoundingBox(Vector2D worldPos) {
@@ -87,7 +91,7 @@ bool GraphModel::updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds) {
 
     bool updated = false;
 
-    auto& dynamicBounds = m_quadTree.getBoundsMutable();
+    auto dynamicBounds = m_gridMap.getBounds();
     if (bounds.m_min.m_x < dynamicBounds.m_min.m_x) {
         dynamicBounds.m_min.m_x = bounds.m_min.m_x - MARGIN_PADDING;
         updated = true;
@@ -108,12 +112,17 @@ bool GraphModel::updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds) {
         updated = true;
     }
 
+    if (updated) {
+        dynamicBounds.clamp(WORLD_BOUNDS);
+        m_gridMap.setBounds(dynamicBounds);
+    }
+
     return updated;
 }
 
-void GraphModel::removeNodesFromQuadTree(const std::unordered_set<NodeIndex_t>& nodes) {
+void GraphModel::removeNodesFromGridMap(const std::unordered_set<NodeIndex_t>& nodes) {
     for (const auto index : nodes) {
-        m_quadTree.remove(index, getNodeBoundingBox(m_nodes[index].m_worldPos));
+        m_gridMap.remove(index, getNodeBoundingBox(m_nodes[index].m_worldPos));
     }
 }
 
@@ -140,9 +149,9 @@ std::vector<NodeIndex_t> GraphModel::removeNodesAndCalculateIndexRemap(
     return indexRemap;
 }
 
-void GraphModel::rebuildQuadTree() {
-    m_quadTree.clear();
+void GraphModel::rebuildGridMap() {
+    m_gridMap.allocateCells();
     for (const auto& node : m_nodes) {
-        m_quadTree.insert(&node);
+        m_gridMap.insert(&node);
     }
 }

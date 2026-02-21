@@ -1,18 +1,15 @@
 module;
 #include <pch.h>
 
-export module quadtree;
+export module gridmap;
 
 import graph_model_defines;
 import math;
 
-export class QuadTree {
+export class GridMap {
    public:
-    QuadTree();
-
     void insert(const Node* node);
     void remove(NodeIndex_t toRemoveIndex, const BoundingBox2D& nodeArea);
-    void clear();
 
     void fixIndexesAfterNodeRemoval(const std::vector<NodeIndex_t>& indexRemap);
 
@@ -23,32 +20,27 @@ export class QuadTree {
                                 const BoundingBox2D& area, float minimumDistance,
                                 NodeIndex_t nodeToIgnore = INVALID_NODE) const;
 
-    bool isSubdivided() const;
-    bool canSubdivide() const;
-    void subdivide();
-
     const BoundingBox2D& getBounds() const;
-    BoundingBox2D& getBoundsMutable();
     void setBounds(const BoundingBox2D& bounds);
-    bool validBounds() const;
 
-    const QuadTree* getTopLeft() const { return m_topLeft.get(); }
-    const QuadTree* getTopRight() const { return m_topRight.get(); }
-    const QuadTree* getBottomLeft() const { return m_bottomLeft.get(); }
-    const QuadTree* getBottomRight() const { return m_bottomRight.get(); }
+    void allocateCells();
 
    private:
+    struct EntryCell {
+        int m_minCellX{0};
+        int m_maxCellX{0};
+        int m_minCellY{0};
+        int m_maxCellY{0};
+    };
+
+    EntryCell calculateEntryCell(const BoundingBox2D& nodeArea) const;
+
     void query(std::span<const Node> nodes, const BoundingBox2D& area, std::vector<bool>& visitMask,
                std::vector<VisibleNode>& result) const;
-    void querySingle(std::span<const Node> nodes, Vector2D point, const BoundingBox2D& area,
-                     float& minimumDistanceSquared, NodeIndex_t nodeToIgnore,
-                     NodeIndex_t& closestNodeIndex) const;
+
+    int m_cellCountX{0};
+    int m_cellCountY{0};
 
     BoundingBox2D m_bounds{};
-    std::vector<NodeIndex_t> m_nodes;
-
-    std::unique_ptr<QuadTree> m_topLeft;
-    std::unique_ptr<QuadTree> m_topRight;
-    std::unique_ptr<QuadTree> m_bottomLeft;
-    std::unique_ptr<QuadTree> m_bottomRight;
+    std::vector<std::vector<NodeIndex_t>> m_cells{};
 };

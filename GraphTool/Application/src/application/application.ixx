@@ -22,6 +22,8 @@ export class Application {
     void handleMaximizationShortcut();
     void addNodesForTesting();
 
+    void limitFps(Uint64 frameStart);
+
     Application() = default;
 
     SDL_Window* m_window{nullptr};

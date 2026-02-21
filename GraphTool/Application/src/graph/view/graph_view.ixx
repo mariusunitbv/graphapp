@@ -11,7 +11,6 @@ struct GraphTheme {
     ImU32 m_backgroundColor{IM_COL32(20, 20, 20, 255)};
     ImU32 m_gridColor{IM_COL32(35, 35, 35, 255)};
     ImU32 m_minMaxColor{IM_COL32(255, 0, 0, 255)};
-    ImU32 m_quadTreeColor{IM_COL32(0, 255, 255, 255)};
 
     ImU32 m_nodeColor{m_backgroundColor};
     ImU32 m_nodeOutlineColor{IM_COL32(255, 255, 255, 255)};
@@ -35,8 +34,10 @@ export class GraphView {
     void toggleGrid() { m_drawGrid = !m_drawGrid; }
     void toggleDrawNodes() { m_drawNodes = !m_drawNodes; }
 
+    void toggleSettings() { m_isSettingsOpen = !m_isSettingsOpen; }
     void toggleFullScreen() { m_appFullScreen = !m_appFullScreen; }
     bool isFullScreen() const { return m_appFullScreen; }
+    bool isFpsLimitEnabled() const { return m_isFpsLimitEnabled; }
     int getMaxFps() const { return m_maxFps; }
     int getVsyncMode() const;
 
@@ -56,7 +57,6 @@ export class GraphView {
     void drawSettings();
 
     void drawNodesIndexes(ImDrawList* drawList);
-    void drawQuadTree(ImDrawList* drawList, const QuadTree* quadTree);
     void drawMinMax(ImDrawList* drawList);
     void drawSelectBox(ImDrawList* drawList);
     void drawMousePosition(ImDrawList* drawList);
@@ -76,10 +76,10 @@ export class GraphView {
     GraphTheme m_theme;
 
     bool m_drawGrid{true};
-    bool m_drawQuadTree{false};
     bool m_drawMinMax{false};
     bool m_drawNodes{true};
 
+    bool m_isFpsLimitEnabled{true};
     bool m_isDeleteDialogOpen{false};
     bool m_isCenterOnNodeDialogOpen{false};
     bool m_isSettingsOpen{false};
@@ -89,6 +89,7 @@ export class GraphView {
     int m_maxFps{360};
     int m_vsyncMode{0};
     float m_gridCellSize{100.f};
+    int m_nodeCutoffZoom{10};
 
     struct GLObject {
         ~GLObject() {

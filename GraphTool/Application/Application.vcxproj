@@ -186,10 +186,10 @@
     <ClCompile Include="src\graph\model\graph_model.ixx" />
     <ClCompile Include="src\graph\model\defines\graph_model_defines.ixx" />
     <ClCompile Include="src\graph\model\graph_model_impl.cpp" />
+    <ClCompile Include="src\graph\model\gridmap\gridmap.ixx" />
+    <ClCompile Include="src\graph\model\gridmap\gridmap_impl.cpp" />
     <ClCompile Include="src\graph\view\graph_view.ixx" />
     <ClCompile Include="src\graph\view\graph_view_impl.cpp" />
-    <ClCompile Include="src\graph\model\quadtree\quadtree.ixx" />
-    <ClCompile Include="src\graph\model\quadtree\quadtree_impl.cpp" />
     <ClCompile Include="src\graph\view_model\graph_view_model.ixx" />
     <ClCompile Include="src\graph\view_model\graph_view_model_impl.cpp" />
     <ClCompile Include="src\main.cpp" />

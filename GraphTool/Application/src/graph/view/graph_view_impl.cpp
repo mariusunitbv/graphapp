@@ -59,7 +59,6 @@ void GraphView::renderUI() {
     drawSettings();
 
     drawNodesIndexes(drawList);
-    drawQuadTree(drawList, m_model->getQuadTree());
     drawMinMax(drawList);
     drawSelectBox(drawList);
     drawMousePosition(drawList);
@@ -326,7 +325,6 @@ void GraphView::drawMenuBar() {
             }
 
             ImGui::MenuItem("Draw Grid", "G", &m_drawGrid);
-            ImGui::MenuItem("Draw Quad Trees", nullptr, &m_drawQuadTree);
             ImGui::MenuItem("Draw Min/Max Bounds", nullptr, &m_drawMinMax);
             ImGui::MenuItem("Draw Nodes", "N", &m_drawNodes);
 
@@ -334,7 +332,7 @@ void GraphView::drawMenuBar() {
         }
 
         if (ImGui::BeginMenu("Settings")) {
-            if (ImGui::MenuItem("Options")) {
+            if (ImGui::MenuItem("Options", "F12")) {
                 m_isSettingsOpen = true;
             }
 
@@ -349,7 +347,7 @@ void GraphView::drawMenuBar() {
 
         char buffer[32];
         std::snprintf(buffer, sizeof(buffer), "FPS: %.1f%s | %.2f ms", fps,
-                      m_maxFps == 0 ? "" : "L", 1000.f / fps);
+                      m_isFpsLimitEnabled ? "L" : "", 1000.f / fps);
 
         const auto textWidth = ImGui::CalcTextSize(buffer).x;
         const auto windowWidth = ImGui::GetWindowWidth();
@@ -376,7 +374,8 @@ void GraphView::drawStatusBar() {
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoFocusOnAppearing |
                      ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs);
 
-    ImGui::Text("Zoom: %d%%", (int)std::lround(m_viewModel->getZoomFactor() * 100.f));
+    ImGui::Text("Zoom: %d%% %s", (int)std::lround(m_viewModel->getZoomFactor() * 100.f),
+                isFocusOnUI() ? "(UNFOCUSED)" : "");
     ImGui::SameLine();
 
     char buffer[32];
@@ -440,14 +439,24 @@ void GraphView::drawCenterOnNodeDialog() {
                                ImGuiWindowFlags_AlwaysAutoResize)) {
         const auto escapePressed = ImGui::IsKeyPressed(ImGuiKey_Escape);
 
-        ImGui::Text("Enter Node to center on:");
+        ImGui::TextUnformatted("Enter Node to center on:");
         if (ImGui::InputInt("##nodeid", &nodeId, 0, 1000) && !escapePressed) {
             nodeId = std::clamp(nodeId, 0, static_cast<int>(m_model->getLastNodeIndex()));
             m_viewModel->centerOnNode(nodeId);
         }
-        ImGui::ActivateItemByID(ImGui::GetItemID());
 
-        if (escapePressed || (ImGui::IsKeyPressed(ImGuiKey_Enter) && !ImGui::IsAnyItemFocused())) {
+        if (ImGui::IsWindowAppearing()) {
+            ImGui::ActivateItemByID(ImGui::GetItemID());
+        }
+
+        if (ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+            nodeId = std::clamp(nodeId, 0, static_cast<int>(m_model->getLastNodeIndex()));
+            m_viewModel->centerOnNode(nodeId);
+            m_isCenterOnNodeDialogOpen = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        if (escapePressed) {
             m_isCenterOnNodeDialogOpen = false;
             ImGui::CloseCurrentPopup();
         }
@@ -467,15 +476,16 @@ void GraphView::drawSettings() {
     const auto& io = ImGui::GetIO();
 
     ImGui::SetNextWindowPos(io.DisplaySize * 0.5f, ImGuiCond_Once, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(800, 400));
+    ImGui::SetNextWindowSize(ImVec2(700, 400), ImGuiCond_Once);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(700, 400), ImVec2(FLT_MAX, FLT_MAX));
 
     constexpr const char* settingsTabs[] = {"Appearance", "Video & Performance"};
     static int currentTab = 0;
 
-    constexpr auto windowFlags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize;
+    constexpr auto windowFlags = ImGuiWindowFlags_NoDocking;
     ImGui::Begin("Settings", &m_isSettingsOpen, windowFlags);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGui::BeginChild("##settings_tabs", ImVec2(140, 0), ImGuiChildFlags_Borders);
+    ImGui::BeginChild("##settings_tabs", ImVec2(150, 0), ImGuiChildFlags_Borders);
     if (ImGui::BeginListBox("##tabs", {-FLT_MIN, -FLT_MIN})) {
         for (int i = 0; i < std::size(settingsTabs); ++i) {
             if (ImGui::Selectable(settingsTabs[i], currentTab == i)) {
@@ -493,65 +503,77 @@ void GraphView::drawSettings() {
     if (currentTab == 0) {
         ImGui::SeparatorText("Graph Appearance");
 
+        ImGui::TextUnformatted("Graph Background:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
         auto backgroundColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_backgroundColor);
-        if (ImGui::ColorEdit4("Background", (float*)&backgroundColor)) {
+        if (ImGui::ColorEdit4("##bg", (float*)&backgroundColor)) {
             m_theme.m_backgroundColor = ImGui::ColorConvertFloat4ToU32(backgroundColor);
         }
 
+        ImGui::TextUnformatted("Grid Lines:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
         auto gridColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_gridColor);
-        if (ImGui::ColorEdit4("Grid", (float*)&gridColor)) {
+        if (ImGui::ColorEdit4("##gr", (float*)&gridColor)) {
             m_theme.m_gridColor = ImGui::ColorConvertFloat4ToU32(gridColor);
         }
 
+        ImGui::TextUnformatted("Min/Max Bounds:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
         auto minMaxColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_minMaxColor);
-        if (ImGui::ColorEdit4("Min/Max Bounds", (float*)&minMaxColor)) {
+        if (ImGui::ColorEdit4("##mmb", (float*)&minMaxColor)) {
             m_theme.m_minMaxColor = ImGui::ColorConvertFloat4ToU32(minMaxColor);
-        }
-
-        auto quadTreeColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_quadTreeColor);
-        if (ImGui::ColorEdit4("Quad Trees", (float*)&quadTreeColor)) {
-            m_theme.m_quadTreeColor = ImGui::ColorConvertFloat4ToU32(quadTreeColor);
         }
 
         ImGui::SeparatorText("Node Appearance");
 
+        ImGui::TextUnformatted("Default Color:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
         auto nodeColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_nodeColor);
-        if (ImGui::ColorEdit4("Node Default Color", (float*)&nodeColor)) {
+        if (ImGui::ColorEdit4("##ndc", (float*)&nodeColor)) {
             m_theme.m_nodeColor = ImGui::ColorConvertFloat4ToU32(nodeColor);
         }
 
+        ImGui::TextUnformatted("Default Outline:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
         auto nodeBorderColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_nodeOutlineColor);
-        if (ImGui::ColorEdit4("Node Default Outline", (float*)&nodeBorderColor)) {
+        if (ImGui::ColorEdit4("##ndo", (float*)&nodeBorderColor)) {
             m_theme.m_nodeOutlineColor = ImGui::ColorConvertFloat4ToU32(nodeBorderColor);
         }
 
+        ImGui::TextUnformatted("Selected Outline:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
         auto selectedOutlineColor =
             ImGui::ColorConvertU32ToFloat4(m_theme.m_selectedNodeOutlineColor);
-        if (ImGui::ColorEdit4("Selected Outline", (float*)&selectedOutlineColor)) {
+        if (ImGui::ColorEdit4("##so", (float*)&selectedOutlineColor)) {
             m_theme.m_selectedNodeOutlineColor =
                 ImGui::ColorConvertFloat4ToU32(selectedOutlineColor);
         }
 
+        ImGui::TextUnformatted("Hovered Outline:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
         auto hoveredOutlineColor =
             ImGui::ColorConvertU32ToFloat4(m_theme.m_hoveredNodeOutlineColor);
-        if (ImGui::ColorEdit4("Hovered Outline", (float*)&hoveredOutlineColor)) {
+        if (ImGui::ColorEdit4("##ho", (float*)&hoveredOutlineColor)) {
             m_theme.m_hoveredNodeOutlineColor = ImGui::ColorConvertFloat4ToU32(hoveredOutlineColor);
         }
 
+        ImGui::TextUnformatted("Selected and Hovered Outline:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
         auto selectedHoveredOutlineColor =
             ImGui::ColorConvertU32ToFloat4(m_theme.m_hoveredAndSelectedNodeOutlineColor);
-        if (ImGui::ColorEdit4("Selected and Hovered Outline",
-                              (float*)&selectedHoveredOutlineColor)) {
+        if (ImGui::ColorEdit4("##snho", (float*)&selectedHoveredOutlineColor)) {
             m_theme.m_hoveredAndSelectedNodeOutlineColor =
                 ImGui::ColorConvertFloat4ToU32(selectedHoveredOutlineColor);
         }
     } else if (currentTab == 1) {
         ImGui::SeparatorText("Video");
         ImGui::Checkbox("Fullscreen Mode", &m_appFullScreen);
-        ImGui::TextUnformatted("FPS Limit (0 = disabled):");
 
+        ImGui::Checkbox("Limit FPS", &m_isFpsLimitEnabled);
+
+        ImGui::TextUnformatted("Max FPS:");
         ImGui::SetNextItemWidth(-FLT_MIN);
-        ImGui::SliderInt("##fpsLimit", &m_maxFps, 0, 360);
+        ImGui::SliderInt("##fpsLimit", &m_maxFps, 5, 360);
 
         constexpr const char* vsyncOptions[] = {"Off", "On", "Adaptive"};
 
@@ -568,14 +590,33 @@ void GraphView::drawSettings() {
 
         ImGui::SeparatorText("Performance");
         ImGui::Checkbox("Draw Grid", &m_drawGrid);
-        ImGui::Checkbox("Draw Quad Trees", &m_drawQuadTree);
+
         ImGui::Checkbox("Draw Min/Max Bounds", &m_drawMinMax);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip(
+                "Draw the min/max bounds of the graph, which is the\nsmallest rectangle that "
+                "contains all the nodes.");
+        }
+
         ImGui::Checkbox("Draw Nodes", &m_drawNodes);
 
         ImGui::SeparatorText("Other");
+
+        auto graphZoom = m_viewModel->getZoomFactor();
+
+        ImGui::TextUnformatted("Graph Zoom Factor:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::SliderFloat("##graphZoom", &graphZoom, 0.01f, 5.f, "%.2fx")) {
+            m_viewModel->setZoomFactor(graphZoom);
+        }
+
         ImGui::TextUnformatted("Grid Spacing:");
         ImGui::SetNextItemWidth(-FLT_MIN);
         ImGui::SliderFloat("##gridSpacing", &m_gridCellSize, NODE_RADIUS, 100.f, "%.2f");
+
+        ImGui::TextUnformatted("Minimum Zoom to Show Nodes:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::SliderInt("##nodeZoom", &m_nodeCutoffZoom, 0, 500);
     }
     ImGui::EndChild();
 
@@ -608,38 +649,21 @@ void GraphView::drawNodesIndexes(ImDrawList* drawList) {
     }
 }
 
-void GraphView::drawQuadTree(ImDrawList* drawList, const QuadTree* quadTree) {
-    if (!m_drawQuadTree || m_viewModel->getZoomFactor() < 0.5f) {
-        return;
-    }
-
-    if (!quadTree || !quadTree->validBounds()) {
-        return;
-    }
-
-    const auto& bounds = quadTree->getBounds();
-    if (!bounds.intersects(m_viewModel->getVisibleRegion())) {
-        return;
-    }
-
-    const auto topLeftScreen = toImVec(m_viewModel->worldToScreen(bounds.m_min));
-    const auto bottomRightScreen = toImVec(m_viewModel->worldToScreen(bounds.m_max));
-
-    drawList->AddRect(topLeftScreen, bottomRightScreen, m_theme.m_quadTreeColor, 0.f, 0, 3.f);
-    if (quadTree->isSubdivided()) {
-        drawQuadTree(drawList, quadTree->getTopLeft());
-        drawQuadTree(drawList, quadTree->getTopRight());
-        drawQuadTree(drawList, quadTree->getBottomLeft());
-        drawQuadTree(drawList, quadTree->getBottomRight());
-    }
-}
-
 void GraphView::drawMinMax(ImDrawList* drawList) {
+    // The HARD limit of the world coordinates, we can draw it to visualize the limits of the graph.
+    // This gets drawn regardless of the visible region, because it's useful to see it as a
+    // reference when zooming out.
+    const auto topLeftBoundsScreen = toImVec(m_viewModel->worldToScreen(WORLD_BOUNDS.m_min));
+    const auto bottomRightBoundsScreen = toImVec(m_viewModel->worldToScreen(WORLD_BOUNDS.m_max));
+
+    drawList->AddRect(topLeftBoundsScreen, bottomRightBoundsScreen, m_theme.m_gridColor, 0.f, 0,
+                      3.f);
+
     if (!m_drawMinMax) {
         return;
     }
 
-    const auto& bounds = m_model->getQuadTree()->getBounds();
+    const auto& bounds = m_model->getGraphBounds();
 
     const auto topLeftScreen = toImVec(m_viewModel->worldToScreen(bounds.m_min));
     const auto bottomRightScreen = toImVec(m_viewModel->worldToScreen(bounds.m_max));
@@ -832,5 +856,5 @@ ImU32 GraphView::getOutlineColor(NodeIndex_t nodeIndex) const {
 }
 
 bool GraphView::shouldDrawNodes() const {
-    return m_viewModel->getZoomFactor() >= 0.18f && m_drawNodes;
+    return m_viewModel->getZoomFactor() > (m_nodeCutoffZoom / 100.f) && m_drawNodes;
 }

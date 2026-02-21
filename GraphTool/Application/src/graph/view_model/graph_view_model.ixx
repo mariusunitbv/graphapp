@@ -24,6 +24,8 @@ export class GraphViewModel {
     bool isNodeSelected(NodeIndex_t nodeIndex) const;
 
     float getZoomFactor() const;
+    void setZoomFactor(float zoom);
+
     Vector2D getCameraPosition() const;
     const BoundingBox2D& getVisibleRegion() const;
     BoundingBox2D getVisibleRegionWorldCoordonates(Vector2D additionalPadding = {}) const;
@@ -50,6 +52,7 @@ export class GraphViewModel {
     void setSelectBoxEnd(float cursorX, float cursorY);
     void selectNodesInBox();
 
+    void clampCameraPositionInBounds();
     void updateVisibleRegion();
     void invalidateVisibleNodesCache();
 

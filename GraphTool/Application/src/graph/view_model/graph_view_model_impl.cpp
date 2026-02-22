@@ -11,6 +11,7 @@ void GraphViewModel::initialize(GraphModel* model, GraphView* view, float displa
     m_view = view;
 
     onSceneResize(displayWidth, displayHeight);
+    addSampleNodes();
 }
 
 void GraphViewModel::onSDLEvent(const SDL_Event& event) {
@@ -72,7 +73,7 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event) {
                     break;
                 case SDLK_UP:
                     if (lCtrlPressed) {
-                        onCameraZoom(1.f, m_sceneSize.m_x * 0.5f, m_sceneSize.m_y * 0.5f);
+                        onCameraZoom(1.f, m_displaySize.m_x * 0.5f, m_displaySize.m_y * 0.5f);
                     } else {
                         onCameraPan(0.f, -10.f);
                     }
@@ -80,7 +81,7 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event) {
                     break;
                 case SDLK_DOWN:
                     if (lCtrlPressed) {
-                        onCameraZoom(-1.f, m_sceneSize.m_x * 0.5f, m_sceneSize.m_y * 0.5f);
+                        onCameraZoom(-1.f, m_displaySize.m_x * 0.5f, m_displaySize.m_y * 0.5f);
                     } else {
                         onCameraPan(0.f, 10.f);
                     }
@@ -123,10 +124,10 @@ std::vector<VisibleNode>& GraphViewModel::getVisibleNodes() {
         return m_visibleNodes;
     }
 
-    const auto extraMargin = m_sceneSize * 0.2f;
+    const auto extraMargin = m_displaySize * 0.2f;
     m_lastQueryRegionArea = {
         screenToWorld(-extraMargin),
-        screenToWorld(m_sceneSize + extraMargin),
+        screenToWorld(m_displaySize + extraMargin),
     };
 
     m_visibleNodes = m_model->queryNodes(m_lastQueryRegionArea);
@@ -153,21 +154,19 @@ void GraphViewModel::setZoomFactor(float zoom) {
 
 Vector2D GraphViewModel::getCameraPosition() const { return m_camera.m_position; }
 
-const BoundingBox2D& GraphViewModel::getVisibleRegion() const { return m_visibleRegionArea; }
-
-BoundingBox2D GraphViewModel::getVisibleRegionWorldCoordonates(Vector2D additionalPadding) const {
+BoundingBox2D GraphViewModel::getVisibleRegionWorld(Vector2D additionalPadding) const {
     BoundingBox2D visibleWorldBounds = {screenToWorld(-additionalPadding),
-                                        screenToWorld(m_sceneSize + additionalPadding)};
+                                        screenToWorld(m_displaySize + additionalPadding)};
     const auto& graphBounds = m_model->getGraphBounds();
     return visibleWorldBounds.clamp(graphBounds);
 }
 
 Vector2D GraphViewModel::worldToScreen(Vector2D worldPos) const {
-    return (worldPos - m_camera.m_position) * m_camera.m_zoom + m_sceneSize * 0.5f;
+    return (worldPos - m_camera.m_position) * m_camera.m_zoom + m_displaySize * 0.5f;
 }
 
 Vector2D GraphViewModel::screenToWorld(Vector2D screenPos) const {
-    return (screenPos - m_sceneSize * 0.5f) / m_camera.m_zoom + m_camera.m_position;
+    return (screenPos - m_displaySize * 0.5f) / m_camera.m_zoom + m_camera.m_position;
 }
 
 void GraphViewModel::removeSelectedNodes() {
@@ -198,7 +197,7 @@ void GraphViewModel::centerOnNode(NodeIndex_t nodeIndex) {
 }
 
 void GraphViewModel::onSceneResize(float displayWidth, float displayHeight) {
-    m_sceneSize = {displayWidth, displayHeight};
+    m_displaySize = {displayWidth, displayHeight};
 
     invalidateVisibleNodesCache();
     updateVisibleRegion();
@@ -218,8 +217,8 @@ void GraphViewModel::onCameraZoom(float deltaZoom, float cursorX, float cursorY)
     m_camera.m_zoom += (deltaZoom > 0) ? 0.1f : -0.1f;
     m_camera.m_zoom = std::clamp(m_camera.m_zoom, 0.1f, 5.f);
 
-    m_camera.m_position.m_x = world.m_x - (cursorX - m_sceneSize.m_x * 0.5f) / m_camera.m_zoom;
-    m_camera.m_position.m_y = world.m_y - (cursorY - m_sceneSize.m_y * 0.5f) / m_camera.m_zoom;
+    m_camera.m_position.m_x = world.m_x - (cursorX - m_displaySize.m_x * 0.5f) / m_camera.m_zoom;
+    m_camera.m_position.m_y = world.m_y - (cursorY - m_displaySize.m_y * 0.5f) / m_camera.m_zoom;
 
     clampCameraPositionInBounds();
     invalidateVisibleNodesCache();
@@ -325,10 +324,35 @@ void GraphViewModel::clampCameraPositionInBounds() {
 }
 
 void GraphViewModel::updateVisibleRegion() {
-    m_visibleRegionArea = {screenToWorld({0.f, 0.f}), screenToWorld(m_sceneSize)};
+    m_visibleRegionArea = {screenToWorld({0.f, 0.f}), screenToWorld(m_displaySize)};
 }
 
 void GraphViewModel::invalidateVisibleNodesCache() {
     m_visibleNodes.clear();
     m_lastQueryRegionArea = {};
+}
+
+void GraphViewModel::addSampleNodes() {
+    constexpr float start = -5000.f;
+    constexpr float end = -start;
+    constexpr float step = NODE_RADIUS * 2.f;
+
+    constexpr size_t stepsPerAxis = static_cast<size_t>((end - start) / step) + 1;
+    constexpr size_t nodeCount = stepsPerAxis * stepsPerAxis;
+
+    static_assert(nodeCount < NODE_LIMIT, "Node count exceeds limits");
+
+    m_model->reserveNodes(nodeCount);
+    std::cout << "Adding " << nodeCount << " nodes for testing..." << std::endl;
+
+    m_model->beginBulkInsert();
+    for (float y = start; y <= -start; y += step) {
+        for (float x = start; x <= -start; x += step) {
+            m_model->addNode({x, y});
+        }
+    }
+
+    std::cout << "Building GridMap." << std::endl;
+    m_model->endBulkInsert();
+    std::cout << "Finished adding nodes." << std::endl;
 }

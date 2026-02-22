@@ -27,14 +27,9 @@ void GraphModel::addNode(Vector2D worldPos) {
 }
 
 void GraphModel::removeNodes(const std::unordered_set<NodeIndex_t>& nodes) {
-    // Pre-removal stage.
-    removeNodesFromGridMap(nodes);
-
-    // Removal stage.
     const auto indexRemap = removeNodesAndCalculateIndexRemap(nodes);
 
-    // Post-removal stage.
-    m_gridMap.fixIndexesAfterNodeRemoval(indexRemap);
+    m_gridMap.remove(indexRemap);
 }
 
 void GraphModel::reserveNodes(size_t nodeCount) { m_nodes.reserve(nodeCount); }
@@ -118,12 +113,6 @@ bool GraphModel::updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds) {
     }
 
     return updated;
-}
-
-void GraphModel::removeNodesFromGridMap(const std::unordered_set<NodeIndex_t>& nodes) {
-    for (const auto index : nodes) {
-        m_gridMap.remove(index, getNodeBoundingBox(m_nodes[index].m_worldPos));
-    }
 }
 
 std::vector<NodeIndex_t> GraphModel::removeNodesAndCalculateIndexRemap(

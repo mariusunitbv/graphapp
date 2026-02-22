@@ -4,6 +4,17 @@ module;
 module graph_view;
 
 import graph_view_model;
+import texture_loader;
+
+GraphView::~GraphView() {
+    if (m_nodeTexture) {
+        TextureLoader::unloadTexture(m_nodeTexture);
+    }
+
+    if (m_nodeOutlineTexture) {
+        TextureLoader::unloadTexture(m_nodeOutlineTexture);
+    }
+}
 
 void GraphView::initialize(const GraphModel* model, GraphViewModel* viewModel) {
     m_model = model;
@@ -716,7 +727,7 @@ void GraphView::drawGrid() {
     const auto displaySize = io.DisplaySize;
 
     const auto screenExtraPadding = Vector2D{m_gridCellSize, m_gridCellSize};
-    const auto worldBounds = m_viewModel->getVisibleRegionWorldCoordonates(screenExtraPadding);
+    const auto worldBounds = m_viewModel->getVisibleRegionWorld(screenExtraPadding);
 
     const auto topLeftWorld = worldBounds.m_min;
     const auto bottomRightWorld = worldBounds.m_max;

@@ -11,8 +11,8 @@
     <ClCompile Include="src\graph\view_model\graph_view_model_impl.cpp" />
     <ClCompile Include="src\graph\model\graph_model.ixx" />
     <ClCompile Include="src\graph\model\graph_model_impl.cpp" />
-    <ClCompile Include="src\utils\utils.ixx" />
-    <ClCompile Include="src\utils\utils_impl.cpp" />
+    <ClCompile Include="src\graph\view\texture_loader\texture_loader.ixx" />
+    <ClCompile Include="src\graph\view\texture_loader\texture_loader_impl.cpp" />
     <ClCompile Include="src\math\math.ixx" />
     <ClCompile Include="src\graph\model\defines\graph_model_defines.ixx" />
     <ClCompile Include="src\graph\model\defines\graph_model_defines_impl.cpp" />

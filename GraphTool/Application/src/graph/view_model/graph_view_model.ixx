@@ -27,8 +27,7 @@ export class GraphViewModel {
     void setZoomFactor(float zoom);
 
     Vector2D getCameraPosition() const;
-    const BoundingBox2D& getVisibleRegion() const;
-    BoundingBox2D getVisibleRegionWorldCoordonates(Vector2D additionalPadding = {}) const;
+    BoundingBox2D getVisibleRegionWorld(Vector2D additionalPadding = {}) const;
 
     Vector2D worldToScreen(Vector2D worldPos) const;
     Vector2D screenToWorld(Vector2D screenPos) const;
@@ -56,11 +55,13 @@ export class GraphViewModel {
     void updateVisibleRegion();
     void invalidateVisibleNodesCache();
 
+    void addSampleNodes();
+
     GraphModel* m_model{nullptr};
     GraphView* m_view{nullptr};
 
     GraphCamera m_camera{};
-    Vector2D m_sceneSize{};
+    Vector2D m_displaySize{};
 
     BoundingBox2D m_visibleRegionArea{};
 

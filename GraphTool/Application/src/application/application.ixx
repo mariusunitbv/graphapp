@@ -20,8 +20,6 @@ export class Application {
     const char* getGlslVersion() const;
 
     void handleMaximizationShortcut();
-    void addNodesForTesting();
-
     void limitFps(Uint64 frameStart);
 
     Application() = default;

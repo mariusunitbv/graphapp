@@ -151,8 +151,6 @@ void Application::quit() {
 void Application::initializeGraph(float width, float height) {
     m_graphViewModel.initialize(&m_graphModel, &m_graphView, width, height);
     m_graphView.initialize(&m_graphModel, &m_graphViewModel);
-
-    addNodesForTesting();
 }
 
 const char* Application::getGlslVersion() const {
@@ -170,32 +168,6 @@ void Application::handleMaximizationShortcut() {
     } else {
         SDL_MaximizeWindow(m_window);
     }
-}
-
-void Application::addNodesForTesting() {
-    // return;
-    constexpr float start = -5000.f;
-    constexpr float end = -start;
-    constexpr float step = NODE_RADIUS * 2.f;
-
-    constexpr size_t stepsPerAxis = static_cast<size_t>((end - start) / step) + 1;
-    constexpr size_t nodeCount = stepsPerAxis * stepsPerAxis;
-
-    static_assert(nodeCount < NODE_LIMIT, "Node count exceeds limits");
-
-    m_graphModel.reserveNodes(nodeCount);
-    std::cout << "Adding " << nodeCount << " nodes for testing..." << std::endl;
-
-    m_graphModel.beginBulkInsert();
-    for (float y = start; y <= -start; y += step) {
-        for (float x = start; x <= -start; x += step) {
-            m_graphModel.addNode({x, y});
-        }
-    }
-
-    std::cout << "Building GridMap." << std::endl;
-    m_graphModel.endBulkInsert();
-    std::cout << "Finished adding nodes." << std::endl;
 }
 
 void Application::limitFps(Uint64 frameStart) {

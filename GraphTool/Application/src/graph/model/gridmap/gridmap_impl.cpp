@@ -18,26 +18,20 @@ void GridMap::insert(const Node* node) {
     }
 }
 
-void GridMap::remove(NodeIndex_t toRemoveIndex, const BoundingBox2D& nodeArea) {
-    const auto [minCellX, maxCellX, minCellY, maxCellY] = calculateEntryCell(nodeArea);
-    for (size_t y = minCellY; y <= maxCellY; ++y) {
-        for (size_t x = minCellX; x <= maxCellX; ++x) {
-            auto& cellNodes = m_cells[y * m_cellCountX + x];
-            for (auto& nodeIndex : cellNodes) {
-                if (nodeIndex == toRemoveIndex) {
-                    nodeIndex = cellNodes.back();
-                    cellNodes.pop_back();
-                    break;
-                }
-            }
-        }
-    }
-}
+void GridMap::remove(const std::vector<NodeIndex_t>& indexRemap) {
+    for (auto& cellNodes : m_cells) {
+        size_t i = 0;
 
-void GridMap::fixIndexesAfterNodeRemoval(const std::vector<NodeIndex_t>& indexRemap) {
-    for (auto& cell : m_cells) {
-        for (auto& nodeIndex : cell) {
-            nodeIndex = indexRemap[nodeIndex];
+        while (i < cellNodes.size()) {
+            auto nodeIndex = cellNodes[i];
+
+            if (indexRemap[nodeIndex] == INVALID_NODE) {
+                cellNodes[i] = cellNodes.back();
+                cellNodes.pop_back();
+            } else {
+                cellNodes[i] = indexRemap[nodeIndex];
+                ++i;
+            }
         }
     }
 }
@@ -156,7 +150,7 @@ void GridMap::query(std::span<const Node> nodes, const BoundingBox2D& area,
                 }
 
                 const auto& node = nodes[nodeIndex];
-                if (area.contains(node.m_worldPos)) {
+                if (area.intersects(GraphModel::getNodeBoundingBox(node.m_worldPos))) {
                     visitMask[nodeIndex] = true;
                     result.emplace_back(node.m_worldPos, node.getABGR(), nodeIndex);
                 }

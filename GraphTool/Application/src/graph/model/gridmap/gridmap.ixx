@@ -9,9 +9,7 @@ import math;
 export class GridMap {
    public:
     void insert(const Node* node);
-    void remove(NodeIndex_t toRemoveIndex, const BoundingBox2D& nodeArea);
-
-    void fixIndexesAfterNodeRemoval(const std::vector<NodeIndex_t>& indexRemap);
+    void remove(const std::vector<NodeIndex_t>& indexRemap);
 
     std::vector<VisibleNode> query(std::span<const Node> nodes, const BoundingBox2D& area) const;
     NodeIndex_t querySingle(std::span<const Node> nodes, Vector2D point, float minimumDistance,

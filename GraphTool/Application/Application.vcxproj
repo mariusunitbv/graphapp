@@ -200,8 +200,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="src\utils\utils.ixx" />
-    <ClCompile Include="src\utils\utils_impl.cpp" />
+    <ClCompile Include="src\graph\view\texture_loader\texture_loader.ixx" />
+    <ClCompile Include="src\graph\view\texture_loader\texture_loader_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

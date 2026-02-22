@@ -21,6 +21,8 @@ struct GraphTheme {
 
 export class GraphView {
    public:
+    ~GraphView();
+
     void initialize(const GraphModel* model, GraphViewModel* viewModel);
 
     void renderUI();
@@ -95,22 +97,18 @@ export class GraphView {
         ~GLObject() {
             if (m_VAO) {
                 glDeleteVertexArrays(1, &m_VAO);
-                m_VAO = 0;
             }
 
             if (m_VBO) {
                 glDeleteBuffers(1, &m_VBO);
-                m_VBO = 0;
             }
 
             if (m_instanceVBO) {
                 glDeleteBuffers(1, &m_instanceVBO);
-                m_instanceVBO = 0;
             }
 
             if (m_shaderProgram) {
                 glDeleteProgram(m_shaderProgram);
-                m_shaderProgram = 0;
             }
         }
 

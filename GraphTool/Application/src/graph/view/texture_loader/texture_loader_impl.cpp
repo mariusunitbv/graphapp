@@ -1,7 +1,7 @@
 module;
 #include <pch.h>
 
-module utils;
+module texture_loader;
 
 GLuint TextureLoader::loadPNGFile(const char* filePath) {
     GLuint imageTexture{};
@@ -25,4 +25,12 @@ GLuint TextureLoader::loadPNGFile(const char* filePath) {
                  imageData.data());
 
     return imageTexture;
+}
+
+void TextureLoader::unloadTexture(GLuint textureId) {
+    if (!textureId) {
+        GAPP_THROW("Invalid texture ID");
+    }
+
+    glDeleteTextures(1, &textureId);
 }

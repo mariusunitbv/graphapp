@@ -6,7 +6,7 @@ Graph Tool
 <img src="https://img.shields.io/badge/status-WIP-yellow" />
 </h1>
 
-> ⚠️ This project is currently a Work in Progress. Features may change.
+> ⚠️ This project is currently a Work in Progress. Features may change. [Old version is here.](https://github.com/mariusunitbv/graphapp/tree/v1)
 
 Tool I’ve built to create, edit, and explore graphs interactively while visualizing classic algorithms like DFS or BFS in real time. It’s designed for performance and clarity, using OpenGL for fast, hardware-accelerated rendering and Dear ImGui for a clean, responsive UI.
 
@@ -18,7 +18,7 @@ I originally built this because I wasn’t fully satisfied with the graph visual
 
 So I decided to make my own.
 
-This is actually the third rewrite of the project, each time I focused more on performance and overall structure of the project. The current version is heavily optimized and can handle up to 1 billion nodes (without edge storage) while keeping rendering smooth thanks to OpenGL.
+This is actually the third rewrite of the project, each time I focused more on performance and overall structure of the project. The current version is heavily optimized and can handle up to 1 billion nodes (Under 30GB, without edge storage) while keeping rendering smooth thanks to OpenGL.
 
 It started as a learning tool, but it slowly turned into a performance challenge I genuinely enjoyed working on.
 

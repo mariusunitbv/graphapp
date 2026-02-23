@@ -4,8 +4,7 @@ module;
 export module graph_view;
 
 import graph_model;
-
-FORWARD_DECLARE_CLASS(GraphViewModel);
+import graph_view_model;
 
 struct GraphTheme {
     ImU32 m_backgroundColor{IM_COL32(20, 20, 20, 255)};
@@ -24,6 +23,7 @@ export class GraphView {
     ~GraphView();
 
     void initialize(const GraphModel* model, GraphViewModel* viewModel);
+    void onSDLEvent(const SDL_Event& event);
 
     void renderUI();
     void renderScene();

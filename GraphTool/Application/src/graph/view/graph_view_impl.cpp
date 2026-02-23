@@ -3,7 +3,6 @@ module;
 
 module graph_view;
 
-import graph_view_model;
 import texture_loader;
 
 static constexpr ImVec2 toImVec(Vector2D vec) { return ImVec2(vec.m_x, vec.m_y); }
@@ -25,7 +24,41 @@ void GraphView::initialize(const GraphModel* model, GraphViewModel* viewModel) {
     initializeGL();
 }
 
+void GraphView::onSDLEvent(const SDL_Event& event) {
+    if (isFocusOnUI()) {
+        return;
+    }
+
+    switch (event.type) {
+        case SDL_EVENT_KEY_DOWN:
+            switch (event.key.key) {
+                case SDLK_DELETE:
+                    if (m_viewModel->getSelectedNodesCount() > 0) {
+                        openDeleteConfirmationDialog();
+                    }
+
+                    break;
+                case SDLK_C:
+                    openCenterOnNodeDialog();
+                    break;
+                case SDLK_G:
+                    toggleGrid();
+                    break;
+                case SDLK_N:
+                    toggleDrawNodes();
+                    break;
+                case SDLK_F12:
+                    toggleSettings();
+                    break;
+            }
+
+            break;
+    }
+}
+
 void GraphView::renderUI() {
+    m_viewModel->setShouldRespondToEvents(!isFocusOnUI());
+
     ImDrawList* drawList = ImGui::GetBackgroundDrawList();
 
     if (!isFocusOnUI() && m_viewModel->getHoveredNodeIndex() != INVALID_NODE) {
@@ -434,8 +467,7 @@ void GraphView::drawDeleteConfirmationDialog() {
         ImGui::SetItemDefaultFocus();
         ImGui::SameLine();
 
-        if (ImGui::Button("No", ImVec2(buttonWidth, 0)) ||
-            ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        if (ImGui::Button("No", ImVec2(buttonWidth, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
             m_isDeleteDialogOpen = false;
             ImGui::CloseCurrentPopup();
         }

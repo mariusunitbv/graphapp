@@ -3,7 +3,7 @@ module;
 
 export module graph_model_defines;
 
-import graph_math;
+export import graph_math;
 
 export using NodeIndex_t = uint32_t;
 

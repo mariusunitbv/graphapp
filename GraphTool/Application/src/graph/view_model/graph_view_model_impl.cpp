@@ -3,12 +3,8 @@ module;
 
 module graph_view_model;
 
-import graph_view;
-
-void GraphViewModel::initialize(GraphModel* model, GraphView* view, float displayWidth,
-                                float displayHeight) {
+void GraphViewModel::initialize(GraphModel* model, float displayWidth, float displayHeight) {
     m_model = model;
-    m_view = view;
 
     onSceneResize(displayWidth, displayHeight);
     addSampleNodes();
@@ -20,7 +16,7 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event) {
         return;
     }
 
-    if (m_view->isFocusOnUI()) {
+    if (!m_shouldRespondToEvents) {
         return;
     }
 
@@ -87,24 +83,6 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event) {
                     }
 
                     break;
-                case SDLK_DELETE:
-                    if (!m_selectedNodes.empty()) {
-                        m_view->openDeleteConfirmationDialog();
-                    }
-
-                    break;
-                case SDLK_C:
-                    m_view->openCenterOnNodeDialog();
-                    break;
-                case SDLK_G:
-                    m_view->toggleGrid();
-                    break;
-                case SDLK_N:
-                    m_view->toggleDrawNodes();
-                    break;
-                case SDLK_F12:
-                    m_view->toggleSettings();
-                    break;
             }
 
             break;
@@ -118,6 +96,10 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event) {
 }
 
 void GraphViewModel::preRenderUpdate() { selectNodesInBox(); }
+
+void GraphViewModel::setShouldRespondToEvents(bool shouldRespond) {
+    m_shouldRespondToEvents = shouldRespond;
+}
 
 std::vector<VisibleNode>& GraphViewModel::getVisibleNodes() {
     if (m_lastQueryRegionArea.contains(m_visibleRegionArea)) {

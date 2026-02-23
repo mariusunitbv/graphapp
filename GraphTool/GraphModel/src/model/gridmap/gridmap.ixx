@@ -4,7 +4,6 @@ module;
 export module gridmap;
 
 import graph_model_defines;
-import graph_math;
 
 export class GridMap {
    public:

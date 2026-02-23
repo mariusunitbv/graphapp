@@ -5,7 +5,6 @@ export module graph_model;
 
 export import graph_model_defines;
 export import gridmap;
-export import graph_math;
 
 export class GraphModel {
    public:

@@ -5,8 +5,6 @@ export module graph_view_model;
 
 import graph_model;
 
-FORWARD_DECLARE_CLASS(GraphView);
-
 export struct GraphCamera {
     Vector2D m_position{};
     float m_zoom{1.0f};
@@ -14,9 +12,11 @@ export struct GraphCamera {
 
 export class GraphViewModel {
    public:
-    void initialize(GraphModel* model, GraphView* view, float displayWidth, float displayHeight);
+    void initialize(GraphModel* model, float displayWidth, float displayHeight);
     void onSDLEvent(const SDL_Event& event);
     void preRenderUpdate();
+
+    void setShouldRespondToEvents(bool shouldRespond);
 
     std::vector<VisibleNode>& getVisibleNodes();
     NodeIndex_t getHoveredNodeIndex() const;
@@ -58,7 +58,6 @@ export class GraphViewModel {
     void addSampleNodes();
 
     GraphModel* m_model{nullptr};
-    GraphView* m_view{nullptr};
 
     GraphCamera m_camera{};
     Vector2D m_displaySize{};
@@ -71,6 +70,7 @@ export class GraphViewModel {
 
     NodeIndex_t m_hoveredNodeIndex{INVALID_NODE};
     bool m_isSelectingUsingBox{false};
+    bool m_shouldRespondToEvents{true};
 
     std::chrono::steady_clock::time_point m_lastSelectBoxQueryTime{};
     Vector2D m_selectBoxStartWorldPos{};

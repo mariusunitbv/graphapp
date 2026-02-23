@@ -103,6 +103,7 @@ void Application::run() {
             }
 
             m_graphViewModel.onSDLEvent(event);
+            m_graphView.onSDLEvent(event);
         }
 
         m_graphViewModel.preRenderUpdate();
@@ -149,7 +150,7 @@ void Application::quit() {
 }
 
 void Application::initializeGraph(float width, float height) {
-    m_graphViewModel.initialize(&m_graphModel, &m_graphView, width, height);
+    m_graphViewModel.initialize(&m_graphModel, width, height);
     m_graphView.initialize(&m_graphModel, &m_graphViewModel);
 }
 

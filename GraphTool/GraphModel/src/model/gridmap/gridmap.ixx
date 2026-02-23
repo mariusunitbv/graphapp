@@ -4,12 +4,15 @@ module;
 export module gridmap;
 
 import graph_model_defines;
-import math;
+import graph_math;
 
 export class GridMap {
    public:
     void insert(const Node* node);
     void remove(const std::vector<NodeIndex_t>& indexRemap);
+
+    void incrementNodeCountInCells(const BoundingBox2D& nodeArea);
+    void reserveNodeCountInCells();
 
     std::vector<VisibleNode> query(std::span<const Node> nodes, const BoundingBox2D& area) const;
     NodeIndex_t querySingle(std::span<const Node> nodes, Vector2D point, float minimumDistance,
@@ -21,6 +24,7 @@ export class GridMap {
     const BoundingBox2D& getBounds() const;
     void setBounds(const BoundingBox2D& bounds);
 
+    bool isAllocated() const;
     void allocateCells();
 
    private:
@@ -31,14 +35,13 @@ export class GridMap {
         int m_maxCellY{0};
     };
 
-    EntryCell calculateEntryCell(const BoundingBox2D& nodeArea) const;
-
-    void query(std::span<const Node> nodes, const BoundingBox2D& area, std::vector<bool>& visitMask,
-               std::vector<VisibleNode>& result) const;
+    EntryCell calculateCellEntryForNode(const BoundingBox2D& nodeArea) const;
+    EntryCell calculateCellEntryForArea(const BoundingBox2D& area) const;
 
     int m_cellCountX{0};
     int m_cellCountY{0};
 
     BoundingBox2D m_bounds{};
     std::vector<std::vector<NodeIndex_t>> m_cells{};
+    std::vector<uint32_t> m_nodeCountInCell{};
 };

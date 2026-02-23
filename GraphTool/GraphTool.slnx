@@ -3,5 +3,9 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Application/Application.vcxproj" Id="b5bcf55c-7951-431d-8472-16ebb3a6cf82" />
+  <Project Path="Application/Application.vcxproj" Id="b5bcf55c-7951-431d-8472-16ebb3a6cf82">
+    <BuildDependency Project="GraphModel/GraphModel.vcxproj" />
+  </Project>
+  <Project Path="GraphModel/GraphModel.vcxproj" Id="08ad282b-874e-4303-bf52-49577e03cdeb" />
+  <Project Path="GraphModelTest/GraphModelTest.vcxproj" Id="81247077-f68f-4489-aa2d-770001affc0f" />
 </Solution>

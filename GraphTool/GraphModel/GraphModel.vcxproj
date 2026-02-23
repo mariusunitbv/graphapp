@@ -21,32 +21,33 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{b5bcf55c-7951-431d-8472-16ebb3a6cf82}</ProjectGuid>
-    <RootNamespace>Application</RootNamespace>
+    <ProjectGuid>{08ad282b-874e-4303-bf52-49577e03cdeb}</ProjectGuid>
+    <RootNamespace>Graph</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>GraphModel</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -73,26 +74,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(SolutionDir)bin\$(Configuration) $(Platform)\</OutDir>
     <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Configuration) $(Platform)\</IntDir>
-    <IncludePath>$(SolutionDir)GraphModel\include;$(SolutionDir)vcpkg_installed\x64-windows\x64-windows\include;$(ProjectDir)src\pch;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)bin\$(Configuration) $(Platform)\;$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <IncludePath>$(ProjectDir)src\pch;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)bin\$(Configuration) $(Platform)\</OutDir>
     <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Configuration) $(Platform)\</IntDir>
-    <IncludePath>$(SolutionDir)GraphModel\include;$(SolutionDir)vcpkg_installed\x64-windows\x64-windows\include;$(ProjectDir)src\pch;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)bin\$(Configuration) $(Platform)\;$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <IncludePath>$(ProjectDir)src\pch;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)bin\$(Configuration) $(Platform)\</OutDir>
     <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Configuration) $(Platform)\</IntDir>
-    <IncludePath>$(SolutionDir)GraphModel\include;$(SolutionDir)vcpkg_installed\x64-windows\x64-windows\include;$(ProjectDir)src\pch;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)bin\$(Configuration) $(Platform)\;$(SolutionDir)vcpkg_installed\x64-windows\x64-windows\lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <IncludePath>$(ProjectDir)src\pch;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)bin\$(Configuration) $(Platform)\</OutDir>
     <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Configuration) $(Platform)\</IntDir>
-    <IncludePath>$(SolutionDir)GraphModel\include;$(SolutionDir)vcpkg_installed\x64-windows\x64-windows\include;$(ProjectDir)src\pch;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)bin\$(Configuration) $(Platform)\;$(SolutionDir)vcpkg_installed\x64-windows\x64-windows\lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <IncludePath>$(ProjectDir)src\pch;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
@@ -107,14 +108,10 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
-      <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;GraphModel.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -129,14 +126,10 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
-      <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;GraphModel.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -149,14 +142,10 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
-      <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;GraphModel.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -171,30 +160,20 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
-      <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;GraphModel.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\GraphModel\src\math\graph_math.ixx" />
-    <ClCompile Include="..\GraphModel\src\model\defines\graph_model_defines.ixx" />
-    <ClCompile Include="..\GraphModel\src\model\graph_model.ixx" />
-    <ClCompile Include="..\GraphModel\src\model\gridmap\gridmap.ixx" />
-    <ClCompile Include="src\application\application.ixx" />
-    <ClCompile Include="src\application\application_impl.cpp" />
-    <ClCompile Include="src\graph\view\graph_view.ixx" />
-    <ClCompile Include="src\graph\view\graph_view_impl.cpp" />
-    <ClCompile Include="src\graph\view\texture_loader\texture_loader.ixx" />
-    <ClCompile Include="src\graph\view\texture_loader\texture_loader_impl.cpp" />
-    <ClCompile Include="src\graph\view_model\graph_view_model.ixx" />
-    <ClCompile Include="src\graph\view_model\graph_view_model_impl.cpp" />
-    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\math\graph_math.ixx" />
+    <ClCompile Include="src\model\defines\graph_model_defines.ixx" />
+    <ClCompile Include="src\model\defines\graph_model_defines_impl.cpp" />
+    <ClCompile Include="src\model\graph_model.ixx" />
+    <ClCompile Include="src\model\graph_model_impl.cpp" />
+    <ClCompile Include="src\model\gridmap\gridmap.ixx" />
+    <ClCompile Include="src\model\gridmap\gridmap_impl.cpp" />
     <ClCompile Include="src\pch\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -203,6 +182,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\graph_model.h" />
     <ClInclude Include="src\pch\pch.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -5,19 +5,16 @@
     <ClCompile Include="src\pch\pch.cpp" />
     <ClCompile Include="src\application\application.ixx" />
     <ClCompile Include="src\application\application_impl.cpp" />
+    <ClCompile Include="src\graph\view\texture_loader\texture_loader.ixx" />
+    <ClCompile Include="src\graph\view\texture_loader\texture_loader_impl.cpp" />
     <ClCompile Include="src\graph\view\graph_view.ixx" />
     <ClCompile Include="src\graph\view\graph_view_impl.cpp" />
     <ClCompile Include="src\graph\view_model\graph_view_model.ixx" />
     <ClCompile Include="src\graph\view_model\graph_view_model_impl.cpp" />
-    <ClCompile Include="src\graph\model\graph_model.ixx" />
-    <ClCompile Include="src\graph\model\graph_model_impl.cpp" />
-    <ClCompile Include="src\graph\view\texture_loader\texture_loader.ixx" />
-    <ClCompile Include="src\graph\view\texture_loader\texture_loader_impl.cpp" />
-    <ClCompile Include="src\math\math.ixx" />
-    <ClCompile Include="src\graph\model\defines\graph_model_defines.ixx" />
-    <ClCompile Include="src\graph\model\defines\graph_model_defines_impl.cpp" />
-    <ClCompile Include="src\graph\model\gridmap\gridmap.ixx" />
-    <ClCompile Include="src\graph\model\gridmap\gridmap_impl.cpp" />
+    <ClCompile Include="..\GraphModel\src\model\graph_model.ixx" />
+    <ClCompile Include="..\GraphModel\src\model\gridmap\gridmap.ixx" />
+    <ClCompile Include="..\GraphModel\src\model\defines\graph_model_defines.ixx" />
+    <ClCompile Include="..\GraphModel\src\math\graph_math.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

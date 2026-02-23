@@ -1,7 +1,7 @@
 module;
 #include <pch.h>
 
-export module math;
+export module graph_math;
 
 export struct Vector2D {
     constexpr Vector2D() = default;
@@ -71,5 +71,3 @@ export struct BoundingBox2D {
     Vector2D m_min{};
     Vector2D m_max{};
 };
-
-export constexpr ImVec2 toImVec(Vector2D vec) { return ImVec2(vec.m_x, vec.m_y); }

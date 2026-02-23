@@ -333,7 +333,7 @@ void GraphViewModel::invalidateVisibleNodesCache() {
 }
 
 void GraphViewModel::addSampleNodes() {
-    constexpr float start = -5000.f;
+    constexpr float start = -10000.f;
     constexpr float end = -start;
     constexpr float step = NODE_RADIUS * 2.f;
 
@@ -342,17 +342,38 @@ void GraphViewModel::addSampleNodes() {
 
     static_assert(nodeCount < NODE_LIMIT, "Node count exceeds limits");
 
-    m_model->reserveNodes(nodeCount);
-    std::cout << "Adding " << nodeCount << " nodes for testing..." << std::endl;
-
     m_model->beginBulkInsert();
-    for (float y = start; y <= -start; y += step) {
-        for (float x = start; x <= -start; x += step) {
+
+    m_model->reserveNodes(nodeCount);
+    m_model->reserveArea({{start, start}, {end, end}});
+
+    std::cout << "Adding " << nodeCount << " nodes for testing...\n";
+
+    for (float y = start; y <= end; y += step) {
+        bool nodeLimitReached = false;
+        if (nodeLimitReached) {
+            std::cout << "Node limit reached while adding sample nodes.\n";
+            break;
+        }
+
+        for (float x = start; x <= end; x += step) {
+            const auto lastNodeIndex = m_model->getLastNodeIndex();
+            if (lastNodeIndex != INVALID_NODE && lastNodeIndex >= nodeCount - 1) {
+                nodeLimitReached = true;
+                break;
+            }
+
             m_model->addNode({x, y});
         }
     }
 
-    std::cout << "Building GridMap." << std::endl;
+    std::cout << "Building GridMap.\n";
+
+    const auto now = std::chrono::steady_clock::now();
     m_model->endBulkInsert();
-    std::cout << "Finished adding nodes." << std::endl;
+    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - now);
+
+    std::cout << "GridMap built in " << duration.count() << " ms.\n";
+    std::cout << "Finished adding nodes.\n";
 }

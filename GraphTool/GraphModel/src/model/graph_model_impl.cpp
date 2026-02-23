@@ -17,6 +17,10 @@ void GraphModel::addNode(Vector2D worldPos) {
         if (!m_bulkInsertMode) {
             rebuildGridMap();
         }
+    } else {
+        if (m_bulkInsertMode) {
+            m_gridMap.incrementNodeCountInCells(nodeArea);
+        }
     }
 
     m_nodes.emplace_back(static_cast<NodeIndex_t>(m_nodes.size()), worldPos);
@@ -32,16 +36,44 @@ void GraphModel::removeNodes(const std::unordered_set<NodeIndex_t>& nodes) {
     m_gridMap.remove(indexRemap);
 }
 
-void GraphModel::reserveNodes(size_t nodeCount) { m_nodes.reserve(nodeCount); }
+void GraphModel::reserveNodes(size_t nodeCount) {
+    if (!m_bulkInsertMode) {
+        GAPP_THROW("reserveNodes can only be called in bulk insert mode");
+    }
+
+    m_nodes.reserve(nodeCount);
+}
+
+void GraphModel::reserveArea(const BoundingBox2D& area) {
+    if (!m_bulkInsertMode) {
+        GAPP_THROW("reserveArea can only be called in bulk insert mode");
+    }
+
+    const auto areaWithRadius = BoundingBox2D{area.m_min - Vector2D{NODE_RADIUS, NODE_RADIUS},
+                                              area.m_max + Vector2D{NODE_RADIUS, NODE_RADIUS}};
+    updateDynamicBoundsIfNeeded(areaWithRadius);
+
+    m_gridMap.allocateCells();
+}
 
 void GraphModel::beginBulkInsert() { m_bulkInsertMode = true; }
 
 void GraphModel::endBulkInsert() {
-    rebuildGridMap();
+    m_gridMap.reserveNodeCountInCells();
+    for (const auto& node : m_nodes) {
+        m_gridMap.insert(&node);
+    }
+
     m_bulkInsertMode = false;
 }
 
-NodeIndex_t GraphModel::getLastNodeIndex() const { return m_nodes.back().m_index; }
+NodeIndex_t GraphModel::getLastNodeIndex() const {
+    if (m_nodes.empty()) {
+        return INVALID_NODE;
+    }
+
+    return m_nodes.back().m_index;
+}
 
 Node* GraphModel::getNode(NodeIndex_t index) { return &m_nodes[index]; }
 
@@ -108,11 +140,24 @@ bool GraphModel::updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds) {
     }
 
     if (updated) {
+        if (m_bulkInsertMode && m_gridMap.isAllocated()) {
+            GAPP_THROW(
+                "Dynamic bounds cannot be updated in bulk insert mode after the grid map has been "
+                "allocated");
+        }
+
         dynamicBounds.clamp(WORLD_BOUNDS);
         m_gridMap.setBounds(dynamicBounds);
     }
 
     return updated;
+}
+
+void GraphModel::rebuildGridMap() {
+    m_gridMap.allocateCells();
+    for (const auto& node : m_nodes) {
+        m_gridMap.insert(&node);
+    }
 }
 
 std::vector<NodeIndex_t> GraphModel::removeNodesAndCalculateIndexRemap(
@@ -136,11 +181,4 @@ std::vector<NodeIndex_t> GraphModel::removeNodesAndCalculateIndexRemap(
 
     m_nodes.resize(writeIndex);
     return indexRemap;
-}
-
-void GraphModel::rebuildGridMap() {
-    m_gridMap.allocateCells();
-    for (const auto& node : m_nodes) {
-        m_gridMap.insert(&node);
-    }
 }

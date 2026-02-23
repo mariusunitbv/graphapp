@@ -5,7 +5,7 @@ export module graph_model;
 
 export import graph_model_defines;
 export import gridmap;
-export import math;
+export import graph_math;
 
 export class GraphModel {
    public:
@@ -13,6 +13,7 @@ export class GraphModel {
     void removeNodes(const std::unordered_set<NodeIndex_t>& nodes);
 
     void reserveNodes(size_t nodeCount);
+    void reserveArea(const BoundingBox2D& area);
 
     void beginBulkInsert();
     void endBulkInsert();
@@ -36,11 +37,10 @@ export class GraphModel {
 
    private:
     bool updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds);
+    void rebuildGridMap();
 
     std::vector<NodeIndex_t> removeNodesAndCalculateIndexRemap(
         const std::unordered_set<NodeIndex_t>& nodes);
-
-    void rebuildGridMap();
 
     std::vector<Node> m_nodes;
     GridMap m_gridMap;

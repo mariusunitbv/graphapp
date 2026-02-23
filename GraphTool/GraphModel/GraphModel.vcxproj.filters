@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="src\model\defines\graph_model_defines.ixx" />
+    <ClCompile Include="src\model\defines\graph_model_defines_impl.cpp" />
+    <ClCompile Include="src\model\gridmap\gridmap.ixx" />
+    <ClCompile Include="src\model\gridmap\gridmap_impl.cpp" />
+    <ClCompile Include="src\model\graph_model.ixx" />
+    <ClCompile Include="src\model\graph_model_impl.cpp" />
+    <ClCompile Include="src\math\graph_math.ixx" />
+    <ClCompile Include="src\pch\pch.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\pch\pch.h" />
+    <ClInclude Include="include\graph_model.h" />
+  </ItemGroup>
+</Project>

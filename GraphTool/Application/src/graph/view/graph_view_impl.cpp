@@ -6,6 +6,8 @@ module graph_view;
 import graph_view_model;
 import texture_loader;
 
+static constexpr ImVec2 toImVec(Vector2D vec) { return ImVec2(vec.m_x, vec.m_y); }
+
 GraphView::~GraphView() {
     if (m_nodeTexture) {
         TextureLoader::unloadTexture(m_nodeTexture);
@@ -414,11 +416,16 @@ void GraphView::drawDeleteConfirmationDialog() {
     ImGui::SetNextWindowPos(centerPos, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Confirmation", &m_isDeleteDialogOpen,
                                ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Are you sure you want to delete %llu node?",
-                    m_viewModel->getSelectedNodesCount());
+        const auto nodeCount = m_viewModel->getSelectedNodesCount();
+        ImGui::Text("Are you sure you want to delete %llu node%s?", nodeCount,
+                    nodeCount == 1 ? "" : "s");
         ImGui::Separator();
 
-        if (ImGui::Button("Yes", ImVec2(140, 0))) {
+        const auto availableWidth = ImGui::GetContentRegionAvail().x;
+        const auto itemSpacing = ImGui::GetStyle().ItemSpacing.x;
+        const auto buttonWidth = (availableWidth - itemSpacing) * 0.5f;
+
+        if (ImGui::Button("Yes", ImVec2(buttonWidth, 0))) {
             m_viewModel->removeSelectedNodes();
             m_isDeleteDialogOpen = false;
             ImGui::CloseCurrentPopup();
@@ -427,7 +434,8 @@ void GraphView::drawDeleteConfirmationDialog() {
         ImGui::SetItemDefaultFocus();
         ImGui::SameLine();
 
-        if (ImGui::Button("No", ImVec2(140, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        if (ImGui::Button("No", ImVec2(buttonWidth, 0)) ||
+            ImGui::IsKeyPressed(ImGuiKey_Escape)) {
             m_isDeleteDialogOpen = false;
             ImGui::CloseCurrentPopup();
         }

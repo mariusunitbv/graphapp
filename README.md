@@ -51,3 +51,4 @@ All of the listed dependencies will be automatically installed when following th
 - [SDL3](https://github.com/libsdl-org/SDL) - Handles window creation and input (keyboard, mouse, etc.). Also used as the platform backend for ImGui.
 - [lodepng](https://github.com/lvandeve/lodepng) - Small helper to decode image data in memory to help in loading textures into memory.
 - [glad](https://github.com/Dav1dde/glad) - Dynamic loader for modern OpenGL features.
+- [GoogleTest](https://github.com/google/googletest) - Used for unit testing in Graph Model.

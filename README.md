@@ -22,5 +22,32 @@ This is actually the third rewrite of the project, each time I focused more on p
 
 It started as a learning tool, but it slowly turned into a performance challenge I genuinely enjoyed working on.
 
+# Unit Tests
+Unit tests use [Google Test](https://github.com/google/googletest) and can be run via the [GraphModelTest](https://github.com/mariusunitbv/graphapp/tree/v2/GraphTool/GraphModelTest) project or Visual Studio Test Explorer on Windows.
+
 # Building
+> ⚠️ The first build may take some time, as vcpkg needs to download and compile all dependencies locally.
+
+## Windows
+> Visual Studio includes built-in support for vcpkg, so no separate installation is required.  
+> If it is not installed, it can be added from the Visual Studio Installer under `Individual components`.
+
+This project is developed using Visual Studio 2026.
+To use it with Visual Studio 2022, simply change the `Windows SDK Version` and the `Platform Toolset` in each project's Properties.
+
+1. Open `GraphTool.slnx` in Visual Studio 2026
+2. Open `Developer Command Prompt` from `Tools -> Command Line`
+3. Enter `vcpkg install` to download and compile all the needed dependencies. (first time only)
+4. You can now build the project normally (Build -> Build Solution or Ctrl+Shift+B).
+
+## Linux
 TODO
+
+# Dependencies
+All of the listed dependencies will be automatically installed when following the building steps using [vcpkg.](https://github.com/microsoft/vcpkg)
+
+- [Dear ImGui](https://github.com/ocornut/imgui) - UI library used to build the graphical interface.
+- [OpenGL 3.3](https://en.wikipedia.org/wiki/OpenGL) - Drawing backend for UI, incredibly fast and efficient GPU-based drawing.
+- [SDL3](https://github.com/libsdl-org/SDL) - Handles window creation and input (keyboard, mouse, etc.). Also used as the platform backend for ImGui.
+- [lodepng](https://github.com/lvandeve/lodepng) - Small helper to decode image data in memory to help in loading textures into memory.
+- [glad](https://github.com/Dav1dde/glad) - Dynamic loader for modern OpenGL features.

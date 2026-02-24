@@ -30,13 +30,6 @@ export class GraphView {
 
     bool isFocusOnUI() const;
 
-    void openDeleteConfirmationDialog();
-    void openCenterOnNodeDialog();
-
-    void toggleGrid() { m_drawGrid = !m_drawGrid; }
-    void toggleDrawNodes() { m_drawNodes = !m_drawNodes; }
-
-    void toggleSettings() { m_isSettingsOpen = !m_isSettingsOpen; }
     void toggleFullScreen() { m_appFullScreen = !m_appFullScreen; }
     bool isFullScreen() const { return m_appFullScreen; }
     bool isFpsLimitEnabled() const { return m_isFpsLimitEnabled; }

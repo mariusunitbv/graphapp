@@ -34,21 +34,21 @@ void GraphView::onSDLEvent(const SDL_Event& event) {
             switch (event.key.key) {
                 case SDLK_DELETE:
                     if (m_viewModel->getSelectedNodesCount() > 0) {
-                        openDeleteConfirmationDialog();
+                        m_isDeleteDialogOpen = true;
                     }
 
                     break;
                 case SDLK_C:
-                    openCenterOnNodeDialog();
+                    m_isCenterOnNodeDialogOpen = true;
                     break;
                 case SDLK_G:
-                    toggleGrid();
+                    m_drawGrid = !m_drawGrid;
                     break;
                 case SDLK_N:
-                    toggleDrawNodes();
+                    m_drawNodes = !m_drawNodes;
                     break;
                 case SDLK_F12:
-                    toggleSettings();
+                    m_isSettingsOpen = !m_isSettingsOpen;
                     break;
             }
 
@@ -119,10 +119,6 @@ void GraphView::renderScene() {
 bool GraphView::isFocusOnUI() const {
     return ImGui::GetIO().WantCaptureMouse || ImGui::GetIO().WantCaptureKeyboard;
 }
-
-void GraphView::openDeleteConfirmationDialog() { m_isDeleteDialogOpen = true; }
-
-void GraphView::openCenterOnNodeDialog() { m_isCenterOnNodeDialogOpen = true; }
 
 int GraphView::getVsyncMode() const {
     // https://wiki.libsdl.org/SDL3/SDL_GL_SetSwapInterval
@@ -367,7 +363,7 @@ void GraphView::drawMenuBar() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("View")) {
             if (ImGui::MenuItem("Center on Node", "C")) {
-                openCenterOnNodeDialog();
+                m_isCenterOnNodeDialogOpen = true;
             }
 
             ImGui::MenuItem("Draw Grid", "G", &m_drawGrid);

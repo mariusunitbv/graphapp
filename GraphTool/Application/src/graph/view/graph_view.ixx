@@ -11,7 +11,7 @@ struct GraphTheme {
     ImU32 m_gridColor{IM_COL32(35, 35, 35, 255)};
     ImU32 m_minMaxColor{IM_COL32(255, 0, 0, 255)};
 
-    ImU32 m_nodeColor{m_backgroundColor};
+    ImU32 m_nodeColor{IM_COL32(35, 35, 35, 255)};
     ImU32 m_nodeOutlineColor{IM_COL32(255, 255, 255, 255)};
     ImU32 m_selectedNodeOutlineColor{IM_COL32(89, 222, 18, 255)};
     ImU32 m_hoveredNodeOutlineColor{IM_COL32(18, 191, 222, 255)};
@@ -35,6 +35,10 @@ export class GraphView {
     bool isFpsLimitEnabled() const { return m_isFpsLimitEnabled; }
     int getMaxFps() const { return m_maxFps; }
     int getVsyncMode() const;
+
+    void setSmallNodeFont(ImFont* font) { m_smallNodeFont = font; }
+    void setMediumNodeFont(ImFont* font) { m_mediumNodeFont = font; }
+    void setLargeNodeFont(ImFont* font) { m_largeNodeFont = font; }
 
    private:
     void initializeGL();
@@ -73,6 +77,7 @@ export class GraphView {
     bool m_drawGrid{true};
     bool m_drawMinMax{false};
     bool m_drawNodes{true};
+    bool m_drawNodesOutline{true};
 
     bool m_isFpsLimitEnabled{true};
     bool m_isDeleteDialogOpen{false};
@@ -85,6 +90,10 @@ export class GraphView {
     int m_vsyncMode{0};
     float m_gridCellSize{100.f};
     int m_nodeCutoffZoom{10};
+
+    ImFont* m_smallNodeFont{nullptr};
+    ImFont* m_mediumNodeFont{nullptr};
+    ImFont* m_largeNodeFont{nullptr};
 
     struct GLObject {
         ~GLObject() {

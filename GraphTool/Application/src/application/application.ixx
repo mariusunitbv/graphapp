@@ -16,6 +16,9 @@ export class Application {
     void quit();
 
    private:
+    void setupWindowIcon();
+    void setupFonts(float scale);
+
     void initializeGraph(float width, float height);
     const char* getGlslVersion() const;
 

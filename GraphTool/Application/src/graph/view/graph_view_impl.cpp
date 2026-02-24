@@ -369,6 +369,7 @@ void GraphView::drawMenuBar() {
             ImGui::MenuItem("Draw Grid", "G", &m_drawGrid);
             ImGui::MenuItem("Draw Min/Max Bounds", nullptr, &m_drawMinMax);
             ImGui::MenuItem("Draw Nodes", "N", &m_drawNodes);
+            ImGui::MenuItem("Draw Nodes Outline", nullptr, &m_drawNodesOutline);
 
             ImGui::EndMenu();
         }
@@ -407,9 +408,10 @@ void GraphView::drawStatusBar() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 2));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 0));
 
+    const auto barHeight = ImGui::GetFont()->FontSize + 3.f;
     const auto [screenWidth, screenHeight] = ImGui::GetIO().DisplaySize;
-    ImGui::SetNextWindowPos(ImVec2(0, screenHeight - 16));
-    ImGui::SetNextWindowSize(ImVec2(screenWidth, 16));
+    ImGui::SetNextWindowPos(ImVec2(0, screenHeight - barHeight));
+    ImGui::SetNextWindowSize(ImVec2(screenWidth, barHeight));
     ImGui::Begin("StatusBar", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollWithMouse |
@@ -421,7 +423,7 @@ void GraphView::drawStatusBar() {
     ImGui::SameLine();
 
     char buffer[32];
-    std::snprintf(buffer, sizeof(buffer), "Visible nodes: %llu",
+    std::snprintf(buffer, sizeof(buffer), "Visible nodes: %zu",
                   m_viewModel->getVisibleNodes().size());
 
     const auto textWidth = ImGui::CalcTextSize(buffer).x;
@@ -446,7 +448,7 @@ void GraphView::drawDeleteConfirmationDialog() {
     if (ImGui::BeginPopupModal("Confirmation", &m_isDeleteDialogOpen,
                                ImGuiWindowFlags_AlwaysAutoResize)) {
         const auto nodeCount = m_viewModel->getSelectedNodesCount();
-        ImGui::Text("Are you sure you want to delete %llu node%s?", nodeCount,
+        ImGui::Text("Are you sure you want to delete %zu node%s?", nodeCount,
                     nodeCount == 1 ? "" : "s");
         ImGui::Separator();
 
@@ -532,7 +534,7 @@ void GraphView::drawSettings() {
     constexpr auto windowFlags = ImGuiWindowFlags_NoDocking;
     ImGui::Begin("Settings", &m_isSettingsOpen, windowFlags);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGui::BeginChild("##settings_tabs", ImVec2(150, 0), ImGuiChildFlags_Borders);
+    ImGui::BeginChild("##settings_tabs", ImVec2(170, 0), ImGuiChildFlags_Borders);
     if (ImGui::BeginListBox("##tabs", {-FLT_MIN, -FLT_MIN})) {
         for (int i = 0; i < std::size(settingsTabs); ++i) {
             if (ImGui::Selectable(settingsTabs[i], currentTab == i)) {
@@ -646,6 +648,7 @@ void GraphView::drawSettings() {
         }
 
         ImGui::Checkbox("Draw Nodes", &m_drawNodes);
+        ImGui::Checkbox("Draw Nodes Outline", &m_drawNodesOutline);
 
         ImGui::SeparatorText("Other");
 
@@ -680,18 +683,26 @@ void GraphView::drawNodesIndexes(ImDrawList* drawList) {
         return;
     }
 
-    const auto fontSize = ImGui::GetFontSize() * zoom;
+    const auto font = [this, zoom]() {
+        if (zoom >= 2.f) {
+            return m_largeNodeFont;
+        } else if (zoom >= 0.9f) {
+            return m_mediumNodeFont;
+        } else {
+            return m_smallNodeFont;
+        }
+    }();
 
     const auto& visibleNodes = m_viewModel->getVisibleNodes();
     for (const auto& visibleNode : visibleNodes) {
         const auto node = m_model->getNode(visibleNode.m_index);
 
         const auto worldPos = m_viewModel->worldToScreen(visibleNode.m_worldPos);
-        const auto baseSize = ImGui::CalcTextSize(node->m_labelBuffer);
-        const auto scaledSize = baseSize * zoom;
-        const auto textPos = toImVec(worldPos) - scaledSize * 0.5f;
+        const auto baseSize =
+            font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, node->m_labelBuffer);
+        const auto textPos = toImVec(worldPos) - baseSize * 0.5f;
 
-        drawList->AddText(nullptr, fontSize, textPos, getOutlineColor(visibleNode.m_index),
+        drawList->AddText(font, font->FontSize, textPos, getOutlineColor(visibleNode.m_index),
                           node->m_labelBuffer);
     }
 }
@@ -819,7 +830,8 @@ void GraphView::drawNodes() {
     }
 
     const auto [width, height] = ImGui::GetIO().DisplaySize;
-    const float radius = NODE_RADIUS * m_viewModel->getZoomFactor();
+    const auto zoom = m_viewModel->getZoomFactor();
+    const float radius = NODE_RADIUS * zoom;
     const auto [cameraX, cameraY] = m_viewModel->getCameraPosition();
 
     auto& visibleNodes = m_viewModel->getVisibleNodes();
@@ -838,8 +850,7 @@ void GraphView::drawNodes() {
     glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uNodeRadius"), radius * 0.95f);
     glUniform2f(glGetUniformLocation(nodeGL.m_shaderProgram, "uScreenSize"), width, height);
     glUniform2f(glGetUniformLocation(nodeGL.m_shaderProgram, "uCameraPos"), cameraX, cameraY);
-    glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uCameraZoom"),
-                m_viewModel->getZoomFactor());
+    glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uCameraZoom"), zoom);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_nodeTexture);
@@ -849,15 +860,17 @@ void GraphView::drawNodes() {
     glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, (int)visibleNodes.size());
 
     // second pass - outline
-    for (auto& visibleNode : visibleNodes) {
-        visibleNode.m_color = getOutlineColor(visibleNode.m_index);
-    }
+    if (zoom > 0.3f && m_drawNodesOutline) {
+        for (auto& visibleNode : visibleNodes) {
+            visibleNode.m_color = getOutlineColor(visibleNode.m_index);
+        }
 
-    glBindTexture(GL_TEXTURE_2D, m_nodeOutlineTexture);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, visibleNodes.size() * sizeof(VisibleNode),
-                    visibleNodes.data());
-    glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uNodeRadius"), radius);
-    glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, (int)visibleNodes.size());
+        glBindTexture(GL_TEXTURE_2D, m_nodeOutlineTexture);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, visibleNodes.size() * sizeof(VisibleNode),
+                        visibleNodes.data());
+        glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uNodeRadius"), radius);
+        glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, (int)visibleNodes.size());
+    }
 
     glBindVertexArray(0);
 }

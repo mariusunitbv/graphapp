@@ -44,12 +44,16 @@ void Application::initialize() {
     SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_ShowWindow(m_window);
 
+    setupWindowIcon();
+
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     ImGuiStyle& style = ImGui::GetStyle();
 
     io.IniFilename = io.LogFilename = nullptr;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
+
+    setupFonts(scale);
 
     style.ScaleAllSizes(scale);
     style.AntiAliasedFill = style.AntiAliasedLines = true;
@@ -58,7 +62,7 @@ void Application::initialize() {
     ImGui_ImplSDL3_InitForOpenGL(m_window, m_glContext);
     ImGui_ImplOpenGL3_Init(glslVersion);
 
-    this->initializeGraph(startWidth, startHeight);
+    initializeGraph(startWidth, startHeight);
 }
 
 void Application::run() {
@@ -147,6 +151,49 @@ void Application::quit() {
     if (SDL_WasInit(SDL_INIT_VIDEO)) {
         SDL_Quit();
     }
+}
+
+void Application::setupWindowIcon() {
+    std::vector<uint8_t> imageData;
+    uint32_t width, height;
+
+    const auto error = lodepng::decode(imageData, width, height, "assets/icon.png");
+    if (error) {
+        GAPP_THROW(std::string("Failed to load texture: ") + lodepng_error_text(error));
+    }
+
+    SDL_Surface* surface =
+        SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA32, imageData.data(), width * 4);
+    if (!surface) {
+        GAPP_THROW(std::string("Failed to create surface: ") + SDL_GetError());
+    }
+
+    SDL_SetWindowIcon(m_window, surface);
+    SDL_DestroySurface(surface);
+}
+
+void Application::setupFonts(float scale) {
+    auto& io = ImGui::GetIO();
+
+    const auto normalFont =
+        io.Fonts->AddFontFromFileTTF("assets/NotoSansMono-Regular.ttf", 15.f * scale, nullptr,
+                                     io.Fonts->GetGlyphRangesDefault());
+
+    ImVector<ImWchar> ranges;
+    ImFontGlyphRangesBuilder builder;
+    builder.AddText("0123456789");
+    builder.BuildRanges(&ranges);
+
+    const auto smallFont = io.Fonts->AddFontFromFileTTF("assets/NotoSansMono-Regular.ttf",
+                                                        10.f * scale, nullptr, ranges.Data);
+    const auto largeFont = io.Fonts->AddFontFromFileTTF("assets/NotoSansMono-Regular.ttf",
+                                                        28.f * scale, nullptr, ranges.Data);
+
+    io.Fonts->Build();
+
+    m_graphView.setSmallNodeFont(smallFont);
+    m_graphView.setMediumNodeFont(normalFont);
+    m_graphView.setLargeNodeFont(largeFont);
 }
 
 void Application::initializeGraph(float width, float height) {

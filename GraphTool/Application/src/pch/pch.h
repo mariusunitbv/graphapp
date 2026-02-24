@@ -17,6 +17,7 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_error.h>
+#include <SDL3/SDL_surface.h>
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>

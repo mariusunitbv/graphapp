@@ -9,12 +9,14 @@
     {
       "name": "imgui",
       "features": [
+        "docking-experimental",
         "opengl3-binding",
         "sdl3-binding",
-        "docking-experimental"
+        "freetype"
       ]
     },
     "lodepng",
-    "sdl3"
+    "sdl3",
+    "freetype"
   ]
 }

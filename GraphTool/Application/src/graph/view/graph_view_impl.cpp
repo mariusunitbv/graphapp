@@ -678,7 +678,7 @@ void GraphView::drawSettings() {
         ImGui::TextUnformatted("Graph Zoom Factor:");
         ImGui::SetNextItemWidth(-FLT_MIN);
         if (ImGui::SliderFloat("##graphZoom", &graphZoom, 0.01f, 5.f, "%.2fx")) {
-            m_viewModel->setZoomFactor(graphZoom);
+            m_viewModel->setZoomFactor(std::clamp(graphZoom, 0.01f, 5.f));
         }
 
         ImGui::TextUnformatted("Grid Spacing:");

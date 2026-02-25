@@ -30,7 +30,7 @@ export class GraphModel {
                                   NodeIndex_t nodeToIgnore = INVALID_NODE) const;
 
     const BoundingBox2D& getGraphBounds() const;
-    std::vector<VisibleNode> queryNodes(const BoundingBox2D& area) const;
+    std::vector<VisibleNode> queryNodes(const BoundingBox2D& area, int queryLimit = -1) const;
 
     static BoundingBox2D getNodeBoundingBox(Vector2D worldPos);
 

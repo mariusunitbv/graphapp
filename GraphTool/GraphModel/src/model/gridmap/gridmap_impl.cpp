@@ -66,8 +66,8 @@ void GridMap::reserveNodeCountInCells() {
     m_nodeCountInCell.shrink_to_fit();
 }
 
-std::vector<VisibleNode> GridMap::query(std::span<const Node> nodes,
-                                        const BoundingBox2D& area) const {
+std::vector<VisibleNode> GridMap::query(std::span<const Node> nodes, const BoundingBox2D& area,
+                                        int queryLimit) const {
     std::vector<VisibleNode> result;
     result.reserve(estimateNodeCountInArea(area));
 
@@ -76,6 +76,10 @@ std::vector<VisibleNode> GridMap::query(std::span<const Node> nodes,
         for (size_t x = minCellX; x <= maxCellX; ++x) {
             const auto& cellNodes = m_cells[y * m_cellCountX + x];
             for (const auto nodeIndex : cellNodes) {
+                if (queryLimit > 0 && static_cast<int>(result.size()) >= queryLimit) {
+                    return result;
+                }
+
                 const auto& node = nodes[nodeIndex];
                 if (area.intersects(GraphModel::getNodeBoundingBox(node.m_worldPos))) {
                     result.emplace_back(node.m_worldPos, nodeIndex);

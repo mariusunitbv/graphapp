@@ -13,7 +13,8 @@ export class GridMap {
     void incrementNodeCountInCells(const BoundingBox2D& nodeArea);
     void reserveNodeCountInCells();
 
-    std::vector<VisibleNode> query(std::span<const Node> nodes, const BoundingBox2D& area) const;
+    std::vector<VisibleNode> query(std::span<const Node> nodes, const BoundingBox2D& area,
+                                   int queryLimit = -1) const;
     NodeIndex_t querySingle(std::span<const Node> nodes, Vector2D point, float minimumDistance,
                             NodeIndex_t nodeToIgnore = INVALID_NODE) const;
     NodeIndex_t querySingleFast(std::span<const Node> nodes, Vector2D point,

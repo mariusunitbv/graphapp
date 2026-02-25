@@ -66,7 +66,7 @@ export class GraphViewModel {
 
     BoundingBox2D m_lastQueryRegionArea{};
     std::vector<VisibleNode> m_visibleNodes{};
-    std::unordered_set<NodeIndex_t> m_selectedNodes;
+    std::unordered_set<NodeIndex_t> m_selectedNodes{};
 
     NodeIndex_t m_hoveredNodeIndex{INVALID_NODE};
     bool m_isSelectingUsingBox{false};

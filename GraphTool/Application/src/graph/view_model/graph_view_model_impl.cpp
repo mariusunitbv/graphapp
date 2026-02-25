@@ -286,7 +286,12 @@ void GraphViewModel::selectNodesInBox() {
         m_selectedNodes.clear();
     }
 
-    const auto queryResult = m_model->queryNodes(m_selectBoxBounds);
+    constexpr auto MAX_SELECTABLE_NODES = 100000;
+    if (m_selectedNodes.size() >= MAX_SELECTABLE_NODES) {
+        return;
+    }
+
+    const auto queryResult = m_model->queryNodes(m_selectBoxBounds, MAX_SELECTABLE_NODES);
     const auto indices =
         queryResult | std::views::transform([](const VisibleNode& vn) { return vn.m_index; });
 
@@ -315,7 +320,7 @@ void GraphViewModel::invalidateVisibleNodesCache() {
 }
 
 void GraphViewModel::addSampleNodes() {
-    constexpr float start = -100000.f;
+    constexpr float start = -10000.f;
     constexpr float end = -start;
     constexpr float step = NODE_RADIUS * 2.f;
 

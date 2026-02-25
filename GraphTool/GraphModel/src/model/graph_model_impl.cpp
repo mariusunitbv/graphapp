@@ -104,8 +104,8 @@ const Node* GraphModel::getNodeAtPosition(Vector2D worldPos, bool firstOccurence
 
 const BoundingBox2D& GraphModel::getGraphBounds() const { return m_gridMap.getBounds(); }
 
-std::vector<VisibleNode> GraphModel::queryNodes(const BoundingBox2D& area) const {
-    return m_gridMap.query(m_nodes, area);
+std::vector<VisibleNode> GraphModel::queryNodes(const BoundingBox2D& area, int queryLimit) const {
+    return m_gridMap.query(m_nodes, area, queryLimit);
 }
 
 BoundingBox2D GraphModel::getNodeBoundingBox(Vector2D worldPos) {

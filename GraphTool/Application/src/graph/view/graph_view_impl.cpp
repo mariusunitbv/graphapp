@@ -7,16 +7,6 @@ import texture_loader;
 
 static constexpr ImVec2 toImVec(Vector2D vec) { return ImVec2(vec.m_x, vec.m_y); }
 
-GraphView::~GraphView() {
-    if (m_nodeTexture) {
-        TextureLoader::unloadTexture(m_nodeTexture);
-    }
-
-    if (m_nodeOutlineTexture) {
-        TextureLoader::unloadTexture(m_nodeOutlineTexture);
-    }
-}
-
 void GraphView::initialize(const GraphModel* model, GraphViewModel* viewModel) {
     m_model = model;
     m_viewModel = viewModel;
@@ -143,6 +133,7 @@ void GraphView::initializeNodeGL() {
         layout(location = 0) in vec2 aPos;
         layout(location = 1) in vec2 aWorldPos;
         layout(location = 2) in vec4 aColor;
+        layout(location = 3) in vec4 aOutlineColor;
 
         uniform float uNodeRadius;
         uniform vec2 uScreenSize;
@@ -150,6 +141,7 @@ void GraphView::initializeNodeGL() {
         uniform float uCameraZoom;
 
         out vec4 vColor;
+        out vec4 vOutlineColor;
         out vec2 vTexCoord;
         
         void main() {
@@ -160,7 +152,10 @@ void GraphView::initializeNodeGL() {
             ndc.y = -ndc.y;
 
             gl_Position = vec4(ndc, 0.0, 1.0);
+
             vColor = aColor;
+            vOutlineColor = aOutlineColor;
+
             vTexCoord = aPos * 0.5 + 0.5;
         }
 )";
@@ -168,13 +163,33 @@ void GraphView::initializeNodeGL() {
     constexpr auto fragmentShaderSource = R"(
         #version 330 core
         in vec4 vColor;
+        in vec4 vOutlineColor;
         in vec2 vTexCoord;
+
         out vec4 FragColor;
 
         uniform sampler2D uTexture;
+        uniform float uOutlineThickness;
 
         void main() {
-            FragColor = texture(uTexture, vTexCoord) * vColor;
+            vec2 d = vTexCoord - vec2(0.5);
+            float dist2 = dot(d, d); 
+
+            float r = 0.5;
+            float t = uOutlineThickness;
+
+            if (t != 0) {
+                if (dist2 > (r - t) * (r - t) && dist2 < (r + t) * (r + t)) {
+                    FragColor = vOutlineColor;
+                    return;
+                }
+            }
+
+            if (dist2 > r * r) {
+                discard;
+            }
+
+            FragColor = vColor;
         }
 )";
 
@@ -223,13 +238,15 @@ void GraphView::initializeNodeGL() {
                           (void*)(2 * sizeof(float)));
     glVertexAttribDivisor(2, 1);
 
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VisibleNode),
+                          (void*)(2 * sizeof(float) + 4 * sizeof(uint8_t)));
+    glVertexAttribDivisor(3, 1);
+
     glBindVertexArray(0);
 
     glDeleteBuffers(1, &quadVBO);
     glDeleteBuffers(1, &EBO);
-
-    m_nodeTexture = TextureLoader::loadPNGFile("assets/node.png");
-    m_nodeOutlineTexture = TextureLoader::loadPNGFile("assets/node_outline.png");
 }
 
 void GraphView::initializeGridGL() {
@@ -650,6 +667,10 @@ void GraphView::drawSettings() {
         ImGui::Checkbox("Draw Nodes", &m_drawNodes);
         ImGui::Checkbox("Draw Nodes Outline", &m_drawNodesOutline);
 
+        ImGui::TextUnformatted("Outline Thickness:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::SliderInt("##outlineThickness", &m_outlineThickness, 1, 4);
+
         ImGui::SeparatorText("Other");
 
         auto graphZoom = m_viewModel->getZoomFactor();
@@ -695,15 +716,22 @@ void GraphView::drawNodesIndexes(ImDrawList* drawList) {
 
     const auto& visibleNodes = m_viewModel->getVisibleNodes();
     for (const auto& visibleNode : visibleNodes) {
-        const auto node = m_model->getNode(visibleNode.m_index);
+        char indexLabel[10];
+
+        auto temp = visibleNode.m_index;
+        int len = 0;
+        do {
+            indexLabel[len++] = '0' + (temp % 10);
+            temp /= 10;
+        } while (temp > 0 && len < static_cast<int>(sizeof(indexLabel) - 1));
+        indexLabel[len] = '\0';
+        std::reverse(indexLabel, indexLabel + len);
 
         const auto worldPos = m_viewModel->worldToScreen(visibleNode.m_worldPos);
-        const auto baseSize =
-            font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, node->m_labelBuffer);
+        const auto baseSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, indexLabel);
         const auto textPos = toImVec(worldPos) - baseSize * 0.5f;
 
-        drawList->AddText(font, font->FontSize, textPos, getOutlineColor(visibleNode.m_index),
-                          node->m_labelBuffer);
+        drawList->AddText(font, font->FontSize, textPos, visibleNode.m_outlineColor, indexLabel);
     }
 }
 
@@ -835,9 +863,7 @@ void GraphView::drawNodes() {
     const auto [cameraX, cameraY] = m_viewModel->getCameraPosition();
 
     auto& visibleNodes = m_viewModel->getVisibleNodes();
-    for (auto& visibleNode : visibleNodes) {
-        visibleNode.m_color = getNodeColor(visibleNode.m_index);
-    }
+    colorVisibleNodes(visibleNodes);
 
     auto& nodeGL = m_nodeGLObject;
 
@@ -847,57 +873,40 @@ void GraphView::drawNodes() {
                  GL_DYNAMIC_DRAW);
 
     glUseProgram(nodeGL.m_shaderProgram);
-    glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uNodeRadius"), radius * 0.95f);
+    glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uNodeRadius"), radius);
     glUniform2f(glGetUniformLocation(nodeGL.m_shaderProgram, "uScreenSize"), width, height);
     glUniform2f(glGetUniformLocation(nodeGL.m_shaderProgram, "uCameraPos"), cameraX, cameraY);
     glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uCameraZoom"), zoom);
+    glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uOutlineThickness"),
+                m_drawNodesOutline ? (m_outlineThickness / 100.f / zoom) : 0.f);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_nodeTexture);
-    glUniform1i(glGetUniformLocation(nodeGL.m_shaderProgram, "uTexture"), 0);
-
-    // first pass - inner fill
     glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, (int)visibleNodes.size());
-
-    // second pass - outline
-    if (zoom > 0.3f && m_drawNodesOutline) {
-        for (auto& visibleNode : visibleNodes) {
-            visibleNode.m_color = getOutlineColor(visibleNode.m_index);
-        }
-
-        glBindTexture(GL_TEXTURE_2D, m_nodeOutlineTexture);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, visibleNodes.size() * sizeof(VisibleNode),
-                        visibleNodes.data());
-        glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uNodeRadius"), radius);
-        glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, (int)visibleNodes.size());
-    }
 
     glBindVertexArray(0);
 }
 
-ImU32 GraphView::getNodeColor(NodeIndex_t nodeIndex) const {
-    const auto node = m_model->getNode(nodeIndex);
-
-    int nodeAlpha = node->hasColor() ? node->m_alpha : ((m_theme.m_nodeColor >> 24) & 0xFF);
-    if (nodeIndex == m_viewModel->getHoveredNodeIndex()) {
-        nodeAlpha = std::max(nodeAlpha - 60, 30);
+void GraphView::colorVisibleNodes(std::vector<VisibleNode>& visibleNodes) {
+    for (auto& visibleNode : visibleNodes) {
+        const auto node = m_model->getNode(visibleNode.m_index);
+        visibleNode.m_color = getNodeColor(node);
+        visibleNode.m_outlineColor = getOutlineColor(node);
     }
-
-    if (!node->hasColor()) {
-        return m_theme.m_nodeColor | (nodeAlpha << 24);
-    }
-
-    return IM_COL32(node->m_red, node->m_green, node->m_blue, nodeAlpha);
 }
 
-ImU32 GraphView::getOutlineColor(NodeIndex_t nodeIndex) const {
-    const auto node = m_model->getNode(nodeIndex);
+ImU32 GraphView::getNodeColor(const Node* node) const {
+    int colorAlpha = (m_theme.m_nodeColor >> 24) & 0xFF;
+    if (node->m_index == m_viewModel->getHoveredNodeIndex()) {
+        colorAlpha = std::max(colorAlpha - 60, 30);
+    }
 
-    const auto isHovered = nodeIndex == m_viewModel->getHoveredNodeIndex();
-    const auto isSelected = m_viewModel->isNodeSelected(nodeIndex);
+    return IM_COL32(node->m_red, node->m_green, node->m_blue, colorAlpha);
+}
+
+ImU32 GraphView::getOutlineColor(const Node* node) const {
+    const auto isHovered = node->m_index == m_viewModel->getHoveredNodeIndex();
+    const auto isSelected = m_viewModel->isNodeSelected(node->m_index);
 
     ImU32 color = m_theme.m_nodeOutlineColor;
-
     if (isSelected && isHovered) {
         color = m_theme.m_hoveredAndSelectedNodeOutlineColor;
     } else if (isHovered) {
@@ -906,13 +915,12 @@ ImU32 GraphView::getOutlineColor(NodeIndex_t nodeIndex) const {
         color = m_theme.m_selectedNodeOutlineColor;
     }
 
-    int nodeAlpha = node->hasColor() ? node->m_alpha : ((color >> 24) & 0xFF);
+    int outlineAlpha = (color >> 24) & 0xFF;
     if (isHovered) {
-        nodeAlpha = std::max(nodeAlpha - 60, 30);
+        outlineAlpha = std::max(outlineAlpha - 60, 30);
     }
 
-    color = color | (nodeAlpha << 24);
-    return color;
+    return color | (outlineAlpha << 24);
 }
 
 bool GraphView::shouldDrawNodes() const {

@@ -173,7 +173,7 @@ std::vector<NodeIndex_t> GraphModel::removeNodesAndCalculateIndexRemap(
 
         if (writeIndex != readIndex) {
             m_nodes[writeIndex] = std::move(m_nodes[readIndex]);
-            m_nodes[writeIndex].setIndex(writeIndex);
+            m_nodes[writeIndex].m_index = writeIndex;
         }
 
         indexRemap[readIndex] = writeIndex++;

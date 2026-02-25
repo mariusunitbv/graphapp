@@ -37,6 +37,8 @@ export class GridMap {
     EntryCell calculateCellEntryForNode(const BoundingBox2D& nodeArea) const;
     EntryCell calculateCellEntryForArea(const BoundingBox2D& area) const;
 
+    size_t estimateNodeCountInArea(const BoundingBox2D& area) const;
+
     int m_cellCountX{0};
     int m_cellCountY{0};
 

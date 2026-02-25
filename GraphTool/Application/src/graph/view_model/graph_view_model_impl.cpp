@@ -244,7 +244,7 @@ void GraphViewModel::onMouseClick(float cursorX, float cursorY, bool ctrlPressed
     const auto lastNodeIndex = m_model->getLastNodeIndex();
     const auto lastNode = m_model->getNode(lastNodeIndex);
 
-    m_visibleNodes.emplace_back(lastNode->m_worldPos, lastNode->getABGR(), lastNodeIndex);
+    m_visibleNodes.emplace_back(lastNode->m_worldPos, lastNodeIndex);
     m_hoveredNodeIndex = lastNodeIndex;
 }
 
@@ -315,7 +315,7 @@ void GraphViewModel::invalidateVisibleNodesCache() {
 }
 
 void GraphViewModel::addSampleNodes() {
-    constexpr float start = -10000.f;
+    constexpr float start = -100000.f;
     constexpr float end = -start;
     constexpr float step = NODE_RADIUS * 2.f;
 

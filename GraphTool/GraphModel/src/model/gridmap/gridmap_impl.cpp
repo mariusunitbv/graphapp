@@ -69,6 +69,7 @@ void GridMap::reserveNodeCountInCells() {
 std::vector<VisibleNode> GridMap::query(std::span<const Node> nodes,
                                         const BoundingBox2D& area) const {
     std::vector<VisibleNode> result;
+    result.reserve(estimateNodeCountInArea(area));
 
     const auto [minCellX, maxCellX, minCellY, maxCellY] = calculateCellEntryForArea(area);
     for (size_t y = minCellY; y <= maxCellY; ++y) {
@@ -77,7 +78,7 @@ std::vector<VisibleNode> GridMap::query(std::span<const Node> nodes,
             for (const auto nodeIndex : cellNodes) {
                 const auto& node = nodes[nodeIndex];
                 if (area.intersects(GraphModel::getNodeBoundingBox(node.m_worldPos))) {
-                    result.emplace_back(node.m_worldPos, node.getABGR(), nodeIndex);
+                    result.emplace_back(node.m_worldPos, nodeIndex);
                 }
             }
         }
@@ -196,4 +197,17 @@ GridMap::EntryCell GridMap::calculateCellEntryForArea(const BoundingBox2D& nodeA
     cell.m_maxCellY = std::clamp(maxCellY, 0, m_cellCountY - 1);
 
     return cell;
+}
+
+size_t GridMap::estimateNodeCountInArea(const BoundingBox2D& area) const {
+    size_t estimatedCount = 0;
+
+    const auto [minCellX, maxCellX, minCellY, maxCellY] = calculateCellEntryForArea(area);
+    for (size_t y = minCellY; y <= maxCellY; ++y) {
+        for (size_t x = minCellX; x <= maxCellX; ++x) {
+            estimatedCount += m_cells[y * m_cellCountX + x].size();
+        }
+    }
+
+    return estimatedCount;
 }

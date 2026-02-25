@@ -18,7 +18,7 @@ I originally built this because I wasn’t fully satisfied with the graph visual
 
 So I decided to make my own.
 
-This is actually the third rewrite of the project, each time I focused more on performance and overall structure of the project. The current version is heavily optimized and can handle up to 1 billion nodes (Under 30GB, without edge storage) while keeping rendering smooth thanks to OpenGL.
+This is actually the third rewrite of the project, each time I focused more on performance and overall structure of the project. The current version is heavily optimized and can handle up to 1 billion nodes (Under 22GB, without edge storage) while keeping rendering smooth thanks to OpenGL.
 
 It started as a learning tool, but it slowly turned into a performance challenge I genuinely enjoyed working on.
 
@@ -52,3 +52,4 @@ All of the listed dependencies will be automatically installed when following th
 - [lodepng](https://github.com/lvandeve/lodepng) - Small helper to decode image data in memory to help in loading textures into memory.
 - [glad](https://github.com/Dav1dde/glad) - Dynamic loader for modern OpenGL features.
 - [GoogleTest](https://github.com/google/googletest) - Used for unit testing in Graph Model.
+- [FreeType](https://github.com/freetype/freetype) - High quality font rasterer used by ImGui.

@@ -21,20 +21,30 @@ export struct Node {
     Node() = default;
     explicit Node(NodeIndex_t index, Vector2D worldPos);
 
-    void setIndex(NodeIndex_t index);
-
-    bool hasColor() const;
+    bool hasCustomColor() const;
     uint32_t getABGR() const;
 
     Vector2D m_worldPos{};
     NodeIndex_t m_index{0};
-    char m_labelBuffer[10]{};
 
-    uint8_t m_red{0}, m_green{0}, m_blue{0}, m_alpha{255};
+    uint8_t m_red{0}, m_green{0}, m_blue{0};
+
+    // This will be used for algorithms that need to mark nodes as visited without needing extra
+    // memory, it can be used as a bitfield for different purposes, but currently it's reserved.
+   private:
+    uint8_t m_reserved{0};
 };
 
+static_assert(sizeof(Node) == 16, "Node struct must be 16 bytes.");
+
 export struct VisibleNode {
+    VisibleNode() = default;
+    explicit VisibleNode(Vector2D worldPos, NodeIndex_t index)
+        : m_worldPos{worldPos}, m_index{index} {}
+
     Vector2D m_worldPos;
     uint32_t m_color;
+    uint32_t m_outlineColor;
+
     NodeIndex_t m_index;
 };

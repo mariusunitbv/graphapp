@@ -20,8 +20,6 @@ struct GraphTheme {
 
 export class GraphView {
    public:
-    ~GraphView();
-
     void initialize(const GraphModel* model, GraphViewModel* viewModel);
     void onSDLEvent(const SDL_Event& event);
 
@@ -64,8 +62,9 @@ export class GraphView {
     void drawGrid();
     void drawNodes();
 
-    ImU32 getNodeColor(NodeIndex_t nodeIndex) const;
-    ImU32 getOutlineColor(NodeIndex_t nodeIndex) const;
+    void colorVisibleNodes(std::vector<VisibleNode>& visibleNodes);
+    ImU32 getNodeColor(const Node* node) const;
+    ImU32 getOutlineColor(const Node* node) const;
 
     bool shouldDrawNodes() const;
 
@@ -88,6 +87,7 @@ export class GraphView {
 
     int m_maxFps{360};
     int m_vsyncMode{0};
+    int m_outlineThickness{1};
     float m_gridCellSize{100.f};
     int m_nodeCutoffZoom{10};
 
@@ -120,8 +120,6 @@ export class GraphView {
         GLuint m_shaderProgram{};
     };
 
-    GLuint m_nodeTexture{};
-    GLuint m_nodeOutlineTexture{};
     GLObject m_nodeGLObject;
 
     struct GridLineInstanceData {

@@ -41,7 +41,16 @@ To use it with Visual Studio 2022, simply change the `Windows SDK Version` and t
 4. You can now build the project normally (Build -> Build Solution or Ctrl+Shift+B).
 
 ## Linux
-TODO
+> On Linux, building requires [vcpkg](https://archlinux.org/packages/extra/x86_64/vcpkg/) installed from your distribution’s package manager.
+
+During the vcpkg install process, additional system dependencies may be required.
+```
+cd graphapp/GraphTool && mkdir build && cd build
+git clone https://github.com/microsoft/vcpkg.git
+cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake ../
+ninja
+cd bin && ./Application
+```
 
 # Dependencies
 All of the listed dependencies will be automatically installed when following the building steps using [vcpkg.](https://github.com/microsoft/vcpkg)

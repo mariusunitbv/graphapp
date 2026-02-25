@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 4.2.3)
+cmake_minimum_required(VERSION 3.28)
 project(Application)
 
 file(GLOB_RECURSE MODULES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.ixx")
 file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-file(GLOB_RECURSE ASSETS "${CMAKE_CURRENT_SOURCE_DIR}/assets/*")
+file(GLOB_RECURSE ASSETS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/*")
 
 find_package(glad CONFIG REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
@@ -15,7 +15,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 add_custom_target(copy_assets ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/assets
-        ${CMAKE_BINARY_DIR}/assets
+        ${CMAKE_BINARY_DIR}/bin/assets
     DEPENDS ${ASSETS}
 )
 

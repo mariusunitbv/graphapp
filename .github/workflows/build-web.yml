@@ -50,11 +50,10 @@ jobs:
       - name: Prepare page folder
         run: |
           mkdir -p page
-          mkdir -p page/assets
-          cp build/bin/assets/* page/assets
           cp build/bin/Application.html page/index.html
           cp build/bin/*.js page/
           cp build/bin/*.wasm page/
+          cp build/bin/*.data page/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

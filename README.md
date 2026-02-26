@@ -12,7 +12,7 @@ Graph Tool
 Tool I’ve built to create, edit, and explore graphs interactively while visualizing classic algorithms like DFS or BFS in real time. It’s designed for performance and clarity, using OpenGL for fast, hardware-accelerated rendering and Dear ImGui for a clean, responsive UI.
 
 # Preview
-<img width="1176" height="759" alt="Screenshot_20260223_230419" src="https://github.com/user-attachments/assets/e973d68f-f7b5-4b1f-a49c-c8be53018e3e" />
+You can run the application directly in your browser. [This](https://mariusunitbv.github.io/graphapp/) version provides the same functionality as the native C++ build, but performance may be lower due to the overhead of running WebAssembly and JavaScript in the browser environment.
 
 # Motivation
 I originally built this because I wasn’t fully satisfied with the graph visualizer used in my algorithms course. I wanted something that showed algorithms step by step, exactly the way I imagine them working internally.

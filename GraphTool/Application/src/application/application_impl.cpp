@@ -187,29 +187,12 @@ void Application::setupWindowIcon() {
 }
 
 void Application::setupFonts(float scale) {
-#ifndef __EMSCRIPTEN__
     auto& io = ImGui::GetIO();
 
-    const auto normalFont =
-        io.Fonts->AddFontFromFileTTF("assets/NotoSansMono-Regular.ttf", 15.f * scale, nullptr,
-                                     io.Fonts->GetGlyphRangesDefault());
-
-    ImVector<ImWchar> ranges;
-    ImFontGlyphRangesBuilder builder;
-    builder.AddText("0123456789");
-    builder.BuildRanges(&ranges);
-
-    const auto smallFont = io.Fonts->AddFontFromFileTTF("assets/NotoSansMono-Regular.ttf",
-                                                        10.f * scale, nullptr, ranges.Data);
-    const auto largeFont = io.Fonts->AddFontFromFileTTF("assets/NotoSansMono-Regular.ttf",
-                                                        28.f * scale, nullptr, ranges.Data);
+    io.Fonts->AddFontFromFileTTF("assets/JetBrainsMonoNL-Regular.ttf", 17.f * scale, nullptr,
+                                 io.Fonts->GetGlyphRangesDefault());
 
     io.Fonts->Build();
-
-    m_graphView.setSmallNodeFont(smallFont);
-    m_graphView.setMediumNodeFont(normalFont);
-    m_graphView.setLargeNodeFont(largeFont);
-#endif
 }
 
 void Application::initializeGraph(float width, float height) {

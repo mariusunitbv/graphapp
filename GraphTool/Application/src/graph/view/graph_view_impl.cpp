@@ -17,6 +17,7 @@ void GraphView::initialize(const GraphModel* model, GraphViewModel* viewModel) {
     m_model = model;
     m_viewModel = viewModel;
 
+    initializeTextures();
     initializeGL();
 }
 
@@ -104,6 +105,7 @@ void GraphView::renderUI() {
     drawMinMax(drawList);
     drawSelectBox(drawList);
     drawMousePosition(drawList);
+    drawWatermark(drawList);
 }
 
 void GraphView::renderScene() {
@@ -123,6 +125,10 @@ int GraphView::getVsyncMode() const {
     }
 
     return m_vsyncMode;
+}
+
+void GraphView::initializeTextures() {
+    m_unitbvLogoTexture = TextureLoader::loadPNGFile("assets/unitbv.png");
 }
 
 void GraphView::initializeGL() {
@@ -635,6 +641,8 @@ void GraphView::drawSettings() {
         }
     } else if (currentTab == 1) {
         ImGui::SeparatorText("Video");
+
+#ifndef __EMSCRIPTEN__
         ImGui::Checkbox("Fullscreen Mode", &m_appFullScreen);
 
         ImGui::Checkbox("Limit FPS", &m_isFpsLimitEnabled);
@@ -642,6 +650,7 @@ void GraphView::drawSettings() {
         ImGui::TextUnformatted("Max FPS:");
         ImGui::SetNextItemWidth(-FLT_MIN);
         ImGui::SliderInt("##fpsLimit", &m_maxFps, 5, 360);
+#endif
 
         constexpr const char* vsyncOptions[] = {"Off", "On", "Adaptive"};
 
@@ -702,24 +711,11 @@ void GraphView::drawNodesIndexes(ImDrawList* drawList) {
     }
 
     const auto zoom = m_viewModel->getZoomFactor();
-    if (zoom < 0.7f) {
+    if (zoom < 0.72f) {
         return;
     }
 
-#ifdef __EMSCRIPTEN__
     const auto font = ImGui::GetIO().Fonts->Fonts[0];
-#else
-    const auto font = [this, zoom]() {
-        if (zoom >= 2.f) {
-            return m_largeNodeFont;
-        } else if (zoom >= 0.9f) {
-            return m_mediumNodeFont;
-        } else {
-            return m_smallNodeFont;
-        }
-    }();
-#endif
-
     const auto& visibleNodes = m_viewModel->getVisibleNodes();
     for (const auto& visibleNode : visibleNodes) {
         char indexLabel[10];
@@ -790,6 +786,35 @@ void GraphView::drawMousePosition(ImDrawList* drawList) {
     std::snprintf(buffer, sizeof(buffer), "(%.1f, %.1f)", mouseWorldPos.m_x, mouseWorldPos.m_y);
 
     drawList->AddText({mouseX + 10.f, mouseY - 10.f}, m_theme.m_nodeOutlineColor, buffer);
+}
+
+void GraphView::drawWatermark(ImDrawList* drawList) {
+    const auto [width, height] = ImGui::GetIO().DisplaySize;
+
+    const auto textPos = ImVec2{32.f, height - 45.f};
+    constexpr auto waterMarkText = "github.com/mariusunitbv/graphapp";
+    const auto font = ImGui::GetIO().Fonts->Fonts[0];
+    const auto watermarkSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, waterMarkText);
+
+    const auto imagePos = textPos + ImVec2{-20.f, 0};
+
+    drawList->AddRectFilled(imagePos - ImVec2{4, 4}, textPos + watermarkSize + ImVec2{4, 4},
+                            IM_COL32(0, 0, 0, 120), 5.f);
+
+    const auto t = static_cast<float>(ImGui::GetTime());
+    ImU32 rainbowColor = IM_COL32((int)((sin(t * 2.0f + 0) * 0.5f + 0.5f) * 255),
+                                  (int)((sin(t * 2.0f + 2) * 0.5f + 0.5f) * 255),
+                                  (int)((sin(t * 2.0f + 4) * 0.5f + 0.5f) * 255), 255);
+
+    drawList->AddImage(m_unitbvLogoTexture, imagePos,
+                       imagePos + ImVec2{watermarkSize.y, watermarkSize.y}, {0.f, 0.f}, {1.f, 1.f},
+                       rainbowColor);
+
+    drawList->AddText(textPos + ImVec2{-1, 0}, IM_COL32_BLACK, waterMarkText);
+    drawList->AddText(textPos + ImVec2{1, 0}, IM_COL32_BLACK, waterMarkText);
+    drawList->AddText(textPos + ImVec2{0, -1}, IM_COL32_BLACK, waterMarkText);
+    drawList->AddText(textPos + ImVec2{0, 1}, IM_COL32_BLACK, waterMarkText);
+    drawList->AddText(textPos, IM_COL32_WHITE, waterMarkText);
 }
 
 void GraphView::drawBackground() {

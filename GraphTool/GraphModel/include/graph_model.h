@@ -2,6 +2,7 @@
 
 #include <source_location>
 #include <stdexcept>
+#include <format>
 
 #ifdef __EMSCRIPTEN__
 #define GAPP_THROW(message)

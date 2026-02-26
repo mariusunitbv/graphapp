@@ -3,6 +3,7 @@ Graph Tool
 <img src="https://img.shields.io/badge/language-C%2B%2B-%23f34b7d.svg" />
 <img src="https://img.shields.io/badge/platform-Windows-blue" />
 <img src="https://img.shields.io/badge/platform-Linux-purple" />
+<img src="https://img.shields.io/badge/platform-Web-green" />
 <img src="https://img.shields.io/badge/status-WIP-yellow" />
 </h1>
 
@@ -53,7 +54,7 @@ cd bin && ./Application
 ```
 
 ## Web
-> Graph Tool also support building with [Emscripten](https://emscripten.org/)!
+> Graph Tool also support building with [Emscripten](https://emscripten.org/)! [Ninja](https://github.com/ninja-build/ninja) will be needed.
 
 After starting the server a web page with the app is available on `http://127.0.0.1:8000/Application.html`.
 ```
@@ -61,6 +62,7 @@ cd graphapp/GraphTool && mkdir build && cd build
 git clone https://github.com/microsoft/vcpkg.git
 emsdk activate latest
 emcmake cmake .. "-G" "Ninja" "-DCMAKE_MAKE_PROGRAM=/path/to/ninja" "-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%EMSDK%/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake" "-DVCPKG_TARGET_TRIPLET=wasm32-emscripten" "-DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake"
+emmake ninja
 cd bin
 python -m http.server 8000 --bind 0.0.0.0
 ```

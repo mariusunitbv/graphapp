@@ -33,6 +33,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     )
 
     target_link_options(${PROJECT_NAME} PRIVATE
+		"--preload-file" "${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets"
+	
         -sMIN_WEBGL_VERSION=2
         -sMAX_WEBGL_VERSION=2
         -sFULL_ES3=1

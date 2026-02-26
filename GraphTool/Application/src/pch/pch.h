@@ -1,6 +1,7 @@
 #pragma once
 
 // C/C++ standard library headers
+#include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
 #include <iostream>

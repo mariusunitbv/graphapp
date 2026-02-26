@@ -34,11 +34,8 @@ export class GraphView {
     int getMaxFps() const { return m_maxFps; }
     int getVsyncMode() const;
 
-    void setSmallNodeFont(ImFont* font) { m_smallNodeFont = font; }
-    void setMediumNodeFont(ImFont* font) { m_mediumNodeFont = font; }
-    void setLargeNodeFont(ImFont* font) { m_largeNodeFont = font; }
-
    private:
+    void initializeTextures();
     void initializeGL();
     void initializeNodeGL();
     void initializeGridGL();
@@ -57,6 +54,7 @@ export class GraphView {
     void drawMinMax(ImDrawList* drawList);
     void drawSelectBox(ImDrawList* drawList);
     void drawMousePosition(ImDrawList* drawList);
+    void drawWatermark(ImDrawList* drawList);
 
     void drawBackground();
     void drawGrid();
@@ -78,22 +76,26 @@ export class GraphView {
     bool m_drawNodes{true};
     bool m_drawNodesOutline{true};
 
-    bool m_isFpsLimitEnabled{true};
     bool m_isDeleteDialogOpen{false};
     bool m_isCenterOnNodeDialogOpen{false};
     bool m_isSettingsOpen{false};
     bool m_showDemoWindow{false};
     bool m_appFullScreen{false};
 
+#ifndef __EMSCRIPTEN__
+    bool m_isFpsLimitEnabled{true};
     int m_maxFps{360};
+#else
+    static constexpr int m_maxFps{0};
+    static constexpr bool m_isFpsLimitEnabled{false};
+#endif
+
     int m_vsyncMode{0};
     int m_outlineThickness{1};
     float m_gridCellSize{100.f};
     int m_nodeCutoffZoom{10};
 
-    ImFont* m_smallNodeFont{nullptr};
-    ImFont* m_mediumNodeFont{nullptr};
-    ImFont* m_largeNodeFont{nullptr};
+    GLuint m_unitbvLogoTexture{};
 
     struct GLObject {
         ~GLObject() {

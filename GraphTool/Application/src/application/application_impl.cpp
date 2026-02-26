@@ -16,8 +16,12 @@ void Application::initialize() {
     const auto glslVersion = getGlslVersion();
     const auto scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
 
+#ifdef __EMSCRIPTEN__
+    constexpr auto windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+#else
     constexpr auto windowFlags =
         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+#endif
 
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
@@ -36,15 +40,19 @@ void Application::initialize() {
         GAPP_THROW(SDL_GetError());
     }
 
+#ifndef __EMSCRIPTEN__
     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
         GAPP_THROW("Failed to initialize GLAD");
     }
+#endif
 
     SDL_GL_MakeCurrent(m_window, m_glContext);
     SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_ShowWindow(m_window);
 
+#ifndef __EMSCRIPTEN__
     setupWindowIcon();
+#endif
 
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -66,9 +74,10 @@ void Application::initialize() {
 }
 
 void Application::run() {
-    bool done = false;
-
     auto& io = ImGui::GetIO();
+
+#ifndef __EMSCRIPTEN__
+    bool done = false;
     while (!done) {
         const auto frameStart = SDL_GetPerformanceCounter();
 
@@ -77,6 +86,7 @@ void Application::run() {
             fullscreenState = !fullscreenState;
             SDL_SetWindowFullscreen(m_window, fullscreenState);
         }
+#endif
 
         static int vsyncState = -1;
         if (vsyncState != m_graphView.getVsyncMode()) {
@@ -88,6 +98,7 @@ void Application::run() {
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL3_ProcessEvent(&event);
 
+#ifndef __EMSCRIPTEN__
             if ((event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
                  event.window.windowID == SDL_GetWindowID(m_window)) ||
                 event.type == SDL_EVENT_QUIT) {
@@ -105,6 +116,7 @@ void Application::run() {
                         break;
                 }
             }
+#endif
 
             m_graphViewModel.onSDLEvent(event);
             m_graphView.onSDLEvent(event);
@@ -127,10 +139,12 @@ void Application::run() {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(m_window);
 
+#ifndef __EMSCRIPTEN__
         limitFps(frameStart);
     }
 
     quit();
+#endif
 }
 
 void Application::quit() {
@@ -173,6 +187,7 @@ void Application::setupWindowIcon() {
 }
 
 void Application::setupFonts(float scale) {
+#ifndef __EMSCRIPTEN__
     auto& io = ImGui::GetIO();
 
     const auto normalFont =
@@ -194,6 +209,7 @@ void Application::setupFonts(float scale) {
     m_graphView.setSmallNodeFont(smallFont);
     m_graphView.setMediumNodeFont(normalFont);
     m_graphView.setLargeNodeFont(largeFont);
+#endif
 }
 
 void Application::initializeGraph(float width, float height) {
@@ -202,12 +218,21 @@ void Application::initializeGraph(float width, float height) {
 }
 
 const char* Application::getGlslVersion() const {
+#ifdef __EMSCRIPTEN__
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+
+    return "#version 300 es";
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 
     return "#version 330 core";
+#endif
 }
 
 void Application::handleMaximizationShortcut() {

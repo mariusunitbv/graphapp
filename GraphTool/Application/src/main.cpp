@@ -5,7 +5,12 @@ import application;
 int main() {
     try {
         Application::get().initialize();
+
+#ifdef __EMSCRIPTEN__
+        emscripten_set_main_loop_arg([](void*) { Application::get().run(); }, nullptr, 0, true);
+#else
         Application::get().run();
+#endif
     } catch (const std::exception& ex) {
         Application::get().quit();
 

@@ -12,5 +12,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 add_subdirectory(GraphModel)
-add_subdirectory(GraphModelTest)
+
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    add_subdirectory(GraphModelTest)
+endif()
+
 add_subdirectory(Application)

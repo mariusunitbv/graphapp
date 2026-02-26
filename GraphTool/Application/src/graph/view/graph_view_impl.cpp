@@ -5,6 +5,12 @@ module graph_view;
 
 import texture_loader;
 
+#ifdef __EMSCRIPTEN__
+#define GLSL_VERSION "#version 300 es\nprecision mediump float;\n"
+#else
+#define GLSL_VERSION "#version 330 core\n"
+#endif
+
 static constexpr ImVec2 toImVec(Vector2D vec) { return ImVec2(vec.m_x, vec.m_y); }
 
 void GraphView::initialize(const GraphModel* model, GraphViewModel* viewModel) {
@@ -128,8 +134,7 @@ void GraphView::initializeGL() {
 }
 
 void GraphView::initializeNodeGL() {
-    constexpr auto vertexShaderSource = R"(
-        #version 330 core
+    constexpr auto vertexShaderSource = GLSL_VERSION R"(
         layout(location = 0) in vec2 aPos;
         layout(location = 1) in vec2 aWorldPos;
         layout(location = 2) in vec4 aColor;
@@ -160,8 +165,7 @@ void GraphView::initializeNodeGL() {
         }
 )";
 
-    constexpr auto fragmentShaderSource = R"(
-        #version 330 core
+    constexpr auto fragmentShaderSource = GLSL_VERSION R"(
         in vec4 vColor;
         in vec4 vOutlineColor;
         in vec2 vTexCoord;
@@ -178,7 +182,7 @@ void GraphView::initializeNodeGL() {
             float r = 0.5;
             float t = uOutlineThickness;
 
-            if (t != 0) {
+            if (t != 0.0) {
                 if (dist2 > (r - t) * (r - t) && dist2 < (r + t) * (r + t)) {
                     FragColor = vOutlineColor;
                     return;
@@ -250,8 +254,7 @@ void GraphView::initializeNodeGL() {
 }
 
 void GraphView::initializeGridGL() {
-    constexpr auto vertexShaderSource = R"(
-        #version 330 core
+    constexpr auto vertexShaderSource = GLSL_VERSION R"(
         layout(location = 0) in vec2 aPos;
         layout(location = 1) in vec2 aScreenStart;
         layout(location = 2) in vec2 aScreenEnd;
@@ -278,8 +281,7 @@ void GraphView::initializeGridGL() {
         }
 )";
 
-    constexpr auto fragmentShaderSource = R"(
-        #version 330 core
+    constexpr auto fragmentShaderSource = GLSL_VERSION R"(
         in vec4 vColor;
         
         out vec4 FragColor;
@@ -704,6 +706,9 @@ void GraphView::drawNodesIndexes(ImDrawList* drawList) {
         return;
     }
 
+#ifdef __EMSCRIPTEN__
+    const auto font = ImGui::GetIO().Fonts->Fonts[0];
+#else
     const auto font = [this, zoom]() {
         if (zoom >= 2.f) {
             return m_largeNodeFont;
@@ -713,6 +718,7 @@ void GraphView::drawNodesIndexes(ImDrawList* drawList) {
             return m_smallNodeFont;
         }
     }();
+#endif
 
     const auto& visibleNodes = m_viewModel->getVisibleNodes();
     for (const auto& visibleNode : visibleNodes) {

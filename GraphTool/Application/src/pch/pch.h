@@ -13,7 +13,9 @@
 #include <graph_model.h>
 
 // External library headers
+#ifndef __EMSCRIPTEN__
 #include <glad/glad.h>
+#endif
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_error.h>
@@ -26,3 +28,8 @@
 #include <imgui_impl_opengl3.h>
 
 #include <lodepng.h>
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <GLES3/gl3.h>
+#endif

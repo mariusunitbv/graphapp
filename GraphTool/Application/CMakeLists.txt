@@ -27,8 +27,22 @@ target_sources(${PROJECT_NAME} PRIVATE
     FILES ${MODULES}
 )
 
-target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/src/pch/pch.h>")
-target_link_options(${PROJECT_NAME} PRIVATE -Wl,--no-undefined -Wl,--gc-sections)
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        SUFFIX ".html"
+    )
+
+    target_link_options(${PROJECT_NAME} PRIVATE
+        -sMIN_WEBGL_VERSION=2
+        -sMAX_WEBGL_VERSION=2
+        -sFULL_ES3=1
+        -sALLOW_MEMORY_GROWTH=1
+    )
+else()
+    target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/src/pch/pch.h>")
+    target_link_options(${PROJECT_NAME} PRIVATE -Wl,--no-undefined -Wl,--gc-sections)
+endif()
+
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     GraphModel
     glad::glad

@@ -75,4 +75,8 @@ export class GraphViewModel {
     std::chrono::steady_clock::time_point m_lastSelectBoxQueryTime{};
     Vector2D m_selectBoxStartWorldPos{};
     BoundingBox2D m_selectBoxBounds{};
+
+    std::unordered_map<SDL_FingerID, SDL_TouchFingerEvent> m_activeFingers;
+    float m_lastFingerPanX{}, m_lastFingerPanY{};
+    float m_lastZoomDelta{};
 };

@@ -92,6 +92,57 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event) {
             }
 
             break;
+        case SDL_EVENT_FINGER_DOWN:
+            m_activeFingers[event.tfinger.fingerID] = event.tfinger;
+            if (m_activeFingers.size() == 1) {
+                const auto& finger = event.tfinger;
+                m_lastFingerPanX = finger.x * m_displaySize.m_x;
+                m_lastFingerPanY = finger.y * m_displaySize.m_y;
+            }
+
+            break;
+        case SDL_EVENT_FINGER_UP:
+            m_activeFingers.erase(event.tfinger.fingerID);
+            break;
+        case SDL_EVENT_FINGER_MOTION:
+            m_activeFingers[event.tfinger.fingerID] = event.tfinger;
+
+            if (m_activeFingers.size() == 1) {
+                const auto& finger = m_activeFingers.begin()->second;
+
+                const auto x = finger.x * m_displaySize.m_x;
+                const auto y = finger.y * m_displaySize.m_y;
+                const auto dx = x - m_lastFingerPanX;
+                const auto dy = y - m_lastFingerPanY;
+
+                onCameraPan(-dx, -dy);
+
+                m_lastFingerPanX = x;
+                m_lastFingerPanY = y;
+            } else if (m_activeFingers.size() == 2) {
+                constexpr float ZOOM_THRESHOLD = 0.01f;
+
+                auto it = m_activeFingers.begin();
+                const auto& f1 = it->second;
+                ++it;
+                const auto& f2 = it->second;
+
+                const auto dx = f2.x - f1.x;
+                const auto dy = f2.y - f1.y;
+                const auto distance = std::sqrt(dx * dx + dy * dy);
+
+                const auto delta = distance - m_lastZoomDelta;
+                if (std::abs(delta) > ZOOM_THRESHOLD) {
+                    const auto centerX = (f1.x + f2.x) * 0.5f * m_displaySize.m_x;
+                    const auto centerY = (f1.y + f2.y) * 0.5f * m_displaySize.m_y;
+
+                    onCameraZoom(delta, centerX, centerY);
+
+                    m_lastZoomDelta = distance;
+                }
+            }
+
+            break;
     }
 }
 

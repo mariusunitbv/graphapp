@@ -13,10 +13,8 @@ export struct GraphCamera {
 export class GraphViewModel {
    public:
     void initialize(GraphModel* model, float displayWidth, float displayHeight);
-    void onSDLEvent(const SDL_Event& event);
+    void onSDLEvent(const SDL_Event& event, bool focusOnUI);
     void preRenderUpdate();
-
-    void setShouldRespondToEvents(bool shouldRespond);
 
     std::vector<VisibleNode>& getVisibleNodes();
     NodeIndex_t getHoveredNodeIndex() const;
@@ -70,13 +68,11 @@ export class GraphViewModel {
 
     NodeIndex_t m_hoveredNodeIndex{INVALID_NODE};
     bool m_isSelectingUsingBox{false};
-    bool m_shouldRespondToEvents{true};
 
     std::chrono::steady_clock::time_point m_lastSelectBoxQueryTime{};
     Vector2D m_selectBoxStartWorldPos{};
     BoundingBox2D m_selectBoxBounds{};
 
     std::unordered_map<SDL_FingerID, SDL_TouchFingerEvent> m_activeFingers;
-    float m_lastFingerPanX{}, m_lastFingerPanY{};
     float m_lastZoomDelta{};
 };

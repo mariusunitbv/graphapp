@@ -10,15 +10,20 @@ void GraphViewModel::initialize(GraphModel* model, float displayWidth, float dis
     addSampleNodes();
 }
 
-void GraphViewModel::onSDLEvent(const SDL_Event& event) {
+void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
     if (event.type == SDL_EVENT_WINDOW_RESIZED) {
         onSceneResize((float)event.window.data1, (float)event.window.data2);
         return;
     }
 
-    if (!m_shouldRespondToEvents) {
+    if (focusOnUI) {
+        m_activeFingers.clear();
         return;
     }
+
+    // We assume anything in [0, CURSOR_Y_IGNORE] is for the menu bar region so we ignore more if
+    // position <= CURSOR_Y_IGNORE.
+    static constexpr auto CURSOR_Y_IGNORE = 60.f;
 
     const auto lShiftPressed = (SDL_GetModState() & SDL_KMOD_SHIFT) != 0;
     const auto lCtrlPressed = (SDL_GetModState() & SDL_KMOD_CTRL) != 0;
@@ -26,6 +31,10 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event) {
 
     switch (event.type) {
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            if (event.button.y <= CURSOR_Y_IGNORE) {
+                break;
+            }
+
             if (event.button.button == SDL_BUTTON_LEFT && !lAltPressed) {
                 if (lShiftPressed) {
                     m_isSelectingUsingBox = true;
@@ -43,6 +52,10 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event) {
 
             break;
         case SDL_EVENT_MOUSE_MOTION: {
+            if (event.motion.y <= CURSOR_Y_IGNORE) {
+                break;
+            }
+
             const auto leftMouseButtonDown = event.motion.state & SDL_BUTTON_MASK(SDL_BUTTON_LEFT);
             const auto rightMouseButtonDown =
                 event.motion.state & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT);
@@ -94,31 +107,18 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event) {
             break;
         case SDL_EVENT_FINGER_DOWN:
             m_activeFingers[event.tfinger.fingerID] = event.tfinger;
-            if (m_activeFingers.size() == 1) {
-                const auto& finger = event.tfinger;
-                m_lastFingerPanX = finger.x * m_displaySize.m_x;
-                m_lastFingerPanY = finger.y * m_displaySize.m_y;
-            }
-
             break;
         case SDL_EVENT_FINGER_UP:
             m_activeFingers.erase(event.tfinger.fingerID);
             break;
         case SDL_EVENT_FINGER_MOTION:
-            m_activeFingers[event.tfinger.fingerID] = event.tfinger;
+            const auto& finger = event.tfinger;
+            m_activeFingers[finger.fingerID] = finger;
 
             if (m_activeFingers.size() == 1) {
-                const auto& finger = m_activeFingers.begin()->second;
-
-                const auto x = finger.x * m_displaySize.m_x;
-                const auto y = finger.y * m_displaySize.m_y;
-                const auto dx = x - m_lastFingerPanX;
-                const auto dy = y - m_lastFingerPanY;
-
+                const auto dx = finger.dx * m_displaySize.m_x;
+                const auto dy = finger.dy * m_displaySize.m_y;
                 onCameraPan(-dx, -dy);
-
-                m_lastFingerPanX = x;
-                m_lastFingerPanY = y;
             } else if (m_activeFingers.size() == 2) {
                 constexpr float ZOOM_THRESHOLD = 0.01f;
 
@@ -147,10 +147,6 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event) {
 }
 
 void GraphViewModel::preRenderUpdate() { selectNodesInBox(); }
-
-void GraphViewModel::setShouldRespondToEvents(bool shouldRespond) {
-    m_shouldRespondToEvents = shouldRespond;
-}
 
 std::vector<VisibleNode>& GraphViewModel::getVisibleNodes() {
     if (m_lastQueryRegionArea.contains(m_visibleRegionArea)) {

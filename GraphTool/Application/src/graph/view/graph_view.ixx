@@ -20,6 +20,8 @@ struct GraphTheme {
 
 export class GraphView {
    public:
+    ~GraphView();
+
     void initialize(const GraphModel* model, GraphViewModel* viewModel);
     void onSDLEvent(const SDL_Event& event);
 
@@ -84,7 +86,7 @@ export class GraphView {
 
 #ifndef __EMSCRIPTEN__
     bool m_isFpsLimitEnabled{true};
-    int m_maxFps{360};
+    int m_maxFps{120};
 #else
     static constexpr int m_maxFps{0};
     static constexpr bool m_isFpsLimitEnabled{false};

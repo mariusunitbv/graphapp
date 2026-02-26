@@ -16,12 +16,8 @@ void Application::initialize() {
     const auto glslVersion = getGlslVersion();
     const auto scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
 
-#ifdef __EMSCRIPTEN__
-    constexpr auto windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
-#else
     constexpr auto windowFlags =
         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-#endif
 
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
@@ -118,7 +114,7 @@ void Application::run() {
             }
 #endif
 
-            m_graphViewModel.onSDLEvent(event);
+            m_graphViewModel.onSDLEvent(event, m_graphView.isFocusOnUI());
             m_graphView.onSDLEvent(event);
         }
 
@@ -131,7 +127,13 @@ void Application::run() {
         m_graphView.renderUI();
         ImGui::Render();
 
-        glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
+        auto scale = 1.f;
+
+#ifdef __EMSCRIPTEN__
+        scale = emscripten_get_device_pixel_ratio();
+#endif
+
+        glViewport(0, 0, (int)(io.DisplaySize.x * scale), (int)(io.DisplaySize.y * scale));
         glClear(GL_COLOR_BUFFER_BIT);
 
         m_graphView.renderScene();

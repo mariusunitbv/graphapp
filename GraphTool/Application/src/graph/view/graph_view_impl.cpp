@@ -13,6 +13,12 @@ import texture_loader;
 
 static constexpr ImVec2 toImVec(Vector2D vec) { return ImVec2(vec.m_x, vec.m_y); }
 
+GraphView::~GraphView() {
+    if (m_unitbvLogoTexture) {
+        TextureLoader::unloadTexture(m_unitbvLogoTexture);
+    }
+}
+
 void GraphView::initialize(const GraphModel* model, GraphViewModel* viewModel) {
     m_model = model;
     m_viewModel = viewModel;
@@ -54,8 +60,6 @@ void GraphView::onSDLEvent(const SDL_Event& event) {
 }
 
 void GraphView::renderUI() {
-    m_viewModel->setShouldRespondToEvents(!isFocusOnUI());
-
     ImDrawList* drawList = ImGui::GetBackgroundDrawList();
 
     if (!isFocusOnUI() && m_viewModel->getHoveredNodeIndex() != INVALID_NODE) {
@@ -399,6 +403,17 @@ void GraphView::drawMenuBar() {
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("Selection", m_viewModel->getSelectedNodesCount() > 0)) {
+            ImGui::Text("Selected count: %zu", m_viewModel->getSelectedNodesCount());
+            ImGui::Separator();
+
+            if (ImGui::MenuItem("Remove", "Delete")) {
+                m_isDeleteDialogOpen = true;
+            }
+
+            ImGui::EndMenu();
+        }
+
         if (ImGui::BeginMenu("Settings")) {
             if (ImGui::MenuItem("Options", "F12")) {
                 m_isSettingsOpen = true;
@@ -418,10 +433,11 @@ void GraphView::drawMenuBar() {
                       m_isFpsLimitEnabled ? "L" : "", 1000.f / fps);
 
         const auto textWidth = ImGui::CalcTextSize(buffer).x;
-        const auto windowWidth = ImGui::GetWindowWidth();
-        ImGui::SetCursorPosX(windowWidth - textWidth - 10.0f);
-
-        ImGui::Text("%s", buffer);
+        if (textWidth * 1.2f < ImGui::GetContentRegionAvail().x) {
+            const auto windowWidth = ImGui::GetWindowWidth();
+            ImGui::SetCursorPosX(windowWidth - textWidth - 10.0f);
+            ImGui::Text("%s", buffer);
+        }
 
         ImGui::EndMainMenuBar();
     }
@@ -791,12 +807,12 @@ void GraphView::drawMousePosition(ImDrawList* drawList) {
 void GraphView::drawWatermark(ImDrawList* drawList) {
     const auto [width, height] = ImGui::GetIO().DisplaySize;
 
-    const auto textPos = ImVec2{32.f, height - 45.f};
-    constexpr auto waterMarkText = "github.com/mariusunitbv/graphapp";
     const auto font = ImGui::GetIO().Fonts->Fonts[0];
+    const auto textPos = ImVec2{36.f, height - 45.f - font->FontSize * 0.5f};
+    constexpr auto waterMarkText = "github.com/mariusunitbv/graphapp";
     const auto watermarkSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, waterMarkText);
 
-    const auto imagePos = textPos + ImVec2{-20.f, 0};
+    const auto imagePos = textPos + ImVec2{-20.f - font->FontSize * 0.3f, 0};
 
     drawList->AddRectFilled(imagePos - ImVec2{4, 4}, textPos + watermarkSize + ImVec2{4, 4},
                             IM_COL32(0, 0, 0, 120), 5.f);

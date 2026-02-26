@@ -50,7 +50,9 @@ jobs:
       - name: Prepare page folder
         run: |
           mkdir -p page
-          cp build/bin/*.html page/
+          mkdir -p page/assets
+          cp build/bin/assets/* page/assets
+          cp build/bin/Application.html page/index.html
           cp build/bin/*.js page/
           cp build/bin/*.wasm page/
 

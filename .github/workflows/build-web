@@ -1,0 +1,59 @@
+name: Build Web Version
+
+on:
+  push:
+    branches: [ v2 ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      BUILD_TYPE: Release
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: ${{ github.workspace }}/vcpkg
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Verify
+        run: emcc -v
+
+      - name: Configure
+        run: |
+      emcmake cmake -S GraphTool -B build \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+        -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake \
+        -DVCPKG_TARGET_TRIPLET=wasm32-emscripten
+
+      - name: Build with Ninja
+        run: |
+          cd build
+          emmake ninja
+
+      - name: Prepare page folder
+        run: |
+          mkdir -p page
+          cp build/*.html page/
+          cp build/*.js page/
+          cp build/*.wasm page/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./page

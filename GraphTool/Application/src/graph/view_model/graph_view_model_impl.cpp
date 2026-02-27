@@ -21,38 +21,38 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
         return;
     }
 
-    // We assume anything in [0, CURSOR_Y_IGNORE] is for the menu bar region so we ignore more if
-    // position <= CURSOR_Y_IGNORE.
-    static constexpr auto CURSOR_Y_IGNORE = 60.f;
-
     const auto lShiftPressed = (SDL_GetModState() & SDL_KMOD_SHIFT) != 0;
     const auto lCtrlPressed = (SDL_GetModState() & SDL_KMOD_CTRL) != 0;
     const auto lAltPressed = (SDL_GetModState() & SDL_KMOD_ALT) != 0;
 
     switch (event.type) {
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            if (event.button.y <= CURSOR_Y_IGNORE) {
-                break;
-            }
-
-            if (event.button.button == SDL_BUTTON_LEFT && !lAltPressed) {
-                if (lShiftPressed) {
-                    m_isSelectingUsingBox = true;
-                    setSelectBoxStart(event.button.x, event.button.y);
-                } else {
-                    onMouseClick(event.button.x, event.button.y, lCtrlPressed);
-                }
+            if (event.button.button == SDL_BUTTON_LEFT && !lAltPressed && lShiftPressed) {
+                m_isSelectingUsingBox = true;
+                setSelectBoxStart(event.button.x, event.button.y);
             }
 
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
+            if (event.button.which == SDL_PEN_MOUSEID) {
+                break;
+            }
+
             if (event.button.button == SDL_BUTTON_LEFT) {
                 m_isSelectingUsingBox = false;
+
+                if (m_shouldBlockMouseLeftClick) {
+                    m_shouldBlockMouseLeftClick = false;
+                } else {
+                    if (!lShiftPressed && !lAltPressed && m_activeFingers.size() < 2) {
+                        onMouseClick(event.button.x, event.button.y, lCtrlPressed);
+                    }
+                }
             }
 
             break;
         case SDL_EVENT_MOUSE_MOTION: {
-            if (event.motion.y <= CURSOR_Y_IGNORE) {
+            if (event.motion.which == SDL_PEN_MOUSEID) {
                 break;
             }
 
@@ -114,6 +114,17 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
         case SDL_EVENT_FINGER_MOTION:
             const auto& finger = event.tfinger;
             m_activeFingers[finger.fingerID] = finger;
+
+            {
+                constexpr auto MOVEMENT_THRESHOLD_PX = 3.f;
+
+                const auto dx = finger.dx * m_displaySize.m_x;
+                const auto dy = finger.dy * m_displaySize.m_y;
+
+                if (dx * dx + dy * dy > MOVEMENT_THRESHOLD_PX * MOVEMENT_THRESHOLD_PX) {
+                    m_shouldBlockMouseLeftClick = true;
+                }
+            }
 
             if (m_activeFingers.size() == 1) {
                 const auto dx = finger.dx * m_displaySize.m_x;

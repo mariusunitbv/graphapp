@@ -26,7 +26,8 @@ void Application::initialize() {
     const auto startWidth = 1024 * scale;
     const auto startHeight = 576 * scale;
 
-    m_window = SDL_CreateWindow("Graph Tool", (int)startWidth, (int)startHeight, windowFlags);
+    m_window = SDL_CreateWindow("Graph Tool " GAPP_VERSION, (int)startWidth, (int)startHeight,
+                                windowFlags);
     if (!m_window) {
         GAPP_THROW(SDL_GetError());
     }
@@ -44,10 +45,23 @@ void Application::initialize() {
 
     SDL_GL_MakeCurrent(m_window, m_glContext);
     SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    SDL_SetWindowSize(m_window, (int)startWidth, (int)startHeight);
     SDL_ShowWindow(m_window);
 
 #ifndef __EMSCRIPTEN__
     setupWindowIcon();
+#else
+    emscripten_set_resize_callback(
+        EMSCRIPTEN_EVENT_TARGET_WINDOW, m_window, true,
+        ([](int eventType, const EmscriptenUiEvent* uiEvent, void* userData) {
+            const int w = uiEvent->windowInnerWidth;
+            const int h = uiEvent->windowInnerHeight;
+
+            SDL_Window* window = static_cast<SDL_Window*>(userData);
+            SDL_SetWindowSize(window, w, h);
+
+            return EM_TRUE;
+        }));
 #endif
 
     ImGui::CreateContext();

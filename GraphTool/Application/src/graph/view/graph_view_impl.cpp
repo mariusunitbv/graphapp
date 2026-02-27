@@ -189,18 +189,16 @@ void GraphView::initializeNodeGL() {
             vec2 d = vTexCoord - vec2(0.5);
             float dist2 = dot(d, d); 
 
-            float r = 0.5;
-            float t = uOutlineThickness;
+            const float r = 0.5;
+            if (dist2 > r * r) {
+                discard;
+            }
 
-            if (t != 0.0) {
-                if (dist2 > (r - t) * (r - t) && dist2 < (r + t) * (r + t)) {
+            if (uOutlineThickness > 0.0) {
+                if (dist2 > (r - uOutlineThickness) * (r - uOutlineThickness)) {
                     FragColor = vOutlineColor;
                     return;
                 }
-            }
-
-            if (dist2 > r * r) {
-                discard;
             }
 
             FragColor = vColor;

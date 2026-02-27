@@ -68,6 +68,7 @@ export class GraphViewModel {
 
     NodeIndex_t m_hoveredNodeIndex{INVALID_NODE};
     bool m_isSelectingUsingBox{false};
+    bool m_shouldBlockMouseLeftClick{false};
 
     std::chrono::steady_clock::time_point m_lastSelectBoxQueryTime{};
     Vector2D m_selectBoxStartWorldPos{};

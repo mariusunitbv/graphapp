@@ -15,6 +15,10 @@ export struct Vector2D {
         return Vector2D(std::max(a.m_x, b.m_x), std::max(a.m_y, b.m_y));
     }
 
+    static constexpr auto floor(Vector2D v) {
+        return Vector2D(std::floor(v.m_x), std::floor(v.m_y));
+    }
+
     constexpr auto distanceSquared(Vector2D other) const {
         const auto dx = m_x - other.m_x;
         const auto dy = m_y - other.m_y;

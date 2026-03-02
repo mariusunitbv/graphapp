@@ -9,7 +9,7 @@ export import gridmap;
 export class GraphModel {
    public:
     void addNode(Vector2D worldPos);
-    void removeNodes(const std::unordered_set<NodeIndex_t>& nodes);
+    void removeSelectedNodes();
 
     void reserveNodes(size_t nodeCount);
     void reserveArea(const BoundingBox2D& area);
@@ -18,6 +18,7 @@ export class GraphModel {
     void endBulkInsert();
 
     NodeIndex_t getLastNodeIndex() const;
+    NodeIndex_t getNodeIndex(const Node* node) const;
 
     Node* getNode(NodeIndex_t index);
     const Node* getNode(NodeIndex_t index) const;
@@ -30,19 +31,26 @@ export class GraphModel {
                                   NodeIndex_t nodeToIgnore = INVALID_NODE) const;
 
     const BoundingBox2D& getGraphBounds() const;
-    std::vector<VisibleNode> queryNodes(const BoundingBox2D& area, int queryLimit = -1) const;
 
-    static BoundingBox2D getNodeBoundingBox(Vector2D worldPos);
+    template <typename Func>
+    void visitNodes(const BoundingBox2D& area, Func&& func, int visitLimit = -1) const;
 
    private:
     bool updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds);
     void rebuildGridMap();
 
-    std::vector<NodeIndex_t> removeNodesAndCalculateIndexRemap(
-        const std::unordered_set<NodeIndex_t>& nodes);
+    std::vector<NodeIndex_t> removeSelectedNodesAndCalculateIndexRemap();
 
     std::vector<Node> m_nodes;
     GridMap m_gridMap;
 
     bool m_bulkInsertMode{false};
 };
+
+template <typename Func>
+void GraphModel::visitNodes(const BoundingBox2D& area, Func&& func, int visitLimit) const {
+    static_assert(std::is_invocable_v<Func, NodeIndex_t>,
+                  "visitNodes: callback must accept a single NodeIndex_t parameter");
+
+    m_gridMap.visitNodes(m_nodes, area, std::forward<Func>(func), visitLimit);
+}

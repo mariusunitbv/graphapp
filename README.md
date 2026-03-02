@@ -19,7 +19,7 @@ I originally built this because I wasn’t fully satisfied with the graph visual
 
 So I decided to make my own.
 
-This is actually the third rewrite of the project, each time I focused more on performance and overall structure of the project. The current version is heavily optimized and can handle up to 1 billion nodes (Under 22GB, without edge storage) while keeping rendering smooth thanks to OpenGL.
+This is actually the third rewrite of the project, each time I focused more on performance and overall structure of the project. The current version is heavily optimized and can handle up to 1 billion nodes (Under 13GB, without edge storage) while keeping rendering smooth thanks to OpenGL.
 
 It started as a learning tool, but it slowly turned into a performance challenge I genuinely enjoyed working on.
 
@@ -71,7 +71,7 @@ python -m http.server 8000 --bind 0.0.0.0
 All of the listed dependencies will be automatically installed when following the building steps using [vcpkg.](https://github.com/microsoft/vcpkg)
 
 - [Dear ImGui](https://github.com/ocornut/imgui) - UI library used to build the graphical interface.
-- [OpenGL 3.3](https://en.wikipedia.org/wiki/OpenGL) - Drawing backend for UI, incredibly fast and efficient GPU-based drawing.
+- [OpenGL 3](https://en.wikipedia.org/wiki/OpenGL) - Drawing backend for UI, incredibly fast and efficient GPU-based drawing.
 - [SDL3](https://github.com/libsdl-org/SDL) - Handles window creation and input (keyboard, mouse, etc.). Also used as the platform backend for ImGui.
 - [lodepng](https://github.com/lvandeve/lodepng) - Small helper to decode image data in memory to help in loading textures into memory.
 - [glad](https://github.com/Dav1dde/glad) - Dynamic loader for modern OpenGL features.

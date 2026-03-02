@@ -7,19 +7,20 @@ import graph_model_defines;
 
 export class GridMap {
    public:
-    void insert(const Node* node);
+    void insert(const Node* node, NodeIndex_t nodeIndex);
     void remove(const std::vector<NodeIndex_t>& indexRemap);
 
     void incrementNodeCountInCells(const BoundingBox2D& nodeArea);
     void reserveNodeCountInCells();
 
-    std::vector<VisibleNode> query(std::span<const Node> nodes, const BoundingBox2D& area,
-                                   int queryLimit = -1) const;
     NodeIndex_t querySingle(std::span<const Node> nodes, Vector2D point, float minimumDistance,
                             NodeIndex_t nodeToIgnore = INVALID_NODE) const;
-    NodeIndex_t querySingleFast(std::span<const Node> nodes, Vector2D point,
-                                const BoundingBox2D& area, float minimumDistance,
+    NodeIndex_t querySingleFast(std::span<const Node> nodes, Vector2D point, float minimumDistance,
                                 NodeIndex_t nodeToIgnore = INVALID_NODE) const;
+
+    template <typename Func>
+    void visitNodes(std::span<const Node> nodes, const BoundingBox2D& area, Func&& func,
+                    int visitLimit = -1) const;
 
     const BoundingBox2D& getBounds() const;
     void setBounds(const BoundingBox2D& bounds);
@@ -38,8 +39,6 @@ export class GridMap {
     EntryCell calculateCellEntryForNode(const BoundingBox2D& nodeArea) const;
     EntryCell calculateCellEntryForArea(const BoundingBox2D& area) const;
 
-    size_t estimateNodeCountInArea(const BoundingBox2D& area) const;
-
     int m_cellCountX{0};
     int m_cellCountY{0};
 
@@ -47,3 +46,33 @@ export class GridMap {
     std::vector<std::vector<NodeIndex_t>> m_cells{};
     std::vector<uint32_t> m_nodeCountInCell{};
 };
+
+template <typename Func>
+void GridMap::visitNodes(std::span<const Node> nodes, const BoundingBox2D& area, Func&& func,
+                         int visitLimit) const {
+    int visitedCount = 0;
+
+    const auto cellEntry = calculateCellEntryForArea(area);
+    for (int cellY = cellEntry.m_minCellY; cellY <= cellEntry.m_maxCellY; ++cellY) {
+        for (int cellX = cellEntry.m_minCellX; cellX <= cellEntry.m_maxCellX; ++cellX) {
+            const auto& cell = m_cells[cellY * m_cellCountX + cellX];
+            for (const auto nodeIndex : cell) {
+                if (visitLimit >= 0 && visitedCount >= visitLimit) {
+                    return;
+                }
+
+                const auto& node = nodes[nodeIndex];
+                if (area.intersects(Node::getBoundingBox(node.getWorldPos()))) {
+                    if constexpr (std::is_invocable_r_v<bool, Func, NodeIndex_t>) {
+                        if (!func(nodeIndex)) {
+                            return;
+                        }
+                    } else {
+                        func(nodeIndex);
+                        ++visitedCount;
+                    }
+                }
+            }
+        }
+    }
+}

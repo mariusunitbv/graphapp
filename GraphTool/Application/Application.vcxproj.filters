@@ -15,6 +15,7 @@
     <ClCompile Include="..\GraphModel\src\model\gridmap\gridmap.ixx" />
     <ClCompile Include="..\GraphModel\src\model\defines\graph_model_defines.ixx" />
     <ClCompile Include="..\GraphModel\src\math\graph_math.ixx" />
+    <ClCompile Include="src\graph\view_model\defines\graph_view_model_defines.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

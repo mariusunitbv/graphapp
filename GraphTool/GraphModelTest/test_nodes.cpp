@@ -13,10 +13,10 @@ TEST(GraphModel, AddNode) {
     ASSERT_NE(node1, nullptr);
     ASSERT_NE(node2, nullptr);
 
-    EXPECT_EQ(node1->m_worldPos.m_x, 100.f);
-    EXPECT_EQ(node1->m_worldPos.m_y, 200.f);
-    EXPECT_EQ(node2->m_worldPos.m_x, 300.f);
-    EXPECT_EQ(node2->m_worldPos.m_y, 400.f);
+    EXPECT_EQ(node1->getWorldPos().m_x, 100.f);
+    EXPECT_EQ(node1->getWorldPos().m_y, 200.f);
+    EXPECT_EQ(node2->getWorldPos().m_x, 300.f);
+    EXPECT_EQ(node2->getWorldPos().m_y, 400.f);
 
     EXPECT_THROW(graph.addNode({150.f, WORLD_BOUNDS_FIXED_SIZE}), std::runtime_error);
 

@@ -8,7 +8,9 @@ void GraphModel::addNode(Vector2D worldPos) {
         GAPP_THROW("Node limit reached");
     }
 
-    const auto nodeArea = getNodeBoundingBox(worldPos);
+    worldPos = Vector2D::floor(worldPos);
+
+    const auto nodeArea = Node::getBoundingBox(worldPos);
     if (!WORLD_BOUNDS.contains(nodeArea)) {
         GAPP_THROW("Node position is out of world bounds");
     }
@@ -23,15 +25,15 @@ void GraphModel::addNode(Vector2D worldPos) {
         }
     }
 
-    m_nodes.emplace_back(static_cast<NodeIndex_t>(m_nodes.size()), worldPos);
+    m_nodes.emplace_back(worldPos);
 
     if (!m_bulkInsertMode) {
-        m_gridMap.insert(&m_nodes.back());
+        m_gridMap.insert(&m_nodes.back(), getLastNodeIndex());
     }
 }
 
-void GraphModel::removeNodes(const std::unordered_set<NodeIndex_t>& nodes) {
-    const auto indexRemap = removeNodesAndCalculateIndexRemap(nodes);
+void GraphModel::removeSelectedNodes() {
+    const auto indexRemap = removeSelectedNodesAndCalculateIndexRemap();
 
     m_gridMap.remove(indexRemap);
 }
@@ -60,8 +62,8 @@ void GraphModel::beginBulkInsert() { m_bulkInsertMode = true; }
 
 void GraphModel::endBulkInsert() {
     m_gridMap.reserveNodeCountInCells();
-    for (const auto& node : m_nodes) {
-        m_gridMap.insert(&node);
+    for (NodeIndex_t nodeIndex = 0; nodeIndex < m_nodes.size(); ++nodeIndex) {
+        m_gridMap.insert(&m_nodes[nodeIndex], nodeIndex);
     }
 
     m_bulkInsertMode = false;
@@ -72,7 +74,11 @@ NodeIndex_t GraphModel::getLastNodeIndex() const {
         return INVALID_NODE;
     }
 
-    return m_nodes.back().m_index;
+    return static_cast<NodeIndex_t>(m_nodes.size() - 1);
+}
+
+NodeIndex_t GraphModel::getNodeIndex(const Node* node) const {
+    return static_cast<NodeIndex_t>(std::distance(m_nodes.data(), node));
 }
 
 Node* GraphModel::getNode(NodeIndex_t index) { return &m_nodes[index]; }
@@ -83,8 +89,8 @@ Node* GraphModel::getNodeAtPosition(Vector2D worldPos, bool firstOccurence, floa
                                     NodeIndex_t nodeToIgnore) {
     NodeIndex_t closestNodeIndex = INVALID_NODE;
     if (firstOccurence) {
-        closestNodeIndex = m_gridMap.querySingleFast(
-            m_nodes, worldPos, getNodeBoundingBox(worldPos), minimumDistance, nodeToIgnore);
+        closestNodeIndex =
+            m_gridMap.querySingleFast(m_nodes, worldPos, minimumDistance, nodeToIgnore);
     } else {
         closestNodeIndex = m_gridMap.querySingle(m_nodes, worldPos, minimumDistance, nodeToIgnore);
     }
@@ -103,15 +109,6 @@ const Node* GraphModel::getNodeAtPosition(Vector2D worldPos, bool firstOccurence
 }
 
 const BoundingBox2D& GraphModel::getGraphBounds() const { return m_gridMap.getBounds(); }
-
-std::vector<VisibleNode> GraphModel::queryNodes(const BoundingBox2D& area, int queryLimit) const {
-    return m_gridMap.query(m_nodes, area, queryLimit);
-}
-
-BoundingBox2D GraphModel::getNodeBoundingBox(Vector2D worldPos) {
-    return BoundingBox2D{worldPos.m_x - NODE_RADIUS, worldPos.m_y - NODE_RADIUS,
-                         worldPos.m_x + NODE_RADIUS, worldPos.m_y + NODE_RADIUS};
-}
 
 bool GraphModel::updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds) {
     constexpr auto MARGIN_PADDING = 5.f;
@@ -155,25 +152,23 @@ bool GraphModel::updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds) {
 
 void GraphModel::rebuildGridMap() {
     m_gridMap.allocateCells();
-    for (const auto& node : m_nodes) {
-        m_gridMap.insert(&node);
+    for (NodeIndex_t nodeIndex = 0; nodeIndex < m_nodes.size(); ++nodeIndex) {
+        m_gridMap.insert(&m_nodes[nodeIndex], nodeIndex);
     }
 }
 
-std::vector<NodeIndex_t> GraphModel::removeNodesAndCalculateIndexRemap(
-    const std::unordered_set<NodeIndex_t>& nodes) {
+std::vector<NodeIndex_t> GraphModel::removeSelectedNodesAndCalculateIndexRemap() {
     std::vector<NodeIndex_t> indexRemap(m_nodes.size());
 
     NodeIndex_t writeIndex = 0;
     for (NodeIndex_t readIndex = 0; readIndex < m_nodes.size(); ++readIndex) {
-        if (nodes.contains(m_nodes[readIndex].m_index)) {
+        if (m_nodes[readIndex].isSelected()) {
             indexRemap[readIndex] = INVALID_NODE;
             continue;
         }
 
         if (writeIndex != readIndex) {
-            m_nodes[writeIndex] = std::move(m_nodes[readIndex]);
-            m_nodes[writeIndex].m_index = writeIndex;
+            m_nodes[writeIndex] = m_nodes[readIndex];
         }
 
         indexRemap[readIndex] = writeIndex++;

@@ -7,13 +7,13 @@ import graph_model;
 
 static constexpr auto CELL_SIZE = 1000;
 
-void GridMap::insert(const Node* node) {
-    const auto nodeArea = GraphModel::getNodeBoundingBox(node->m_worldPos);
+void GridMap::insert(const Node* node, NodeIndex_t nodeIndex) {
+    const auto nodeArea = Node::getBoundingBox(node->getWorldPos());
 
     const auto [minCellX, maxCellX, minCellY, maxCellY] = calculateCellEntryForNode(nodeArea);
     for (size_t y = minCellY; y <= maxCellY; ++y) {
         for (size_t x = minCellX; x <= maxCellX; ++x) {
-            m_cells[y * m_cellCountX + x].push_back(node->m_index);
+            m_cells[y * m_cellCountX + x].push_back(nodeIndex);
         }
     }
 }
@@ -66,37 +66,12 @@ void GridMap::reserveNodeCountInCells() {
     m_nodeCountInCell.shrink_to_fit();
 }
 
-std::vector<VisibleNode> GridMap::query(std::span<const Node> nodes, const BoundingBox2D& area,
-                                        int queryLimit) const {
-    std::vector<VisibleNode> result;
-    result.reserve(estimateNodeCountInArea(area));
-
-    const auto [minCellX, maxCellX, minCellY, maxCellY] = calculateCellEntryForArea(area);
-    for (size_t y = minCellY; y <= maxCellY; ++y) {
-        for (size_t x = minCellX; x <= maxCellX; ++x) {
-            const auto& cellNodes = m_cells[y * m_cellCountX + x];
-            for (const auto nodeIndex : cellNodes) {
-                if (queryLimit > 0 && static_cast<int>(result.size()) >= queryLimit) {
-                    return result;
-                }
-
-                const auto& node = nodes[nodeIndex];
-                if (area.intersects(GraphModel::getNodeBoundingBox(node.m_worldPos))) {
-                    result.emplace_back(node.m_worldPos, nodeIndex);
-                }
-            }
-        }
-    }
-
-    return result;
-}
-
 NodeIndex_t GridMap::querySingle(std::span<const Node> nodes, Vector2D point, float minimumDistance,
                                  NodeIndex_t nodeToIgnore) const {
     auto bestDistanceSquared = minimumDistance * minimumDistance;
 
     const auto [minCellX, maxCellX, minCellY, maxCellY] =
-        calculateCellEntryForArea(GraphModel::getNodeBoundingBox(point));
+        calculateCellEntryForArea(Node::getBoundingBox(point));
 
     NodeIndex_t closestNodeIndex = INVALID_NODE;
     for (size_t y = minCellY; y <= maxCellY; ++y) {
@@ -108,7 +83,7 @@ NodeIndex_t GridMap::querySingle(std::span<const Node> nodes, Vector2D point, fl
                 }
 
                 const auto& node = nodes[nodeIndex];
-                const auto distanceSquared = node.m_worldPos.distanceSquared(point);
+                const auto distanceSquared = node.getWorldPos().distanceSquared(point);
                 if (distanceSquared < bestDistanceSquared) {
                     bestDistanceSquared = distanceSquared;
                     closestNodeIndex = nodeIndex;
@@ -121,9 +96,9 @@ NodeIndex_t GridMap::querySingle(std::span<const Node> nodes, Vector2D point, fl
 }
 
 NodeIndex_t GridMap::querySingleFast(std::span<const Node> nodes, Vector2D point,
-                                     const BoundingBox2D& area, float minimumDistance,
-                                     NodeIndex_t nodeToIgnore) const {
-    const auto [minCellX, maxCellX, minCellY, maxCellY] = calculateCellEntryForArea(area);
+                                     float minimumDistance, NodeIndex_t nodeToIgnore) const {
+    const auto [minCellX, maxCellX, minCellY, maxCellY] =
+        calculateCellEntryForArea(Node::getBoundingBox(point));
     for (size_t y = minCellY; y <= maxCellY; ++y) {
         for (size_t x = minCellX; x <= maxCellX; ++x) {
             const auto& cellNodes = m_cells[y * m_cellCountX + x];
@@ -133,9 +108,9 @@ NodeIndex_t GridMap::querySingleFast(std::span<const Node> nodes, Vector2D point
                 }
 
                 const auto& node = nodes[nodeIndex];
-                const auto distanceSquared = node.m_worldPos.distanceSquared(point);
+                const auto distanceSquared = node.getWorldPos().distanceSquared(point);
                 if (distanceSquared < minimumDistance * minimumDistance) {
-                    return node.m_index;
+                    return nodeIndex;
                 }
             }
         }
@@ -201,17 +176,4 @@ GridMap::EntryCell GridMap::calculateCellEntryForArea(const BoundingBox2D& nodeA
     cell.m_maxCellY = std::clamp(maxCellY, 0, m_cellCountY - 1);
 
     return cell;
-}
-
-size_t GridMap::estimateNodeCountInArea(const BoundingBox2D& area) const {
-    size_t estimatedCount = 0;
-
-    const auto [minCellX, maxCellX, minCellY, maxCellY] = calculateCellEntryForArea(area);
-    for (size_t y = minCellY; y <= maxCellY; ++y) {
-        for (size_t x = minCellX; x <= maxCellX; ++x) {
-            estimatedCount += m_cells[y * m_cellCountX + x].size();
-        }
-    }
-
-    return estimatedCount;
 }

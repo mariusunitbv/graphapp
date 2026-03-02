@@ -2,13 +2,9 @@ module;
 #include <pch.h>
 
 export module graph_view_model;
+export import graph_view_model_defines;
 
 import graph_model;
-
-export struct GraphCamera {
-    Vector2D m_position{};
-    float m_zoom{1.0f};
-};
 
 export class GraphViewModel {
    public:
@@ -48,6 +44,9 @@ export class GraphViewModel {
     void setSelectBoxStart(float cursorX, float cursorY);
     void setSelectBoxEnd(float cursorX, float cursorY);
     void selectNodesInBox();
+    void selectNode(NodeIndex_t nodeIndex);
+    void deselectNode(NodeIndex_t nodeIndex);
+    void deselectAllNodes();
 
     void clampCameraPositionInBounds();
     void updateVisibleRegion();

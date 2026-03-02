@@ -28,6 +28,10 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
     switch (event.type) {
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             if (event.button.button == SDL_BUTTON_LEFT && !lAltPressed && lShiftPressed) {
+                if (!lCtrlPressed) {
+                    deselectAllNodes();
+                }
+
                 m_isSelectingUsingBox = true;
                 setSelectBoxStart(event.button.x, event.button.y);
             }
@@ -100,8 +104,9 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
 
             break;
         case SDL_EVENT_KEY_UP:
-            if (event.key.key == SDLK_LSHIFT) {
+            if (event.key.key == SDLK_LSHIFT && m_isSelectingUsingBox) {
                 m_isSelectingUsingBox = false;
+                m_shouldBlockMouseLeftClick = true;
             }
 
             break;
@@ -170,7 +175,12 @@ std::vector<VisibleNode>& GraphViewModel::getVisibleNodes() {
         screenToWorld(m_displaySize + extraMargin),
     };
 
-    m_visibleNodes = m_model->queryNodes(m_lastQueryRegionArea);
+    m_visibleNodes.clear();
+    m_model->visitNodes(m_lastQueryRegionArea, [this](NodeIndex_t nodeIndex) {
+        const auto node = m_model->getNode(nodeIndex);
+        m_visibleNodes.emplace_back(node->getWorldPos(), nodeIndex);
+    });
+
     return m_visibleNodes;
 }
 
@@ -179,7 +189,7 @@ NodeIndex_t GraphViewModel::getHoveredNodeIndex() const { return m_hoveredNodeIn
 size_t GraphViewModel::getSelectedNodesCount() const { return m_selectedNodes.size(); }
 
 bool GraphViewModel::isNodeSelected(NodeIndex_t nodeIndex) const {
-    return m_selectedNodes.contains(nodeIndex);
+    return m_model->getNode(nodeIndex)->isSelected();
 }
 
 float GraphViewModel::getZoomFactor() const { return m_camera.m_zoom; }
@@ -210,7 +220,7 @@ Vector2D GraphViewModel::screenToWorld(Vector2D screenPos) const {
 }
 
 void GraphViewModel::removeSelectedNodes() {
-    m_model->removeNodes(m_selectedNodes);
+    m_model->removeSelectedNodes();
 
     invalidateVisibleNodesCache();
 
@@ -228,9 +238,10 @@ void GraphViewModel::centerOnNode(NodeIndex_t nodeIndex) {
         return;
     }
 
-    const auto nodeScreenPos = worldToScreen(node->m_worldPos);
+    const auto nodeWorldPos = node->getWorldPos();
+    const auto nodeScreenPos = worldToScreen(nodeWorldPos);
 
-    m_camera.m_position = node->m_worldPos;
+    m_camera.m_position = nodeWorldPos;
     m_hoveredNodeIndex = nodeIndex;
 
     updateVisibleRegion();
@@ -268,26 +279,26 @@ void GraphViewModel::onCameraZoom(float deltaZoom, float cursorX, float cursorY)
 void GraphViewModel::onMouseClick(float cursorX, float cursorY, bool ctrlPressed) {
     if (m_hoveredNodeIndex != INVALID_NODE) {
         if (ctrlPressed) {
-            if (m_selectedNodes.contains(m_hoveredNodeIndex)) {
-                m_selectedNodes.erase(m_hoveredNodeIndex);
+            if (isNodeSelected(m_hoveredNodeIndex)) {
+                deselectNode(m_hoveredNodeIndex);
             } else {
-                m_selectedNodes.insert(m_hoveredNodeIndex);
+                selectNode(m_hoveredNodeIndex);
             }
         } else {
-            m_selectedNodes.clear();
-            m_selectedNodes.insert(m_hoveredNodeIndex);
+            deselectAllNodes();
+            selectNode(m_hoveredNodeIndex);
         }
 
         return;
     }
 
     if (!m_selectedNodes.empty()) {
-        m_selectedNodes.clear();
+        deselectAllNodes();
         return;
     }
 
     const auto worldPos = screenToWorld({cursorX, cursorY});
-    const auto nodeArea = GraphModel::getNodeBoundingBox(worldPos);
+    const auto nodeArea = Node::getBoundingBox(worldPos);
 
     if (!WORLD_BOUNDS.contains(nodeArea)) {
         return;
@@ -302,7 +313,7 @@ void GraphViewModel::onMouseClick(float cursorX, float cursorY, bool ctrlPressed
     const auto lastNodeIndex = m_model->getLastNodeIndex();
     const auto lastNode = m_model->getNode(lastNodeIndex);
 
-    m_visibleNodes.emplace_back(lastNode->m_worldPos, lastNodeIndex);
+    m_visibleNodes.emplace_back(lastNode->getWorldPos(), lastNodeIndex);
     m_hoveredNodeIndex = lastNodeIndex;
 }
 
@@ -313,7 +324,7 @@ void GraphViewModel::onMouseMove(float cursorX, float cursorY) {
         return;
     }
 
-    m_hoveredNodeIndex = hoveredNode->m_index;
+    m_hoveredNodeIndex = m_model->getNodeIndex(hoveredNode);
 }
 
 void GraphViewModel::setSelectBoxStart(float cursorX, float cursorY) {
@@ -339,24 +350,37 @@ void GraphViewModel::selectNodesInBox() {
         return;
     }
 
-    const auto ctrlPressed = (SDL_GetModState() & SDL_KMOD_CTRL) != 0;
-    if (!ctrlPressed) {
-        m_selectedNodes.clear();
-    }
+    constexpr auto MAX_SELECTABLE_NODES = 5'000'000;
+    m_model->visitNodes(m_selectBoxBounds, [this](NodeIndex_t nodeIndex) {
+        if (m_selectedNodes.size() >= MAX_SELECTABLE_NODES) {
+            return false;
+        }
 
-    constexpr auto MAX_SELECTABLE_NODES = 100000;
-    if (m_selectedNodes.size() >= MAX_SELECTABLE_NODES) {
-        return;
-    }
+        if (!m_model->getNode(nodeIndex)->isSelected()) {
+            selectNode(nodeIndex);
+        }
 
-    const auto queryResult = m_model->queryNodes(m_selectBoxBounds, MAX_SELECTABLE_NODES);
-    const auto indices =
-        queryResult | std::views::transform([](const VisibleNode& vn) { return vn.m_index; });
-
-    m_selectedNodes.reserve(m_selectedNodes.size() + queryResult.size());
-    m_selectedNodes.insert(indices.begin(), indices.end());
+        return true;
+    });
 
     m_lastSelectBoxQueryTime = now;
+}
+
+void GraphViewModel::selectNode(NodeIndex_t nodeIndex) {
+    m_model->getNode(nodeIndex)->markSelected();
+    m_selectedNodes.insert(nodeIndex);
+}
+
+void GraphViewModel::deselectNode(NodeIndex_t nodeIndex) {
+    m_model->getNode(nodeIndex)->unmarkSelected();
+    m_selectedNodes.erase(nodeIndex);
+}
+
+void GraphViewModel::deselectAllNodes() {
+    for (const auto nodeIndex : m_selectedNodes) {
+        m_model->getNode(nodeIndex)->unmarkSelected();
+    }
+    m_selectedNodes.clear();
 }
 
 void GraphViewModel::clampCameraPositionInBounds() {

@@ -63,8 +63,8 @@ export class GraphView {
     void drawNodes();
 
     void colorVisibleNodes(std::vector<VisibleNode>& visibleNodes);
-    ImU32 getNodeColor(const Node* node) const;
-    ImU32 getOutlineColor(const Node* node) const;
+    ImU32 getNodeColor(NodeIndex_t nodeIndex) const;
+    ImU32 getOutlineColor(NodeIndex_t nodeIndex) const;
 
     bool shouldDrawNodes() const;
 
@@ -93,7 +93,7 @@ export class GraphView {
 #endif
 
     int m_vsyncMode{0};
-    int m_outlineThickness{1};
+    int m_outlineThickness{2};
     float m_gridCellSize{100.f};
     int m_nodeCutoffZoom{10};
 

@@ -573,7 +573,7 @@ void GraphView::drawSettings() {
     constexpr auto windowFlags = ImGuiWindowFlags_NoDocking;
     ImGui::Begin("Settings", &m_isSettingsOpen, windowFlags);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGui::BeginChild("##settings_tabs", ImVec2(170, 0), ImGuiChildFlags_Borders);
+    ImGui::BeginChild("##settings_tabs", ImVec2(200, 0), ImGuiChildFlags_Borders);
     if (ImGui::BeginListBox("##tabs", {-FLT_MIN, -FLT_MIN})) {
         for (int i = 0; i < std::size(settingsTabs); ++i) {
             if (ImGui::Selectable(settingsTabs[i], currentTab == i)) {
@@ -702,8 +702,8 @@ void GraphView::drawSettings() {
 
         ImGui::TextUnformatted("Graph Zoom Factor:");
         ImGui::SetNextItemWidth(-FLT_MIN);
-        if (ImGui::SliderFloat("##graphZoom", &graphZoom, 0.01f, 5.f, "%.2fx")) {
-            m_viewModel->setZoomFactor(std::clamp(graphZoom, 0.01f, 5.f));
+        if (ImGui::SliderFloat("##graphZoom", &graphZoom, 0.05f, 5.f, "%.2fx")) {
+            m_viewModel->setZoomFactor(std::clamp(graphZoom, 0.05f, 5.f));
         }
 
         ImGui::TextUnformatted("Grid Spacing:");
@@ -712,7 +712,7 @@ void GraphView::drawSettings() {
 
         ImGui::TextUnformatted("Minimum Zoom to Show Nodes:");
         ImGui::SetNextItemWidth(-FLT_MIN);
-        ImGui::SliderInt("##nodeZoom", &m_nodeCutoffZoom, 0, 500);
+        ImGui::SliderInt("##nodeZoom", &m_nodeCutoffZoom, 0, 500, "%d%%");
     }
     ImGui::EndChild();
 
@@ -932,24 +932,29 @@ void GraphView::drawNodes() {
 
 void GraphView::colorVisibleNodes(std::vector<VisibleNode>& visibleNodes) {
     for (auto& visibleNode : visibleNodes) {
-        const auto node = m_model->getNode(visibleNode.m_index);
-        visibleNode.m_color = getNodeColor(node);
-        visibleNode.m_outlineColor = getOutlineColor(node);
+        visibleNode.m_color = getNodeColor(visibleNode.m_index);
+        visibleNode.m_outlineColor = getOutlineColor(visibleNode.m_index);
     }
 }
 
-ImU32 GraphView::getNodeColor(const Node* node) const {
-    int colorAlpha = (m_theme.m_nodeColor >> 24) & 0xFF;
-    if (node->m_index == m_viewModel->getHoveredNodeIndex()) {
-        colorAlpha = std::max(colorAlpha - 60, 30);
+ImU32 GraphView::getNodeColor(NodeIndex_t nodeIndex) const {
+    const auto node = m_model->getNode(nodeIndex);
+
+    int nodeAlpha = (m_theme.m_nodeColor >> 24) & 0xFF;
+    if (nodeIndex == m_viewModel->getHoveredNodeIndex()) {
+        nodeAlpha = std::max(nodeAlpha - 60, 30);
     }
 
-    return IM_COL32(node->m_red, node->m_green, node->m_blue, colorAlpha);
+    if (node->hasCustomColor()) {
+        return node->getABGR(nodeAlpha);
+    }
+
+    return m_theme.m_nodeColor & 0x00FFFFFF | (nodeAlpha << 24);
 }
 
-ImU32 GraphView::getOutlineColor(const Node* node) const {
-    const auto isHovered = node->m_index == m_viewModel->getHoveredNodeIndex();
-    const auto isSelected = m_viewModel->isNodeSelected(node->m_index);
+ImU32 GraphView::getOutlineColor(NodeIndex_t nodeIndex) const {
+    const auto isHovered = nodeIndex == m_viewModel->getHoveredNodeIndex();
+    const auto isSelected = m_viewModel->isNodeSelected(nodeIndex);
 
     ImU32 color = m_theme.m_nodeOutlineColor;
     if (isSelected && isHovered) {

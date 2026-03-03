@@ -3,10 +3,10 @@
 // C/C++ standard library headers
 #include <unordered_map>
 #include <unordered_set>
+#include <execution>
 #include <algorithm>
 #include <iostream>
 #include <vector>
-#include <chrono>
 #include <ranges>
 #include <span>
 
@@ -24,6 +24,7 @@
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
+#include <imgui_freetype.h>
 #include <imgui_internal.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_opengl3.h>

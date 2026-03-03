@@ -40,6 +40,7 @@ export class GraphView {
     void initializeTextures();
     void initializeGL();
     void initializeNodeGL();
+    void initializeNodeFastGL();
     void initializeGridGL();
 
     GLuint compileShader(GLenum type, const char* source);
@@ -77,6 +78,7 @@ export class GraphView {
     bool m_drawMinMax{false};
     bool m_drawNodes{true};
     bool m_drawNodesOutline{true};
+    bool m_drawNodesFast{true};
 
     bool m_isDeleteDialogOpen{false};
     bool m_isCenterOnNodeDialogOpen{false};
@@ -97,6 +99,7 @@ export class GraphView {
     float m_gridCellSize{100.f};
     int m_nodeCutoffZoom{10};
 
+    GLfloat m_pointSizeRange[2]{};
     GLuint m_unitbvLogoTexture{};
 
     struct GLObject {
@@ -125,6 +128,7 @@ export class GraphView {
     };
 
     GLObject m_nodeGLObject;
+    GLObject m_nodeFastGLObject;
 
     struct GridLineInstanceData {
         Vector2D m_worldStart{};

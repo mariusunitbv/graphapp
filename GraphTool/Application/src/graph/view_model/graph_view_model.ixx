@@ -20,6 +20,15 @@ export class GraphViewModel {
     float getZoomFactor() const;
     void setZoomFactor(float zoom);
 
+    int getMaxNodesPerCellBase() const;
+    void setMaxNodesPerCellBase(int maxNodes);
+
+    float getNodeCondensationFactor() const;
+    void setNodeCondensationFactor(float factor);
+
+    bool shouldCondensateNodesLowZoom() const;
+    void setShouldCondensateNodesLowZoom(bool shouldCondensate);
+
     Vector2D getCameraPosition() const;
     BoundingBox2D getVisibleRegionWorld(Vector2D additionalPadding = {}) const;
 
@@ -65,9 +74,13 @@ export class GraphViewModel {
     std::vector<VisibleNode> m_visibleNodes{};
     std::unordered_set<NodeIndex_t> m_selectedNodes{};
 
+    int m_maxNodesPerCellBase{350};
+    float m_nodeCondensationFactor{0.35f};
+
     NodeIndex_t m_hoveredNodeIndex{INVALID_NODE};
     bool m_isSelectingUsingBox{false};
     bool m_shouldBlockMouseLeftClick{false};
+    bool m_shouldCondensateNodesLowZoom{true};
 
     std::chrono::steady_clock::time_point m_lastSelectBoxQueryTime{};
     Vector2D m_selectBoxStartWorldPos{};

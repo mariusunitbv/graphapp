@@ -205,7 +205,16 @@ void Application::setupWindowIcon() {
 void Application::setupFonts(float scale) {
     auto& io = ImGui::GetIO();
 
-    io.Fonts->AddFontFromFileTTF("assets/JetBrainsMonoNL-Regular.ttf", 17.f * scale, nullptr,
+    ImFontConfig config{};
+
+    config.FontBuilderFlags =
+        ImGuiFreeTypeBuilderFlags_Bitmap | ImGuiFreeTypeBuilderFlags_Monochrome;
+    config.PixelSnapH = true;
+    config.OversampleH = config.OversampleV = 1;
+
+    io.Fonts->AddFontFromFileTTF("assets/CozetteVector.otf", 26.f, &config,
+                                 io.Fonts->GetGlyphRangesDefault());
+    io.Fonts->AddFontFromFileTTF("assets/CozetteVector.otf", 13.f, &config,
                                  io.Fonts->GetGlyphRangesDefault());
 
     io.Fonts->Build();

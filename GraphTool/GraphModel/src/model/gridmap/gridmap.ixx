@@ -20,7 +20,7 @@ export class GridMap {
 
     template <typename Func>
     void visitNodes(std::span<const Node> nodes, const BoundingBox2D& area, Func&& func,
-                    int visitLimit = -1) const;
+                    int maxNodesPerCell = -1) const;
 
     const BoundingBox2D& getBounds() const;
     void setBounds(const BoundingBox2D& bounds);
@@ -49,18 +49,20 @@ export class GridMap {
 
 template <typename Func>
 void GridMap::visitNodes(std::span<const Node> nodes, const BoundingBox2D& area, Func&& func,
-                         int visitLimit) const {
-    int visitedCount = 0;
-
+                         int maxNodesPerCell) const {
     const auto cellEntry = calculateCellEntryForArea(area);
     for (int cellY = cellEntry.m_minCellY; cellY <= cellEntry.m_maxCellY; ++cellY) {
         for (int cellX = cellEntry.m_minCellX; cellX <= cellEntry.m_maxCellX; ++cellX) {
             const auto& cell = m_cells[cellY * m_cellCountX + cellX];
-            for (const auto nodeIndex : cell) {
-                if (visitLimit >= 0 && visitedCount >= visitLimit) {
-                    return;
-                }
 
+            int nodesInCell = static_cast<int>(cell.size());
+            int step = 1;
+            if (maxNodesPerCell > 0 && nodesInCell > maxNodesPerCell) {
+                step = (nodesInCell + maxNodesPerCell - 1) / maxNodesPerCell;
+            }
+
+            for (int i = 0; i < nodesInCell; i += step) {
+                const auto nodeIndex = cell[i];
                 const auto& node = nodes[nodeIndex];
                 if (area.intersects(Node::getBoundingBox(node.getWorldPos()))) {
                     if constexpr (std::is_invocable_r_v<bool, Func, NodeIndex_t>) {
@@ -69,7 +71,6 @@ void GridMap::visitNodes(std::span<const Node> nodes, const BoundingBox2D& area,
                         }
                     } else {
                         func(nodeIndex);
-                        ++visitedCount;
                     }
                 }
             }

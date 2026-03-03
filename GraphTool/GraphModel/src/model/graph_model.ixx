@@ -33,7 +33,7 @@ export class GraphModel {
     const BoundingBox2D& getGraphBounds() const;
 
     template <typename Func>
-    void visitNodes(const BoundingBox2D& area, Func&& func, int visitLimit = -1) const;
+    void visitNodes(const BoundingBox2D& area, Func&& func, int maxNodesPerCell = -1) const;
 
    private:
     bool updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds);
@@ -48,9 +48,9 @@ export class GraphModel {
 };
 
 template <typename Func>
-void GraphModel::visitNodes(const BoundingBox2D& area, Func&& func, int visitLimit) const {
+void GraphModel::visitNodes(const BoundingBox2D& area, Func&& func, int maxNodesPerCell) const {
     static_assert(std::is_invocable_v<Func, NodeIndex_t>,
                   "visitNodes: callback must accept a single NodeIndex_t parameter");
 
-    m_gridMap.visitNodes(m_nodes, area, std::forward<Func>(func), visitLimit);
+    m_gridMap.visitNodes(m_nodes, area, std::forward<Func>(func), maxNodesPerCell);
 }

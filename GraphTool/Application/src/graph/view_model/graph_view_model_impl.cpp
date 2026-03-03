@@ -175,11 +175,19 @@ std::vector<VisibleNode>& GraphViewModel::getVisibleNodes() {
         screenToWorld(m_displaySize + extraMargin),
     };
 
+    int maxNodesPerCell = -1;
+    if (m_camera.m_zoom <= m_nodeCondensationFactor && m_shouldCondensateNodesLowZoom) {
+        maxNodesPerCell = static_cast<int>(m_maxNodesPerCellBase / m_camera.m_zoom);
+    }
+
     m_visibleNodes.clear();
-    m_model->visitNodes(m_lastQueryRegionArea, [this](NodeIndex_t nodeIndex) {
-        const auto node = m_model->getNode(nodeIndex);
-        m_visibleNodes.emplace_back(node->getWorldPos(), nodeIndex);
-    });
+    m_model->visitNodes(
+        m_lastQueryRegionArea,
+        [this](NodeIndex_t nodeIndex) {
+            const auto node = m_model->getNode(nodeIndex);
+            m_visibleNodes.emplace_back(node->getWorldPos(), nodeIndex);
+        },
+        maxNodesPerCell);
 
     return m_visibleNodes;
 }
@@ -200,6 +208,27 @@ void GraphViewModel::setZoomFactor(float zoom) {
     clampCameraPositionInBounds();
     invalidateVisibleNodesCache();
     updateVisibleRegion();
+}
+
+int GraphViewModel::getMaxNodesPerCellBase() const { return m_maxNodesPerCellBase; }
+
+void GraphViewModel::setMaxNodesPerCellBase(int maxNodes) {
+    m_maxNodesPerCellBase = maxNodes;
+    invalidateVisibleNodesCache();
+}
+
+float GraphViewModel::getNodeCondensationFactor() const { return m_nodeCondensationFactor; }
+
+void GraphViewModel::setNodeCondensationFactor(float factor) {
+    m_nodeCondensationFactor = factor;
+    invalidateVisibleNodesCache();
+}
+
+bool GraphViewModel::shouldCondensateNodesLowZoom() const { return m_shouldCondensateNodesLowZoom; }
+
+void GraphViewModel::setShouldCondensateNodesLowZoom(bool shouldCondensate) {
+    m_shouldCondensateNodesLowZoom = shouldCondensate;
+    invalidateVisibleNodesCache();
 }
 
 Vector2D GraphViewModel::getCameraPosition() const { return m_camera.m_position; }

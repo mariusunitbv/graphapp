@@ -3,6 +3,8 @@ module;
 
 module graph_view_model;
 
+import graph_utils;
+
 void GraphViewModel::initialize(GraphModel* model, float displayWidth, float displayHeight) {
     m_model = model;
 
@@ -162,34 +164,63 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
     }
 }
 
-void GraphViewModel::preRenderUpdate() { selectNodesInBox(); }
+void GraphViewModel::preRenderUpdate() {
+    selectNodesInBox();
 
-std::vector<VisibleNode>& GraphViewModel::getVisibleNodes() {
-    if (m_lastQueryRegionArea.contains(m_visibleRegionArea)) {
-        return m_visibleNodes;
+    if (!m_lastQueryRegionArea.contains(m_visibleRegionArea)) {
+        invalidateVisibleData();
+
+        const auto extraMargin = m_displaySize * (m_camera.m_zoom >= 2.5f ? 1.25f : 0.3f);
+        m_lastQueryRegionArea = {
+            screenToWorld(-extraMargin),
+            screenToWorld(m_displaySize + extraMargin),
+        };
+
+        updateVisibleNodes(m_visibleData);
+        updateVisibleEdges(m_visibleData);
+
+        m_shouldUseCachedVisibleNodes = false;
+    }
+}
+
+const std::vector<Vector2D>& GraphViewModel::getVisibleNodesPositions() const {
+    if (m_shouldUseCachedVisibleNodes) {
+        return m_cachedVisibleData.m_nodesPositions;
     }
 
-    const auto extraMargin = m_displaySize * 0.2f;
-    m_lastQueryRegionArea = {
-        screenToWorld(-extraMargin),
-        screenToWorld(m_displaySize + extraMargin),
-    };
+    return m_visibleData.m_nodesPositions;
+}
 
-    int maxNodesPerCell = -1;
-    if (m_camera.m_zoom <= m_nodeCondensationFactor && m_shouldCondensateNodesLowZoom) {
-        maxNodesPerCell = static_cast<int>(m_maxNodesPerCellBase / m_camera.m_zoom);
+std::vector<NodeColorInfo>& GraphViewModel::getVisibleNodesColors() {
+    if (m_shouldUseCachedVisibleNodes) {
+        return m_cachedVisibleData.m_nodesColors;
     }
 
-    m_visibleNodes.clear();
-    m_model->visitNodes(
-        m_lastQueryRegionArea,
-        [this](NodeIndex_t nodeIndex) {
-            const auto node = m_model->getNode(nodeIndex);
-            m_visibleNodes.emplace_back(node->getWorldPos(), nodeIndex);
-        },
-        maxNodesPerCell);
+    return m_visibleData.m_nodesColors;
+}
 
-    return m_visibleNodes;
+const std::vector<NodeIndex_t>& GraphViewModel::getVisibleNodesIndexes() const {
+    if (m_shouldUseCachedVisibleNodes) {
+        return m_cachedVisibleData.m_nodesIndexes;
+    }
+
+    return m_visibleData.m_nodesIndexes;
+}
+
+const std::vector<VisibleNode>& GraphViewModel::getVisibleNodes() const {
+    if (m_shouldUseCachedVisibleNodes) {
+        return m_cachedVisibleData.m_visibleNodes;
+    }
+
+    return m_visibleData.m_visibleNodes;
+}
+
+const std::vector<VisibleEdge>& GraphViewModel::getVisibleEdges() const {
+    if (m_shouldUseCachedVisibleNodes) {
+        return m_cachedVisibleData.m_visibleEdges;
+    }
+
+    return m_visibleData.m_visibleEdges;
 }
 
 NodeIndex_t GraphViewModel::getHoveredNodeIndex() const { return m_hoveredNodeIndex; }
@@ -206,29 +237,43 @@ void GraphViewModel::setZoomFactor(float zoom) {
     m_camera.m_zoom = zoom;
 
     clampCameraPositionInBounds();
-    invalidateVisibleNodesCache();
+    invalidateVisibleData();
     updateVisibleRegion();
 }
 
-int GraphViewModel::getMaxNodesPerCellBase() const { return m_maxNodesPerCellBase; }
+int GraphViewModel::getMaxNodesPerCellBase() const { return m_maxNodesPerCellPercentage; }
 
 void GraphViewModel::setMaxNodesPerCellBase(int maxNodes) {
-    m_maxNodesPerCellBase = maxNodes;
-    invalidateVisibleNodesCache();
+    m_maxNodesPerCellPercentage = maxNodes;
+    invalidateVisibleData();
 }
 
-float GraphViewModel::getNodeCondensationFactor() const { return m_nodeCondensationFactor; }
+float GraphViewModel::getNodeCondensationPercentage() const { return m_nodeCondensationFactor; }
 
-void GraphViewModel::setNodeCondensationFactor(float factor) {
-    m_nodeCondensationFactor = factor;
-    invalidateVisibleNodesCache();
+void GraphViewModel::setNodeCondensationPercentage(float percentage) {
+    m_nodeCondensationFactor = percentage;
+    invalidateVisibleData();
+}
+
+int GraphViewModel::getEdgeDrawPercentage() const { return m_edgeDrawPercentage; }
+
+void GraphViewModel::setEdgeDrawPercentage(int percentage) {
+    m_edgeDrawPercentage = percentage;
+    invalidateVisibleData();
+}
+
+int GraphViewModel::getMaxVisibleNodes() const { return m_maxVisibleNodes; }
+
+void GraphViewModel::setMaxVisibleNodes(int maxNodes) {
+    m_maxVisibleNodes = maxNodes;
+    invalidateVisibleData();
 }
 
 bool GraphViewModel::shouldCondensateNodesLowZoom() const { return m_shouldCondensateNodesLowZoom; }
 
 void GraphViewModel::setShouldCondensateNodesLowZoom(bool shouldCondensate) {
     m_shouldCondensateNodesLowZoom = shouldCondensate;
-    invalidateVisibleNodesCache();
+    invalidateVisibleData();
 }
 
 Vector2D GraphViewModel::getCameraPosition() const { return m_camera.m_position; }
@@ -251,7 +296,7 @@ Vector2D GraphViewModel::screenToWorld(Vector2D screenPos) const {
 void GraphViewModel::removeSelectedNodes() {
     m_model->removeSelectedNodes();
 
-    invalidateVisibleNodesCache();
+    invalidateVisibleData();
 
     m_hoveredNodeIndex = INVALID_NODE;
     m_selectedNodes.clear();
@@ -279,7 +324,7 @@ void GraphViewModel::centerOnNode(NodeIndex_t nodeIndex) {
 void GraphViewModel::onSceneResize(float displayWidth, float displayHeight) {
     m_displaySize = {displayWidth, displayHeight};
 
-    invalidateVisibleNodesCache();
+    invalidateVisibleData();
     updateVisibleRegion();
 }
 
@@ -294,14 +339,18 @@ void GraphViewModel::onCameraPan(float deltaX, float deltaY) {
 void GraphViewModel::onCameraZoom(float deltaZoom, float cursorX, float cursorY) {
     const auto world = screenToWorld({cursorX, cursorY});
 
-    m_camera.m_zoom += (deltaZoom > 0) ? 0.1f : -0.1f;
-    m_camera.m_zoom = std::clamp(m_camera.m_zoom, 0.1f, 5.f);
+    if (deltaZoom > 0 && m_camera.m_zoom < 0.1f) {
+        m_camera.m_zoom = 0.1f;
+    } else {
+        m_camera.m_zoom += (deltaZoom > 0) ? 0.1f : -0.1f;
+        m_camera.m_zoom = std::clamp(m_camera.m_zoom, 0.05f, 50.f);
+    }
 
     m_camera.m_position.m_x = world.m_x - (cursorX - m_displaySize.m_x * 0.5f) / m_camera.m_zoom;
     m_camera.m_position.m_y = world.m_y - (cursorY - m_displaySize.m_y * 0.5f) / m_camera.m_zoom;
 
     clampCameraPositionInBounds();
-    invalidateVisibleNodesCache();
+    invalidateVisibleData();
     updateVisibleRegion();
 }
 
@@ -342,7 +391,8 @@ void GraphViewModel::onMouseClick(float cursorX, float cursorY, bool ctrlPressed
     const auto lastNodeIndex = m_model->getLastNodeIndex();
     const auto lastNode = m_model->getNode(lastNodeIndex);
 
-    m_visibleNodes.emplace_back(lastNode->getWorldPos(), lastNodeIndex);
+    onVisibleNode(lastNodeIndex, m_visibleData);
+
     m_hoveredNodeIndex = lastNodeIndex;
 }
 
@@ -412,6 +462,80 @@ void GraphViewModel::deselectAllNodes() {
     m_selectedNodes.clear();
 }
 
+void GraphViewModel::updateVisibleNodes(VisibleData& visibleData) {
+    const auto estimatedNodeCount = m_model->estimateNodeCountInArea(m_lastQueryRegionArea);
+
+    const auto zoom = m_camera.m_zoom;
+    float nodesPerCellPercentage = 1.f;
+    if (m_shouldCondensateNodesLowZoom && zoom <= m_nodeCondensationFactor) {
+        nodesPerCellPercentage = m_maxNodesPerCellPercentage / 100.f;
+    }
+
+    visibleData.m_nodesPositions.reserve(estimatedNodeCount);
+    visibleData.m_nodesColors.reserve(estimatedNodeCount);
+    visibleData.m_nodesIndexes.reserve(estimatedNodeCount);
+    visibleData.m_visibleNodes.reserve(estimatedNodeCount);
+
+    m_model->visitNodes(
+        m_lastQueryRegionArea,
+        [this, &visibleData](NodeIndex_t nodeIndex) {
+            if (visibleData.m_visibleNodes.size() >= m_maxVisibleNodes) {
+                return false;
+            }
+
+            onVisibleNode(nodeIndex, visibleData);
+            return true;
+        },
+        nodesPerCellPercentage);
+}
+
+void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
+    for (const auto [lookupIndex] : visibleData.m_visibleNodes) {
+        const auto nodeIndex = visibleData.m_nodesIndexes[lookupIndex];
+
+        struct VisitorData {
+            VisibleData* visibleData;
+            GraphModel* model;
+            uint32_t srcLookupIndex;
+        } visitorData{&visibleData, m_model, lookupIndex};
+
+        m_model->visitNeighbours(
+            nodeIndex, &visitorData,
+            [](void* data, NodeIndex_t index, int) {
+                const auto visitorData = static_cast<VisitorData*>(data);
+                const auto visibleData = visitorData->visibleData;
+
+                const auto destNode = visitorData->model->getNode(index);
+                const auto destLookupIndex = destNode->getLookupIndex();
+
+                if (destLookupIndex >= visibleData->m_visibleNodes.size()) {
+                    return;
+                }
+
+                if (index != visibleData->m_nodesIndexes[destLookupIndex]) {
+                    return;
+                }
+
+                visibleData->m_visibleEdges.emplace_back(visitorData->srcLookupIndex,
+                                                         destLookupIndex);
+            },
+            m_edgeDrawPercentage / 100.f);
+    }
+}
+
+void GraphViewModel::onVisibleNode(NodeIndex_t nodeIndex, VisibleData& visibleData) {
+    const auto node = m_model->getNode(nodeIndex);
+
+    visibleData.m_nodesPositions.push_back(node->getWorldPos());
+    visibleData.m_nodesColors.emplace_back();
+    visibleData.m_nodesIndexes.push_back(nodeIndex);
+
+    const auto lookupIndex = static_cast<uint32_t>(visibleData.m_visibleNodes.size());
+    node->setLookupIndex(lookupIndex);
+
+    visibleData.m_visibleNodes.emplace_back(lookupIndex);
+}
+
 void GraphViewModel::clampCameraPositionInBounds() {
     if (!WORLD_BOUNDS.contains(m_camera.m_position)) {
         m_camera.m_position.m_x =
@@ -425,15 +549,26 @@ void GraphViewModel::updateVisibleRegion() {
     m_visibleRegionArea = {screenToWorld({0.f, 0.f}), screenToWorld(m_displaySize)};
 }
 
-void GraphViewModel::invalidateVisibleNodesCache() {
-    m_visibleNodes.clear();
+void GraphViewModel::invalidateVisibleData() {
+    if (m_shouldUseCachedVisibleNodes) {
+        return;
+    }
+
+    m_shouldUseCachedVisibleNodes = true;
+    m_cachedVisibleData = std::move(m_visibleData);
+
     m_lastQueryRegionArea = {};
 }
 
 void GraphViewModel::addSampleNodes() {
-    constexpr float start = -10000.f;
+    Utils::loadJSON(m_model, "assets/brasov.json");
+    centerOnNode(0);
+
+    return;
+
+    constexpr float start = -39970.f;
     constexpr float end = -start;
-    constexpr float step = NODE_RADIUS * 2.f;
+    constexpr float step = NODE_RADIUS * 1.6f;
 
     constexpr size_t stepsPerAxis = static_cast<size_t>((end - start) / step) + 1;
     constexpr size_t nodeCount = stepsPerAxis * stepsPerAxis;
@@ -474,4 +609,16 @@ void GraphViewModel::addSampleNodes() {
 
     std::cout << "GridMap built in " << duration.count() << " ms.\n";
     std::cout << "Finished adding nodes.\n";
+
+    size_t added = 0;
+    while (added < 5'000'000) {
+        NodeIndex_t src = xorshift32() % nodeCount;
+        NodeIndex_t dest = xorshift32() % nodeCount;
+
+        if (src == dest) continue;
+        if (src > dest) std::swap(src, dest);
+
+        m_model->addEdge(src, dest, 1);
+        added++;
+    }
 }

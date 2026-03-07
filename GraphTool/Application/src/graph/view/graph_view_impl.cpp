@@ -5,8 +5,12 @@ module graph_view;
 
 import texture_loader;
 
+import gridmap;
+
 #ifdef __EMSCRIPTEN__
-#define GLSL_VERSION "#version 300 es\nprecision mediump float;\n"
+#define GLSL_VERSION                                                             \
+    "#version 300 es\n#define WEBGL\nprecision mediump float;\nprecision highp " \
+    "sampler2D;\nprecision highp usampler2D;\n"
 #else
 #define GLSL_VERSION "#version 330 core\n"
 #endif
@@ -58,6 +62,8 @@ void GraphView::onSDLEvent(const SDL_Event& event) {
             break;
     }
 }
+
+void GraphView::preRenderUpdate() { colorNodes(); }
 
 void GraphView::renderUI() {
     ImDrawList* drawList = ImGui::GetBackgroundDrawList();
@@ -115,6 +121,7 @@ void GraphView::renderUI() {
 void GraphView::renderScene() {
     drawBackground();
     drawGrid();
+    drawEdges();
     drawNodes();
 }
 
@@ -139,34 +146,223 @@ void GraphView::initializeGL() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_maxTextureSize);
+    std::cout << "Max texture size: " << m_maxTextureSize << std::endl;
+
 #ifndef __EMSCRIPTEN__
     glEnable(GL_PROGRAM_POINT_SIZE);
     glGetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, m_pointSizeRange);
 #endif
 
+    initializeEdgeGL();
     initializeNodeGL();
     initializeNodeFastGL();
     initializeGridGL();
 }
 
+void GraphView::initializeEdgeGL() {
+    constexpr auto vertexShaderSource = GLSL_VERSION R"(
+        layout(location = 0) in uint aSrcLookupIndex;
+        layout(location = 1) in uint aDestLookupIndex;
+
+#ifdef WEBGL
+        uniform sampler2D uNodePositions;
+        uniform usampler2D uNodeColors;
+        uniform int uTextureWidth;
+
+        vec2 fetchNodePosition(int lookupIndex) {
+            int x = lookupIndex % uTextureWidth;
+            int y = lookupIndex / uTextureWidth;
+            return texelFetch(uNodePositions, ivec2(x, y), 0).xy;
+        }
+
+        uvec4 fetchNodeColors(int lookupIndex) {
+            int x = lookupIndex % uTextureWidth;
+            int y = lookupIndex / uTextureWidth;
+            return texelFetch(uNodeColors, ivec2(x, y), 0);
+        }
+#else
+        uniform samplerBuffer uNodePositions;
+        uniform usamplerBuffer uNodeColors;
+
+        vec2 fetchNodePosition(int lookupIndex) {
+            return texelFetch(uNodePositions, lookupIndex).xy;
+        }
+
+        uvec4 fetchNodeColors(int lookupIndex) {
+            return texelFetch(uNodeColors, lookupIndex);
+        }
+#endif
+
+        uniform vec2 uScreenSize;
+        uniform vec2 uCameraPos;
+        uniform float uCameraZoom;
+
+        out vec4 vColor;
+
+        vec4 unpackColor(uint packedColor) {
+            return vec4(
+                float(packedColor & 0xFFu) / 255.0,
+                float((packedColor >> 8) & 0xFFu) / 255.0,
+                float((packedColor >> 16) & 0xFFu) / 255.0,
+                float((packedColor >> 24) & 0xFFu) / 255.0
+            );
+        }
+
+        void main() {
+            vec2 worldPos;
+            if (gl_VertexID == 0) {
+                worldPos = fetchNodePosition(int(aSrcLookupIndex));
+                uvec4 colorsPacked = fetchNodeColors(int(aSrcLookupIndex));
+                vColor = unpackColor(colorsPacked.y);
+            } else {
+                worldPos = fetchNodePosition(int(aDestLookupIndex));
+                uvec4 colorsPacked = fetchNodeColors(int(aDestLookupIndex));
+                vColor = unpackColor(colorsPacked.y);
+            }
+
+            vec2 screenPos = (worldPos - uCameraPos) * uCameraZoom + uScreenSize * 0.5;
+            vec2 ndc = (screenPos / uScreenSize) * 2.0 - 1.0;
+            ndc.y = -ndc.y;
+
+            gl_Position = vec4(ndc, 0.0, 1.0);
+        }
+    )";
+
+    constexpr auto fragmentShaderSource = GLSL_VERSION R"(
+        in vec4 vColor;
+
+        out vec4 FragColor;
+
+        void main() {
+            FragColor = vColor;
+        }
+    )";
+
+    const auto vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
+    const auto fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
+
+    auto& edgeGL = m_edgeGLObject;
+    edgeGL.m_shaderProgram = glCreateProgram();
+
+    glAttachShader(edgeGL.m_shaderProgram, vertexShader);
+    glAttachShader(edgeGL.m_shaderProgram, fragmentShader);
+
+    glLinkProgram(edgeGL.m_shaderProgram);
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    glGenVertexArrays(1, &edgeGL.m_VAO);
+    glBindVertexArray(edgeGL.m_VAO);
+
+    glGenBuffers(1, &edgeGL.m_VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, edgeGL.m_VBO);
+    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribIPointer(0, 1, GL_UNSIGNED_INT, sizeof(VisibleEdge),
+                           (void*)offsetof(VisibleEdge, m_startNodeIndexLookup));
+    glVertexAttribDivisor(0, 1);
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(VisibleEdge),
+                           (void*)offsetof(VisibleEdge, m_endNodeIndexLookup));
+    glVertexAttribDivisor(1, 1);
+
+#ifdef __EMSCRIPTEN__
+    glGenTextures(1, &edgeGL.m_positionTex);
+    glBindTexture(GL_TEXTURE_2D, edgeGL.m_positionTex);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glGenTextures(1, &edgeGL.m_colorTex);
+    glBindTexture(GL_TEXTURE_2D, edgeGL.m_colorTex);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+#else
+    glGenBuffers(1, &edgeGL.m_positionTBO);
+    glGenTextures(1, &edgeGL.m_positionTex);
+
+    glBindBuffer(GL_TEXTURE_BUFFER, edgeGL.m_positionTBO);
+    glBufferData(GL_TEXTURE_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+    glBindTexture(GL_TEXTURE_BUFFER, edgeGL.m_positionTex);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, edgeGL.m_positionTBO);
+
+    glGenBuffers(1, &edgeGL.m_colorTBO);
+    glGenTextures(1, &edgeGL.m_colorTex);
+
+    glBindBuffer(GL_TEXTURE_BUFFER, edgeGL.m_colorTBO);
+    glBufferData(GL_TEXTURE_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+    glBindTexture(GL_TEXTURE_BUFFER, edgeGL.m_colorTex);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32UI, edgeGL.m_colorTBO);
+#endif
+
+    glBindVertexArray(0);
+}
+
 void GraphView::initializeNodeGL() {
     constexpr auto vertexShaderSource = GLSL_VERSION R"(
         layout(location = 0) in vec2 aPos;
-        layout(location = 1) in vec2 aWorldPos;
-        layout(location = 2) in vec4 aColor;
-        layout(location = 3) in vec4 aOutlineColor;
+        layout(location = 1) in uint aLookupIndex;
 
         uniform float uNodeRadius;
         uniform vec2 uScreenSize;
         uniform vec2 uCameraPos;
         uniform float uCameraZoom;
 
+#ifdef WEBGL
+        uniform sampler2D uNodePositions;
+        uniform usampler2D uNodeColors;
+        uniform int uTextureWidth;
+
+        vec2 fetchNodePosition(int lookupIndex) {
+            int x = lookupIndex % uTextureWidth;
+            int y = lookupIndex / uTextureWidth;
+            return texelFetch(uNodePositions, ivec2(x, y), 0).xy;
+        }
+
+        uvec4 fetchNodeColors(int lookupIndex) {
+            int x = lookupIndex % uTextureWidth;
+            int y = lookupIndex / uTextureWidth;
+            return texelFetch(uNodeColors, ivec2(x, y), 0);
+        }
+#else
+        uniform samplerBuffer uNodePositions;
+        uniform usamplerBuffer uNodeColors;
+
+        vec2 fetchNodePosition(int lookupIndex) {
+            return texelFetch(uNodePositions, lookupIndex).xy;
+        }
+
+        uvec4 fetchNodeColors(int lookupIndex) {
+            return texelFetch(uNodeColors, lookupIndex);
+        }
+#endif
+
+        vec4 unpackColor(uint packedColor) {
+            return vec4(
+                float(packedColor & 0xFFu) / 255.0,
+                float((packedColor >> 8) & 0xFFu) / 255.0,
+                float((packedColor >> 16) & 0xFFu) / 255.0,
+                float((packedColor >> 24) & 0xFFu) / 255.0
+            );
+        }
+
         out vec4 vColor;
         out vec4 vOutlineColor;
         out vec2 vTexCoord;
         
         void main() {
-            vec2 screenPos = (aWorldPos - uCameraPos) * uCameraZoom + uScreenSize * 0.5;
+            vec2 worldPos = fetchNodePosition(int(aLookupIndex));
+
+            vec2 screenPos = (worldPos - uCameraPos) * uCameraZoom + uScreenSize * 0.5;
             vec2 pos = screenPos + aPos * uNodeRadius;
             
             vec2 ndc = (pos / uScreenSize) * 2.0 - 1.0;
@@ -174,8 +370,12 @@ void GraphView::initializeNodeGL() {
 
             gl_Position = vec4(ndc, 0.0, 1.0);
 
-            vColor = aColor;
-            vOutlineColor = aOutlineColor;
+            uvec4 colorsPacked = fetchNodeColors(int(aLookupIndex));
+            uint color = colorsPacked.x;
+            uint outlineColor = colorsPacked.y;
+            
+            vColor = unpackColor(color);
+            vOutlineColor = unpackColor(outlineColor);
 
             vTexCoord = aPos * 0.5 + 0.5;
         }
@@ -243,23 +443,48 @@ void GraphView::initializeNodeGL() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
 
-    glGenBuffers(1, &nodeGL.m_instanceVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, nodeGL.m_instanceVBO);
+    glGenBuffers(1, &nodeGL.m_VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, nodeGL.m_VBO);
     glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VisibleNode), (void*)0);
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(VisibleNode),
+                           (void*)offsetof(VisibleNode, m_lookupIndex));
     glVertexAttribDivisor(1, 1);
 
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VisibleNode),
-                          (void*)(2 * sizeof(float)));
-    glVertexAttribDivisor(2, 1);
+#ifdef __EMSCRIPTEN__
+    glGenTextures(1, &nodeGL.m_positionTex);
+    glBindTexture(GL_TEXTURE_2D, nodeGL.m_positionTex);
 
-    glEnableVertexAttribArray(3);
-    glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VisibleNode),
-                          (void*)(2 * sizeof(float) + 4 * sizeof(uint8_t)));
-    glVertexAttribDivisor(3, 1);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glGenTextures(1, &nodeGL.m_colorTex);
+    glBindTexture(GL_TEXTURE_2D, nodeGL.m_colorTex);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+#else
+    glGenBuffers(1, &nodeGL.m_positionTBO);
+    glGenTextures(1, &nodeGL.m_positionTex);
+
+    glBindBuffer(GL_TEXTURE_BUFFER, nodeGL.m_positionTBO);
+    glBufferData(GL_TEXTURE_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+    glBindTexture(GL_TEXTURE_BUFFER, nodeGL.m_positionTex);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, nodeGL.m_positionTBO);
+
+    glGenBuffers(1, &nodeGL.m_colorTBO);
+    glGenTextures(1, &nodeGL.m_colorTex);
+
+    glBindBuffer(GL_TEXTURE_BUFFER, nodeGL.m_colorTBO);
+    glBufferData(GL_TEXTURE_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+    glBindTexture(GL_TEXTURE_BUFFER, nodeGL.m_colorTex);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32UI, nodeGL.m_colorTBO);
+#endif
 
     glBindVertexArray(0);
 
@@ -268,10 +493,12 @@ void GraphView::initializeNodeGL() {
 }
 
 void GraphView::initializeNodeFastGL() {
+#ifndef __EMSCRIPTEN__
     constexpr auto vertexShaderSource = GLSL_VERSION R"(
-        layout(location = 0) in vec2 aWorldPos;
-        layout(location = 1) in vec4 aColor;
-        layout(location = 2) in vec4 aOutlineColor;
+        layout(location = 0) in uint aLookupIndex;
+
+        uniform samplerBuffer uNodePositions;
+        uniform usamplerBuffer uNodeColors;
 
         uniform float uNodeRadius;
         uniform vec2 uScreenSize;
@@ -281,16 +508,31 @@ void GraphView::initializeNodeFastGL() {
         out vec4 vColor;
         out vec4 vOutlineColor;
 
+        vec4 unpackColor(uint packedColor) {
+            return vec4(
+                float(packedColor & 0xFFu) / 255.0,
+                float((packedColor >> 8) & 0xFFu) / 255.0,
+                float((packedColor >> 16) & 0xFFu) / 255.0,
+                float((packedColor >> 24) & 0xFFu) / 255.0
+            );
+        }
+
         void main() {
-            vec2 screenPos = (aWorldPos - uCameraPos) * uCameraZoom + uScreenSize * 0.5;
+            vec2 worldPos = texelFetch(uNodePositions, int(aLookupIndex)).xy;
+            
+            uvec4 colorsPacked = texelFetch(uNodeColors, int(aLookupIndex));
+            uint color = colorsPacked.x;
+            uint outlineColor = colorsPacked.y;
+
+            vec2 screenPos = (worldPos - uCameraPos) * uCameraZoom + uScreenSize * 0.5;
             vec2 ndc = (screenPos / uScreenSize) * 2.0 - 1.0;
             ndc.y = -ndc.y;
 
             gl_Position = vec4(ndc, 0.0, 1.0);
             gl_PointSize = uNodeRadius * 2.0;
 
-            vColor = aColor;
-            vOutlineColor = aOutlineColor;
+            vColor = unpackColor(color);
+            vOutlineColor = unpackColor(outlineColor);
         }
 )";
 
@@ -339,25 +581,32 @@ void GraphView::initializeNodeFastGL() {
     glGenVertexArrays(1, &nodeGL.m_VAO);
     glBindVertexArray(nodeGL.m_VAO);
 
-    glGenBuffers(1, &nodeGL.m_instanceVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, nodeGL.m_instanceVBO);
+    glGenBuffers(1, &nodeGL.m_VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, nodeGL.m_VBO);
     glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(VisibleNode), (void*)0);
+    glVertexAttribIPointer(0, 1, GL_UNSIGNED_INT, sizeof(VisibleNode), (void*)0);
     glVertexAttribDivisor(0, 1);
 
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VisibleNode),
-                          (void*)(2 * sizeof(float)));
-    glVertexAttribDivisor(1, 1);
+    glGenBuffers(1, &nodeGL.m_positionTBO);
+    glGenTextures(1, &nodeGL.m_positionTex);
 
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VisibleNode),
-                          (void*)(2 * sizeof(float) + 4 * sizeof(uint8_t)));
-    glVertexAttribDivisor(2, 1);
+    glBindBuffer(GL_TEXTURE_BUFFER, nodeGL.m_positionTBO);
+    glBufferData(GL_TEXTURE_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+    glBindTexture(GL_TEXTURE_BUFFER, nodeGL.m_positionTex);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, nodeGL.m_positionTBO);
+
+    glGenBuffers(1, &nodeGL.m_colorTBO);
+    glGenTextures(1, &nodeGL.m_colorTex);
+
+    glBindBuffer(GL_TEXTURE_BUFFER, nodeGL.m_colorTBO);
+    glBufferData(GL_TEXTURE_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+    glBindTexture(GL_TEXTURE_BUFFER, nodeGL.m_colorTex);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32UI, nodeGL.m_colorTBO);
 
     glBindVertexArray(0);
+#endif
 }
 
 void GraphView::initializeGridGL() {
@@ -436,8 +685,8 @@ void GraphView::initializeGridGL() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
 
-    glGenBuffers(1, &gridGL.m_instanceVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, gridGL.m_instanceVBO);
+    glGenBuffers(1, &gridGL.m_VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, gridGL.m_VBO);
     glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
 
     glEnableVertexAttribArray(1);
@@ -558,8 +807,8 @@ void GraphView::drawStatusBar() {
     ImGui::SameLine();
 
     char buffer[32];
-    std::snprintf(buffer, sizeof(buffer), "Visible nodes: %zu",
-                  m_viewModel->getVisibleNodes().size());
+    std::snprintf(buffer, sizeof(buffer), "N/E: %zu/%zu", m_viewModel->getVisibleNodes().size(),
+                  m_viewModel->getVisibleEdges().size());
 
     const auto textWidth = ImGui::CalcTextSize(buffer).x;
     if (textWidth * 1.2f < ImGui::GetContentRegionAvail().x) {
@@ -786,6 +1035,22 @@ void GraphView::drawSettings() {
 
         ImGui::SeparatorText("Graph Details");
 
+        int maxNodes = m_viewModel->getMaxVisibleNodes();
+        ImGui::TextUnformatted("Maximum Visible Nodes:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::SliderInt("##mvn", &maxNodes, 10'000, 10'000'000)) {
+            maxNodes = std::clamp(maxNodes, 10'000, 10'000'000);
+            m_viewModel->setMaxVisibleNodes(maxNodes);
+        }
+
+        int edgeDrawPercentage = m_viewModel->getEdgeDrawPercentage();
+        ImGui::TextUnformatted("Edges Drawn per Node Percentage:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::SliderInt("##edp", &edgeDrawPercentage, 1, 100, "%d%%")) {
+            edgeDrawPercentage = std::clamp(edgeDrawPercentage, 1, 100);
+            m_viewModel->setEdgeDrawPercentage(edgeDrawPercentage);
+        }
+
         bool shouldCondensateNodes = m_viewModel->shouldCondensateNodesLowZoom();
         if (ImGui::Checkbox("Condensate Nodes at Low Zoom", &shouldCondensateNodes)) {
             m_viewModel->setShouldCondensateNodesLowZoom(shouldCondensateNodes);
@@ -793,35 +1058,42 @@ void GraphView::drawSettings() {
 
         if (shouldCondensateNodes) {
             int maxNodesPerCellBase = m_viewModel->getMaxNodesPerCellBase();
-            ImGui::TextUnformatted("Max Nodes per Cell Base:");
+            ImGui::TextUnformatted("Nodes Drawn per Cell Percentage:");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(
+                    "The world is divided into cells of size of %dpx each.\n"
+                    "This setting determines how many nodes will be drawn in\neach cell "
+                    "when the zoom level is low enough for condensation to occur.\nA lower value "
+                    "means that fewer "
+                    "nodes will be drawn in each cell, which\ncan improve performance but may make "
+                    "the graph look more sparse.",
+                    GridMap::CELL_SIZE);
+            }
+
             ImGui::SetNextItemWidth(-FLT_MIN);
-            if (ImGui::SliderInt("##ndpcb", &maxNodesPerCellBase, 10, 700)) {
-                maxNodesPerCellBase = std::clamp(maxNodesPerCellBase, 10, 700);
+            if (ImGui::SliderInt("##ndpcb", &maxNodesPerCellBase, 1, 100, "%d%%")) {
+                maxNodesPerCellBase = std::clamp(maxNodesPerCellBase, 1, 100);
                 m_viewModel->setMaxNodesPerCellBase(maxNodesPerCellBase);
             }
 
-            float nodeCondensationFactor = m_viewModel->getNodeCondensationFactor();
+            float nodeCondensationFactor = m_viewModel->getNodeCondensationPercentage();
             ImGui::TextUnformatted("Node Condensation Zoom Factor:");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(
+                    "Determines at which zoom factor the nodes start to condensate.\nA lower value "
+                    "means that nodes will start to condensate at a lower zoom level.");
+            }
+
             ImGui::SetNextItemWidth(-FLT_MIN);
             if (ImGui::SliderFloat("##ndcf", &nodeCondensationFactor, 0.05f, 0.7f, "%.2fx")) {
                 nodeCondensationFactor = std::clamp(nodeCondensationFactor, 0.05f, 0.7f);
-                m_viewModel->setNodeCondensationFactor(nodeCondensationFactor);
-            }
-
-            const auto zoom = m_viewModel->getZoomFactor();
-            if (zoom <= nodeCondensationFactor) {
-                ImGui::Text("Nodes per Cell at current Zoom: %d",
-                            static_cast<int>(maxNodesPerCellBase / zoom));
-            } else {
-                ImGui::TextUnformatted("Nodes are not condensated at current zoom level.");
+                m_viewModel->setNodeCondensationPercentage(nodeCondensationFactor);
             }
         }
     } else if (currentTab == 2) {
         ImGui::SeparatorText("Display");
 
-        ImGui::Checkbox("Draw Nodes Fast", &m_drawNodesFast);
         ImGui::Checkbox("Draw Grid", &m_drawGrid);
-
         ImGui::Checkbox("Draw Min/Max Bounds", &m_drawMinMax);
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip(
@@ -832,18 +1104,49 @@ void GraphView::drawSettings() {
         ImGui::Checkbox("Draw Nodes", &m_drawNodes);
         ImGui::Checkbox("Draw Nodes Outline", &m_drawNodesOutline);
 
-        ImGui::TextUnformatted("Outline Thickness:");
+        ImGui::TextUnformatted("Node Radius Scale:");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Scales the radius of the nodes. VISUAL ONLY!");
+        }
+
         ImGui::SetNextItemWidth(-FLT_MIN);
-        if (ImGui::SliderInt("##outlineThickness", &m_outlineThickness, 1, 4)) {
+        if (ImGui::SliderFloat("##nrs", &m_nodeRadiusScale, 0.05f, 2.f, "%.2fx")) {
+            m_nodeRadiusScale = std::clamp(m_nodeRadiusScale, 0.05f, 2.f);
+        }
+
+        ImGui::TextUnformatted("Node Outline Thickness:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::SliderInt("##otk", &m_outlineThickness, 1, 4)) {
             m_outlineThickness = std::clamp(m_outlineThickness, 1, 4);
+        }
+
+        ImGui::TextUnformatted("Minimum Zoom to Show Nodes:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::SliderInt("##nodeZoom", &m_nodeCutoffZoom, 0, 500, "%d%%")) {
+            m_nodeCutoffZoom = std::clamp(m_nodeCutoffZoom, 0, 500);
+        }
+
+        ImGui::Separator();
+
+        static constexpr const char* fontLabels[] = {"Bigger", "Smaller"};
+
+        ImGui::TextUnformatted("Graph Font Size:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::BeginCombo("##vsync", fontLabels[m_graphTextFontIndex])) {
+            for (int i = 0; i < std::size(fontLabels); ++i) {
+                if (ImGui::Selectable(fontLabels[i], m_graphTextFontIndex == i)) {
+                    m_graphTextFontIndex = i;
+                }
+            }
+            ImGui::EndCombo();
         }
 
         auto graphZoom = m_viewModel->getZoomFactor();
 
         ImGui::TextUnformatted("Graph Zoom Factor:");
         ImGui::SetNextItemWidth(-FLT_MIN);
-        if (ImGui::SliderFloat("##graphZoom", &graphZoom, 0.05f, 5.f, "%.2fx")) {
-            graphZoom = std::clamp(graphZoom, 0.05f, 5.f);
+        if (ImGui::SliderFloat("##graphZoom", &graphZoom, 0.05f, 50.f, "%.2fx")) {
+            graphZoom = std::clamp(graphZoom, 0.05f, 50.f);
             m_viewModel->setZoomFactor(graphZoom);
         }
 
@@ -851,12 +1154,6 @@ void GraphView::drawSettings() {
         ImGui::SetNextItemWidth(-FLT_MIN);
         if (ImGui::SliderFloat("##gridSpacing", &m_gridCellSize, NODE_RADIUS, 100.f, "%.2f")) {
             m_gridCellSize = std::clamp(m_gridCellSize, NODE_RADIUS, 100.f);
-        }
-
-        ImGui::TextUnformatted("Minimum Zoom to Show Nodes:");
-        ImGui::SetNextItemWidth(-FLT_MIN);
-        if (ImGui::SliderInt("##nodeZoom", &m_nodeCutoffZoom, 0, 500, "%d%%")) {
-            m_nodeCutoffZoom = std::clamp(m_nodeCutoffZoom, 0, 500);
         }
     }
     ImGui::EndChild();
@@ -874,12 +1171,18 @@ void GraphView::drawNodesIndexes(ImDrawList* drawList) {
         return;
     }
 
-    const auto font = ImGui::GetIO().Fonts->Fonts[1];
-    const auto& visibleNodes = m_viewModel->getVisibleNodes();
-    for (const auto& visibleNode : visibleNodes) {
+    const auto font = ImGui::GetIO().Fonts->Fonts[m_graphTextFontIndex];
+    const auto& visibleNodesIndexes = m_viewModel->getVisibleNodesIndexes();
+    if (visibleNodesIndexes.empty() || visibleNodesIndexes.size() >= 10000) {
+        return;
+    }
+
+    for (uint32_t lookupIndex = static_cast<uint32_t>(visibleNodesIndexes.size());
+         lookupIndex-- > 0;) {
         char indexLabel[10];
 
-        auto temp = visibleNode.m_index;
+        const auto index = visibleNodesIndexes[lookupIndex];
+        auto temp = index;
         int len = 0;
         do {
             indexLabel[len++] = '0' + (temp % 10);
@@ -888,11 +1191,18 @@ void GraphView::drawNodesIndexes(ImDrawList* drawList) {
         indexLabel[len] = '\0';
         std::reverse(indexLabel, indexLabel + len);
 
-        const auto worldPos = m_viewModel->worldToScreen(visibleNode.m_worldPos);
-        const auto baseSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, indexLabel);
-        const auto textPos = toImVec(worldPos) - baseSize * 0.5f;
+        const auto node = m_model->getNode(index);
+        const auto worldPos = m_viewModel->worldToScreen(node->getWorldPos());
 
-        drawList->AddText(font, font->FontSize, textPos, visibleNode.m_outlineColor, indexLabel);
+        const auto baseSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, indexLabel);
+        if (baseSize.x > NODE_DIAMETER * zoom * m_nodeRadiusScale) {
+            continue;
+        }
+
+        const auto textPos = toImVec(worldPos) - baseSize * 0.5f;
+        drawList->AddText(font, font->FontSize, textPos,
+                          m_viewModel->getVisibleNodesColors()[lookupIndex].m_outlineColor,
+                          indexLabel);
     }
 }
 
@@ -944,7 +1254,10 @@ void GraphView::drawMousePosition(ImDrawList* drawList) {
     char buffer[32];
     std::snprintf(buffer, sizeof(buffer), "(%.1f, %.1f)", mouseWorldPos.m_x, mouseWorldPos.m_y);
 
-    drawList->AddText({mouseX + 10.f, mouseY - 10.f}, m_theme.m_nodeOutlineColor, buffer);
+    const auto font = ImGui::GetIO().Fonts->Fonts[m_graphTextFontIndex];
+
+    drawList->AddText(font, font->FontSize, {mouseX + 10.f, mouseY - 10.f},
+                      m_theme.m_nodeOutlineColor, buffer);
 }
 
 void GraphView::drawWatermark(ImDrawList* drawList) {
@@ -1029,7 +1342,7 @@ void GraphView::drawGrid() {
     const auto& gridGL = m_gridGLObject;
 
     glBindVertexArray(gridGL.m_VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, gridGL.m_instanceVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, gridGL.m_VBO);
     glBufferData(GL_ARRAY_BUFFER, gridLines.size() * sizeof(GridLineInstanceData), gridLines.data(),
                  GL_DYNAMIC_DRAW);
 
@@ -1042,6 +1355,65 @@ void GraphView::drawGrid() {
     glBindVertexArray(0);
 }
 
+void GraphView::drawEdges() {
+    const auto [width, height] = ImGui::GetIO().DisplaySize;
+    const auto zoom = m_viewModel->getZoomFactor();
+    const auto [cameraX, cameraY] = m_viewModel->getCameraPosition();
+
+    const auto& nodePositions = m_viewModel->getVisibleNodesPositions();
+    const auto& nodeColors = m_viewModel->getVisibleNodesColors();
+    const auto& visibleEdges = m_viewModel->getVisibleEdges();
+
+    const auto& edgeGL = m_edgeGLObject;
+
+    glBindVertexArray(edgeGL.m_VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, edgeGL.m_VBO);
+    glBufferData(GL_ARRAY_BUFFER, visibleEdges.size() * sizeof(VisibleEdge), visibleEdges.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glUseProgram(edgeGL.m_shaderProgram);
+    glUniform1i(glGetUniformLocation(edgeGL.m_shaderProgram, "uNodePositions"), 0);
+    glUniform1i(glGetUniformLocation(edgeGL.m_shaderProgram, "uNodeColors"), 1);
+
+    glUniform2f(glGetUniformLocation(edgeGL.m_shaderProgram, "uScreenSize"), width, height);
+    glUniform2f(glGetUniformLocation(edgeGL.m_shaderProgram, "uCameraPos"), cameraX, cameraY);
+    glUniform1f(glGetUniformLocation(edgeGL.m_shaderProgram, "uCameraZoom"), zoom);
+
+#ifdef __EMSCRIPTEN__
+    const int numNodes = static_cast<int>(nodePositions.size());
+    const int textureHeight = (numNodes + m_maxTextureSize - 1) / m_maxTextureSize;
+    glUniform1i(glGetUniformLocation(edgeGL.m_shaderProgram, "uTextureWidth"), m_maxTextureSize);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, edgeGL.m_positionTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, m_maxTextureSize, textureHeight, 0, GL_RG, GL_FLOAT,
+                 nodePositions.data());
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, edgeGL.m_colorTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32UI, m_maxTextureSize, textureHeight, 0, GL_RG_INTEGER,
+                 GL_UNSIGNED_INT, nodeColors.data());
+#else
+    glBindBuffer(GL_TEXTURE_BUFFER, edgeGL.m_positionTBO);
+    glBufferData(GL_TEXTURE_BUFFER, nodePositions.size() * sizeof(Vector2D), nodePositions.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_TEXTURE_BUFFER, edgeGL.m_colorTBO);
+    glBufferData(GL_TEXTURE_BUFFER, nodeColors.size() * sizeof(NodeColorInfo), nodeColors.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_BUFFER, edgeGL.m_positionTex);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_BUFFER, edgeGL.m_colorTex);
+#endif
+
+    glDrawArraysInstanced(GL_LINES, 0, 2, static_cast<int>(visibleEdges.size()));
+
+    glBindVertexArray(0);
+}
+
 void GraphView::drawNodes() {
     if (!shouldDrawNodes()) {
         return;
@@ -1049,32 +1421,67 @@ void GraphView::drawNodes() {
 
     const auto [width, height] = ImGui::GetIO().DisplaySize;
     const auto zoom = m_viewModel->getZoomFactor();
-    const auto radius = NODE_RADIUS * zoom;
+    const auto radius = NODE_RADIUS * m_nodeRadiusScale * zoom;
     const auto [cameraX, cameraY] = m_viewModel->getCameraPosition();
 
-    auto& visibleNodes = m_viewModel->getVisibleNodes();
-    colorVisibleNodes(visibleNodes);
+    const auto& nodePositions = m_viewModel->getVisibleNodesPositions();
+    const auto& nodeColors = m_viewModel->getVisibleNodesColors();
+    const auto& visibleNodes = m_viewModel->getVisibleNodes();
 
 #ifdef __EMSCRIPTEN__
     constexpr auto shouldDrawFast = false;
 #else
-    const auto shouldDrawFast = 2.f * radius < m_pointSizeRange[1] && m_drawNodesFast;
+    const auto shouldDrawFast = 2.f * radius < m_pointSizeRange[1];
 #endif
 
     const auto& nodeGL = shouldDrawFast ? m_nodeFastGLObject : m_nodeGLObject;
 
     glBindVertexArray(nodeGL.m_VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, nodeGL.m_instanceVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, nodeGL.m_VBO);
     glBufferData(GL_ARRAY_BUFFER, visibleNodes.size() * sizeof(VisibleNode), visibleNodes.data(),
                  GL_DYNAMIC_DRAW);
 
     glUseProgram(nodeGL.m_shaderProgram);
+    glUniform1i(glGetUniformLocation(nodeGL.m_shaderProgram, "uNodePositions"), 0);
+    glUniform1i(glGetUniformLocation(nodeGL.m_shaderProgram, "uNodeColors"), 1);
+
     glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uNodeRadius"), radius);
     glUniform2f(glGetUniformLocation(nodeGL.m_shaderProgram, "uScreenSize"), width, height);
     glUniform2f(glGetUniformLocation(nodeGL.m_shaderProgram, "uCameraPos"), cameraX, cameraY);
     glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uCameraZoom"), zoom);
     glUniform1f(glGetUniformLocation(nodeGL.m_shaderProgram, "uOutlineThickness"),
-                m_drawNodesOutline ? (m_outlineThickness / 100.f / zoom) : 0.f);
+                m_drawNodesOutline ? (m_outlineThickness / 100.f) : 0.f);
+
+#ifdef __EMSCRIPTEN__
+    const int numNodes = static_cast<int>(nodePositions.size());
+    const int textureHeight = (numNodes + m_maxTextureSize - 1) / m_maxTextureSize;
+
+    glUniform1i(glGetUniformLocation(nodeGL.m_shaderProgram, "uTextureWidth"), m_maxTextureSize);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, nodeGL.m_positionTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, m_maxTextureSize, textureHeight, 0, GL_RG, GL_FLOAT,
+                 nodePositions.data());
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, nodeGL.m_colorTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32UI, m_maxTextureSize, textureHeight, 0, GL_RG_INTEGER,
+                 GL_UNSIGNED_INT, nodeColors.data());
+#else
+    glBindBuffer(GL_TEXTURE_BUFFER, nodeGL.m_positionTBO);
+    glBufferData(GL_TEXTURE_BUFFER, nodePositions.size() * sizeof(Vector2D), nodePositions.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_TEXTURE_BUFFER, nodeGL.m_colorTBO);
+    glBufferData(GL_TEXTURE_BUFFER, nodeColors.size() * sizeof(NodeColorInfo), nodeColors.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_BUFFER, nodeGL.m_positionTex);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_BUFFER, nodeGL.m_colorTex);
+#endif
 
     if (shouldDrawFast) {
         glDrawArraysInstanced(GL_POINTS, 0, 1, (int)visibleNodes.size());
@@ -1085,10 +1492,14 @@ void GraphView::drawNodes() {
     glBindVertexArray(0);
 }
 
-void GraphView::colorVisibleNodes(std::vector<VisibleNode>& visibleNodes) {
-    for (auto& visibleNode : visibleNodes) {
-        visibleNode.m_color = getNodeColor(visibleNode.m_index);
-        visibleNode.m_outlineColor = getOutlineColor(visibleNode.m_index);
+void GraphView::colorNodes() {
+    auto& nodeColors = m_viewModel->getVisibleNodesColors();
+    for (uint32_t lookupIndex = 0; lookupIndex < nodeColors.size(); ++lookupIndex) {
+        const auto nodeIndex = m_viewModel->getVisibleNodesIndexes()[lookupIndex];
+
+        auto& nodeColor = nodeColors[lookupIndex];
+        nodeColor.m_color = getNodeColor(nodeIndex);
+        nodeColor.m_outlineColor = getOutlineColor(nodeIndex);
     }
 }
 

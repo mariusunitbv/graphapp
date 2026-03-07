@@ -12,7 +12,13 @@ export class GraphViewModel {
     void onSDLEvent(const SDL_Event& event, bool focusOnUI);
     void preRenderUpdate();
 
-    std::vector<VisibleNode>& getVisibleNodes();
+    const std::vector<Vector2D>& getVisibleNodesPositions() const;
+    std::vector<NodeColorInfo>& getVisibleNodesColors();
+    const std::vector<NodeIndex_t>& getVisibleNodesIndexes() const;
+
+    const std::vector<VisibleNode>& getVisibleNodes() const;
+    const std::vector<VisibleEdge>& getVisibleEdges() const;
+
     NodeIndex_t getHoveredNodeIndex() const;
     size_t getSelectedNodesCount() const;
     bool isNodeSelected(NodeIndex_t nodeIndex) const;
@@ -23,8 +29,14 @@ export class GraphViewModel {
     int getMaxNodesPerCellBase() const;
     void setMaxNodesPerCellBase(int maxNodes);
 
-    float getNodeCondensationFactor() const;
-    void setNodeCondensationFactor(float factor);
+    float getNodeCondensationPercentage() const;
+    void setNodeCondensationPercentage(float percentage);
+
+    int getEdgeDrawPercentage() const;
+    void setEdgeDrawPercentage(int percentage);
+
+    int getMaxVisibleNodes() const;
+    void setMaxVisibleNodes(int maxNodes);
 
     bool shouldCondensateNodesLowZoom() const;
     void setShouldCondensateNodesLowZoom(bool shouldCondensate);
@@ -57,9 +69,13 @@ export class GraphViewModel {
     void deselectNode(NodeIndex_t nodeIndex);
     void deselectAllNodes();
 
+    void updateVisibleNodes(VisibleData& visibleData);
+    void updateVisibleEdges(VisibleData& visibleData);
+    void onVisibleNode(NodeIndex_t nodeIndex, VisibleData& visibleData);
+
     void clampCameraPositionInBounds();
     void updateVisibleRegion();
-    void invalidateVisibleNodesCache();
+    void invalidateVisibleData();
 
     void addSampleNodes();
 
@@ -69,18 +85,23 @@ export class GraphViewModel {
     Vector2D m_displaySize{};
 
     BoundingBox2D m_visibleRegionArea{};
-
     BoundingBox2D m_lastQueryRegionArea{};
-    std::vector<VisibleNode> m_visibleNodes{};
+
+    VisibleData m_visibleData{};
+    VisibleData m_cachedVisibleData{};
+
     std::unordered_set<NodeIndex_t> m_selectedNodes{};
 
-    int m_maxNodesPerCellBase{350};
+    int m_maxNodesPerCellPercentage{85};
     float m_nodeCondensationFactor{0.35f};
+    int m_edgeDrawPercentage{100};
+    int m_maxVisibleNodes{5'000'000};
 
     NodeIndex_t m_hoveredNodeIndex{INVALID_NODE};
     bool m_isSelectingUsingBox{false};
     bool m_shouldBlockMouseLeftClick{false};
     bool m_shouldCondensateNodesLowZoom{true};
+    bool m_shouldUseCachedVisibleNodes{false};
 
     std::chrono::steady_clock::time_point m_lastSelectBoxQueryTime{};
     Vector2D m_selectBoxStartWorldPos{};

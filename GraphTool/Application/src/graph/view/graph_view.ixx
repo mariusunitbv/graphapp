@@ -25,6 +25,8 @@ export class GraphView {
     void initialize(const GraphModel* model, GraphViewModel* viewModel);
     void onSDLEvent(const SDL_Event& event);
 
+    void preRenderUpdate();
+
     void renderUI();
     void renderScene();
 
@@ -39,6 +41,7 @@ export class GraphView {
    private:
     void initializeTextures();
     void initializeGL();
+    void initializeEdgeGL();
     void initializeNodeGL();
     void initializeNodeFastGL();
     void initializeGridGL();
@@ -61,9 +64,10 @@ export class GraphView {
 
     void drawBackground();
     void drawGrid();
+    void drawEdges();
     void drawNodes();
 
-    void colorVisibleNodes(std::vector<VisibleNode>& visibleNodes);
+    void colorNodes();
     ImU32 getNodeColor(NodeIndex_t nodeIndex) const;
     ImU32 getOutlineColor(NodeIndex_t nodeIndex) const;
 
@@ -78,7 +82,6 @@ export class GraphView {
     bool m_drawMinMax{false};
     bool m_drawNodes{true};
     bool m_drawNodesOutline{true};
-    bool m_drawNodesFast{true};
 
     bool m_isDeleteDialogOpen{false};
     bool m_isCenterOnNodeDialogOpen{false};
@@ -97,10 +100,13 @@ export class GraphView {
     int m_vsyncMode{0};
     int m_outlineThickness{2};
     float m_gridCellSize{100.f};
-    int m_nodeCutoffZoom{10};
+    int m_nodeCutoffZoom{75};
+    int m_graphTextFontIndex{1};
+    float m_nodeRadiusScale{1.f};
 
     GLfloat m_pointSizeRange[2]{};
     GLuint m_unitbvLogoTexture{};
+    GLint m_maxTextureSize{};
 
     struct GLObject {
         ~GLObject() {
@@ -112,10 +118,6 @@ export class GraphView {
                 glDeleteBuffers(1, &m_VBO);
             }
 
-            if (m_instanceVBO) {
-                glDeleteBuffers(1, &m_instanceVBO);
-            }
-
             if (m_shaderProgram) {
                 glDeleteProgram(m_shaderProgram);
             }
@@ -123,12 +125,63 @@ export class GraphView {
 
         GLuint m_VAO{};
         GLuint m_VBO{};
-        GLuint m_instanceVBO{};
         GLuint m_shaderProgram{};
     };
 
-    GLObject m_nodeGLObject;
-    GLObject m_nodeFastGLObject;
+    struct NodeGLObject : public GLObject {
+        ~NodeGLObject() {
+            if (m_positionTBO) {
+                glDeleteBuffers(1, &m_positionTBO);
+            }
+
+            if (m_positionTex) {
+                glDeleteTextures(1, &m_positionTex);
+            }
+
+            if (m_colorTBO) {
+                glDeleteBuffers(1, &m_colorTBO);
+            }
+
+            if (m_colorTex) {
+                glDeleteTextures(1, &m_colorTex);
+            }
+        }
+
+        GLuint m_positionTBO{};
+        GLuint m_positionTex{};
+        GLuint m_colorTBO{};
+        GLuint m_colorTex{};
+    };
+
+    NodeGLObject m_nodeGLObject;
+    NodeGLObject m_nodeFastGLObject;
+
+    struct EdgeGLObject : public GLObject {
+        ~EdgeGLObject() {
+            if (m_positionTBO) {
+                glDeleteBuffers(1, &m_positionTBO);
+            }
+
+            if (m_positionTex) {
+                glDeleteTextures(1, &m_positionTex);
+            }
+
+            if (m_colorTBO) {
+                glDeleteBuffers(1, &m_positionTBO);
+            }
+
+            if (m_colorTex) {
+                glDeleteTextures(1, &m_positionTex);
+            }
+        }
+
+        GLuint m_positionTBO{};
+        GLuint m_positionTex{};
+        GLuint m_colorTBO{};
+        GLuint m_colorTex{};
+    };
+
+    EdgeGLObject m_edgeGLObject;
 
     struct GridLineInstanceData {
         Vector2D m_worldStart{};

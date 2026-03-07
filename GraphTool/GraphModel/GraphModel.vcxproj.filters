@@ -9,6 +9,15 @@
     <ClCompile Include="src\model\graph_model_impl.cpp" />
     <ClCompile Include="src\math\graph_math.ixx" />
     <ClCompile Include="src\pch\pch.cpp" />
+    <ClCompile Include="src\model\edge_storage\edge_storage.ixx" />
+    <ClCompile Include="src\model\edge_storage\editable\editable_edge_storage_impl.cpp" />
+    <ClCompile Include="src\model\edge_storage\editable\editable_edge_storage.ixx" />
+    <ClCompile Include="src\osm\osm_loader.ixx" />
+    <ClCompile Include="src\osm\osm_loader_impl.cpp" />
+    <ClCompile Include="src\utils\utils.ixx" />
+    <ClCompile Include="src\utils\utils.cpp" />
+    <ClCompile Include="src\json\json_loader.ixx" />
+    <ClCompile Include="src\json\json_loader_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

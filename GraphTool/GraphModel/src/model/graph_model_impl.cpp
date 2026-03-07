@@ -3,6 +3,12 @@ module;
 
 module graph_model;
 
+import editable_edge_storage;
+
+GraphModel::GraphModel() : m_edgeStorage(std::make_unique<EditableEdgeStorage>()) {}
+
+constexpr int GraphModel::getGridMapCellSize() { return GridMap::CELL_SIZE; }
+
 void GraphModel::addNode(Vector2D worldPos) {
     if (m_nodes.size() >= NODE_LIMIT) {
         GAPP_THROW("Node limit reached");
@@ -21,7 +27,7 @@ void GraphModel::addNode(Vector2D worldPos) {
         }
     } else {
         if (m_bulkInsertMode) {
-            m_gridMap.incrementNodeCountInCells(nodeArea);
+            m_gridMap.incrementNodeCountInCells(worldPos);
         }
     }
 
@@ -29,6 +35,7 @@ void GraphModel::addNode(Vector2D worldPos) {
 
     if (!m_bulkInsertMode) {
         m_gridMap.insert(&m_nodes.back(), getLastNodeIndex());
+        m_edgeStorage->onNodeAdded(getLastNodeIndex());
     }
 }
 
@@ -36,6 +43,7 @@ void GraphModel::removeSelectedNodes() {
     const auto indexRemap = removeSelectedNodesAndCalculateIndexRemap();
 
     m_gridMap.remove(indexRemap);
+    m_edgeStorage->remove(indexRemap);
 }
 
 void GraphModel::reserveNodes(size_t nodeCount) {
@@ -44,13 +52,10 @@ void GraphModel::reserveNodes(size_t nodeCount) {
     }
 
     m_nodes.reserve(nodeCount);
+    m_edgeStorage->resize(nodeCount);
 }
 
 void GraphModel::reserveArea(const BoundingBox2D& area) {
-    if (!m_bulkInsertMode) {
-        GAPP_THROW("reserveArea can only be called in bulk insert mode");
-    }
-
     const auto areaWithRadius = BoundingBox2D{area.m_min - Vector2D{NODE_RADIUS, NODE_RADIUS},
                                               area.m_max + Vector2D{NODE_RADIUS, NODE_RADIUS}};
     updateDynamicBoundsIfNeeded(areaWithRadius);
@@ -65,6 +70,8 @@ void GraphModel::endBulkInsert() {
     for (NodeIndex_t nodeIndex = 0; nodeIndex < m_nodes.size(); ++nodeIndex) {
         m_gridMap.insert(&m_nodes[nodeIndex], nodeIndex);
     }
+
+    m_edgeStorage->sortEdges();
 
     m_bulkInsertMode = false;
 }
@@ -109,6 +116,40 @@ const Node* GraphModel::getNodeAtPosition(Vector2D worldPos, bool firstOccurence
 }
 
 const BoundingBox2D& GraphModel::getGraphBounds() const { return m_gridMap.getBounds(); }
+
+uint32_t GraphModel::estimateNodeCountInArea(const BoundingBox2D& area) const {
+    return m_gridMap.estimateNodeCountInArea(area);
+}
+
+void GraphModel::addEdge(NodeIndex_t src, NodeIndex_t dest, int weight) {
+    if (m_bulkInsertMode) {
+        m_edgeStorage->addEdgeFast(src, dest, weight);
+    } else {
+        m_edgeStorage->addEdge(src, dest, weight);
+    }
+}
+
+void GraphModel::addEdgeFast(NodeIndex_t src, NodeIndex_t dest, int weight) {
+    m_edgeStorage->addEdgeFast(src, dest, weight);
+}
+
+void GraphModel::removeEdge(NodeIndex_t src, NodeIndex_t dest) {
+    m_edgeStorage->removeEdge(src, dest);
+}
+
+void GraphModel::sortEdges() { m_edgeStorage->sortEdges(); }
+
+size_t GraphModel::getNodeDegree(NodeIndex_t index) const {
+    return m_edgeStorage->getNeighbourCount(index);
+}
+
+void GraphModel::visitNeighbours(NodeIndex_t src, void* userData,
+                                 void (*callback)(void* userData, NodeIndex_t dest, int weight),
+                                 float percentage, bool distinct) const {
+    m_edgeStorage->visitNeighbours(src, userData, callback, percentage, distinct);
+}
+
+void GraphModel::resizeEdgeStorage(size_t nodeCount) { m_edgeStorage->resize(nodeCount); }
 
 bool GraphModel::updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds) {
     constexpr auto MARGIN_PADDING = 5.f;

@@ -12,9 +12,9 @@ Node::Node(Vector2D worldPos) : m_selected{0} {
     setColor(xorshift32(), xorshift32(), xorshift32());
 }
 
-BoundingBox2D Node::getBoundingBox(Vector2D worldPos) {
-    return BoundingBox2D{worldPos.m_x - NODE_RADIUS, worldPos.m_y - NODE_RADIUS,
-                         worldPos.m_x + NODE_RADIUS, worldPos.m_y + NODE_RADIUS};
+BoundingBox2D Node::getBoundingBox(Vector2D worldPos, float radius) {
+    return BoundingBox2D{worldPos.m_x - radius, worldPos.m_y - radius, worldPos.m_x + radius,
+                         worldPos.m_y + radius};
 }
 
 Vector2D Node::getWorldPos() const {
@@ -56,3 +56,7 @@ void Node::markSelected() { m_selected = 1; }
 void Node::unmarkSelected() { m_selected = 0; }
 
 bool Node::isSelected() const { return m_selected == 1; }
+
+uint32_t Node::getLookupIndex() const { return m_lookupIndexCache; }
+
+void Node::setLookupIndex(uint32_t lookupIndex) { m_lookupIndexCache = lookupIndex; }

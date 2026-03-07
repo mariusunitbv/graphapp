@@ -10,14 +10,25 @@ export struct GraphCamera {
     float m_zoom{1.0f};
 };
 
-export struct VisibleNode {
-    VisibleNode() = default;
-    explicit VisibleNode(Vector2D worldPos, NodeIndex_t index)
-        : m_worldPos{worldPos}, m_index{index} {}
-
-    Vector2D m_worldPos;
+export struct NodeColorInfo {
     uint32_t m_color;
     uint32_t m_outlineColor;
+};
 
-    NodeIndex_t m_index;
+export struct VisibleNode {
+    uint32_t m_lookupIndex;
+};
+
+export struct VisibleEdge {
+    uint32_t m_startNodeIndexLookup;
+    uint32_t m_endNodeIndexLookup;
+};
+
+export struct VisibleData {
+    std::vector<Vector2D> m_nodesPositions;
+    std::vector<NodeColorInfo> m_nodesColors;
+    std::vector<NodeIndex_t> m_nodesIndexes;
+
+    std::vector<VisibleNode> m_visibleNodes;
+    std::vector<VisibleEdge> m_visibleEdges;
 };

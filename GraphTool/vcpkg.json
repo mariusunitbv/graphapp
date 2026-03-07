@@ -1,5 +1,6 @@
 {
   "dependencies": [
+    "freetype",
     {
       "name": "glad",
       "features": [
@@ -10,13 +11,24 @@
       "name": "imgui",
       "features": [
         "docking-experimental",
+        "freetype",
         "opengl3-binding",
-        "sdl3-binding",
-        "freetype"
+        "sdl3-binding"
       ]
     },
+	{
+      "name": "simdjson",
+      "version>=": "4.2.4"
+    },
+    {
+      "name": "libosmium",
+      "platform": "!wasm32"
+    },
     "lodepng",
-    "sdl3",
-    "freetype"
+    {
+      "name": "parallel-hashmap",
+      "platform": "!wasm32"
+    },
+    "sdl3"
   ]
 }

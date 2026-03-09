@@ -105,7 +105,7 @@ size_t EditableEdgeStorage::getNeighbourCount(NodeIndex_t src) const {
 }
 
 void EditableEdgeStorage::visitNeighbours(NodeIndex_t src, void* userData,
-                                          void (*callback)(void* userData, NodeIndex_t dest,
+                                          bool (*callback)(void* userData, NodeIndex_t dest,
                                                            int weight),
                                           float percentage, bool distinct) const {
     if (src >= m_edges.size()) {
@@ -121,6 +121,8 @@ void EditableEdgeStorage::visitNeighbours(NodeIndex_t src, void* userData,
             continue;
         }
 
-        callback(userData, dest, weight);
+        if (!callback(userData, dest, weight)) {
+            return;
+        }
     }
 }

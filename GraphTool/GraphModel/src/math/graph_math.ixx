@@ -72,6 +72,11 @@ export struct BoundingBox2D {
         return *this;
     }
 
+    constexpr auto invalidate() {
+        m_min = {std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
+        m_max = {-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max()};
+    }
+
     Vector2D m_min{};
     Vector2D m_max{};
 };

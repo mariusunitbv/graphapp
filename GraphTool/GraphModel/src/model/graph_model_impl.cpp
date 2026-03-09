@@ -7,7 +7,7 @@ import editable_edge_storage;
 
 GraphModel::GraphModel() : m_edgeStorage(std::make_unique<EditableEdgeStorage>()) {}
 
-constexpr int GraphModel::getGridMapCellSize() { return GridMap::CELL_SIZE; }
+int GraphModel::getGridMapCellSize() const { return GridMap::CELL_SIZE; }
 
 void GraphModel::addNode(Vector2D worldPos) {
     if (m_nodes.size() >= NODE_LIMIT) {
@@ -16,12 +16,11 @@ void GraphModel::addNode(Vector2D worldPos) {
 
     worldPos = Vector2D::floor(worldPos);
 
-    const auto nodeArea = Node::getBoundingBox(worldPos);
-    if (!WORLD_BOUNDS.contains(nodeArea)) {
+    if (!WORLD_BOUNDS.contains(worldPos)) {
         GAPP_THROW("Node position is out of world bounds");
     }
 
-    if (updateDynamicBoundsIfNeeded(nodeArea)) {
+    if (updateDynamicBoundsIfNeeded({worldPos, worldPos})) {
         if (!m_bulkInsertMode) {
             rebuildGridMap();
         }
@@ -56,10 +55,7 @@ void GraphModel::reserveNodes(size_t nodeCount) {
 }
 
 void GraphModel::reserveArea(const BoundingBox2D& area) {
-    const auto areaWithRadius = BoundingBox2D{area.m_min - Vector2D{NODE_RADIUS, NODE_RADIUS},
-                                              area.m_max + Vector2D{NODE_RADIUS, NODE_RADIUS}};
-    updateDynamicBoundsIfNeeded(areaWithRadius);
-
+    updateDynamicBoundsIfNeeded(area);
     m_gridMap.allocateCells();
 }
 
@@ -92,7 +88,7 @@ Node* GraphModel::getNode(NodeIndex_t index) { return &m_nodes[index]; }
 
 const Node* GraphModel::getNode(NodeIndex_t index) const { return &m_nodes[index]; }
 
-Node* GraphModel::getNodeAtPosition(Vector2D worldPos, bool firstOccurence, float minimumDistance,
+Node* GraphModel::getNodeAtPosition(Vector2D worldPos, float minimumDistance, bool firstOccurence,
                                     NodeIndex_t nodeToIgnore) {
     NodeIndex_t closestNodeIndex = INVALID_NODE;
     if (firstOccurence) {
@@ -109,10 +105,10 @@ Node* GraphModel::getNodeAtPosition(Vector2D worldPos, bool firstOccurence, floa
     return &m_nodes[closestNodeIndex];
 }
 
-const Node* GraphModel::getNodeAtPosition(Vector2D worldPos, bool firstOccurence,
-                                          float minimumDistance, NodeIndex_t nodeToIgnore) const {
-    return const_cast<GraphModel*>(this)->getNodeAtPosition(worldPos, firstOccurence,
-                                                            minimumDistance, nodeToIgnore);
+const Node* GraphModel::getNodeAtPosition(Vector2D worldPos, float minimumDistance,
+                                          bool firstOccurence, NodeIndex_t nodeToIgnore) const {
+    return const_cast<GraphModel*>(this)->getNodeAtPosition(worldPos, minimumDistance,
+                                                            firstOccurence, nodeToIgnore);
 }
 
 const BoundingBox2D& GraphModel::getGraphBounds() const { return m_gridMap.getBounds(); }
@@ -144,7 +140,7 @@ size_t GraphModel::getNodeDegree(NodeIndex_t index) const {
 }
 
 void GraphModel::visitNeighbours(NodeIndex_t src, void* userData,
-                                 void (*callback)(void* userData, NodeIndex_t dest, int weight),
+                                 bool (*callback)(void* userData, NodeIndex_t dest, int weight),
                                  float percentage, bool distinct) const {
     m_edgeStorage->visitNeighbours(src, userData, callback, percentage, distinct);
 }
@@ -152,28 +148,26 @@ void GraphModel::visitNeighbours(NodeIndex_t src, void* userData,
 void GraphModel::resizeEdgeStorage(size_t nodeCount) { m_edgeStorage->resize(nodeCount); }
 
 bool GraphModel::updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds) {
-    constexpr auto MARGIN_PADDING = 5.f;
-
     bool updated = false;
 
     auto dynamicBounds = m_gridMap.getBounds();
     if (bounds.m_min.m_x < dynamicBounds.m_min.m_x) {
-        dynamicBounds.m_min.m_x = bounds.m_min.m_x - MARGIN_PADDING;
+        dynamicBounds.m_min.m_x = bounds.m_min.m_x;
         updated = true;
     }
 
     if (bounds.m_min.m_y < dynamicBounds.m_min.m_y) {
-        dynamicBounds.m_min.m_y = bounds.m_min.m_y - MARGIN_PADDING;
+        dynamicBounds.m_min.m_y = bounds.m_min.m_y;
         updated = true;
     }
 
     if (bounds.m_max.m_x > dynamicBounds.m_max.m_x) {
-        dynamicBounds.m_max.m_x = bounds.m_max.m_x + MARGIN_PADDING;
+        dynamicBounds.m_max.m_x = bounds.m_max.m_x;
         updated = true;
     }
 
     if (bounds.m_max.m_y > dynamicBounds.m_max.m_y) {
-        dynamicBounds.m_max.m_y = bounds.m_max.m_y + MARGIN_PADDING;
+        dynamicBounds.m_max.m_y = bounds.m_max.m_y;
         updated = true;
     }
 

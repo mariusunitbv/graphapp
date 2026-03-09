@@ -20,6 +20,11 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
 
     if (focusOnUI) {
         m_activeFingers.clear();
+
+        if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && event.button.button == SDL_BUTTON_LEFT) {
+            m_shouldBlockMouseLeftClick = true;
+        }
+
         return;
     }
 
@@ -167,20 +172,40 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
 void GraphViewModel::preRenderUpdate() {
     selectNodesInBox();
 
-    if (!m_lastQueryRegionArea.contains(m_visibleRegionArea)) {
+    const auto lastWidth = m_lastQueryRegionArea.width();
+    const auto lastHeight = m_lastQueryRegionArea.height();
+
+    const auto visibleWidth = m_visibleRegionArea.width();
+    const auto visibleHeight = m_visibleRegionArea.height();
+
+    constexpr auto alpha = 0.1f;
+    const auto smallerLastQueryRegion =
+        visibleWidth < lastWidth * alpha || visibleHeight < lastHeight * alpha;
+
+    if (!m_lastQueryRegionArea.contains(m_visibleRegionArea) || smallerLastQueryRegion) {
         invalidateVisibleData();
 
-        const auto extraMargin = m_displaySize * (m_camera.m_zoom >= 2.5f ? 1.25f : 0.3f);
+        const auto extraMargin = m_displaySize * 1.25f;
         m_lastQueryRegionArea = {
             screenToWorld(-extraMargin),
             screenToWorld(m_displaySize + extraMargin),
         };
 
+        m_lastQueryRegionArea.clamp(m_model->getGraphBounds());
+
         updateVisibleNodes(m_visibleData);
         updateVisibleEdges(m_visibleData);
 
         m_shouldUseCachedVisibleNodes = false;
+
+        for (auto* listener : m_listeners) {
+            listener->onFullDataUpdate();
+        }
     }
+}
+
+void GraphViewModel::addListener(IGraphViewModelListener* listener) {
+    m_listeners.push_back(listener);
 }
 
 const std::vector<Vector2D>& GraphViewModel::getVisibleNodesPositions() const {
@@ -231,13 +256,34 @@ bool GraphViewModel::isNodeSelected(NodeIndex_t nodeIndex) const {
     return m_model->getNode(nodeIndex)->isSelected();
 }
 
+bool GraphViewModel::isValidLookupIndex(NodeIndex_t nodeIndex, uint32_t lookupIndex) const {
+    if (lookupIndex >= getVisibleNodes().size()) {
+        return false;
+    }
+
+    if (nodeIndex != getVisibleNodesIndexes()[lookupIndex]) {
+        return false;
+    }
+
+    return true;
+}
+
 float GraphViewModel::getZoomFactor() const { return m_camera.m_zoom; }
 
 void GraphViewModel::setZoomFactor(float zoom) {
+    const auto oldZoom = m_camera.m_zoom;
+
     m_camera.m_zoom = zoom;
 
     clampCameraPositionInBounds();
-    invalidateVisibleData();
+
+    const auto hadCondensatedEarlier = oldZoom <= m_nodeCondensationFactor;
+    const auto hasCondensatedNow = m_camera.m_zoom <= m_nodeCondensationFactor;
+
+    if (m_shouldCondensateNodesLowZoom && hadCondensatedEarlier != hasCondensatedNow) {
+        invalidateVisibleData();
+    }
+
     updateVisibleRegion();
 }
 
@@ -269,6 +315,10 @@ void GraphViewModel::setMaxVisibleNodes(int maxNodes) {
     invalidateVisibleData();
 }
 
+float GraphViewModel::getNodesRadius() const { return m_nodesRadius; }
+
+void GraphViewModel::setNodesRadius(float radius) { m_nodesRadius = radius; }
+
 bool GraphViewModel::shouldCondensateNodesLowZoom() const { return m_shouldCondensateNodesLowZoom; }
 
 void GraphViewModel::setShouldCondensateNodesLowZoom(bool shouldCondensate) {
@@ -296,7 +346,8 @@ Vector2D GraphViewModel::screenToWorld(Vector2D screenPos) const {
 void GraphViewModel::removeSelectedNodes() {
     m_model->removeSelectedNodes();
 
-    invalidateVisibleData();
+    m_visibleData = {};
+    m_lastQueryRegionArea = {};
 
     m_hoveredNodeIndex = INVALID_NODE;
     m_selectedNodes.clear();
@@ -324,7 +375,6 @@ void GraphViewModel::centerOnNode(NodeIndex_t nodeIndex) {
 void GraphViewModel::onSceneResize(float displayWidth, float displayHeight) {
     m_displaySize = {displayWidth, displayHeight};
 
-    invalidateVisibleData();
     updateVisibleRegion();
 }
 
@@ -338,6 +388,7 @@ void GraphViewModel::onCameraPan(float deltaX, float deltaY) {
 
 void GraphViewModel::onCameraZoom(float deltaZoom, float cursorX, float cursorY) {
     const auto world = screenToWorld({cursorX, cursorY});
+    const auto oldZoom = m_camera.m_zoom;
 
     if (deltaZoom > 0 && m_camera.m_zoom < 0.1f) {
         m_camera.m_zoom = 0.1f;
@@ -350,7 +401,14 @@ void GraphViewModel::onCameraZoom(float deltaZoom, float cursorX, float cursorY)
     m_camera.m_position.m_y = world.m_y - (cursorY - m_displaySize.m_y * 0.5f) / m_camera.m_zoom;
 
     clampCameraPositionInBounds();
-    invalidateVisibleData();
+
+    const auto hadCondensatedEarlier = oldZoom <= m_nodeCondensationFactor;
+    const auto hasCondensatedNow = m_camera.m_zoom <= m_nodeCondensationFactor;
+
+    if (m_shouldCondensateNodesLowZoom && hadCondensatedEarlier != hasCondensatedNow) {
+        invalidateVisibleData();
+    }
+
     updateVisibleRegion();
 }
 
@@ -376,13 +434,11 @@ void GraphViewModel::onMouseClick(float cursorX, float cursorY, bool ctrlPressed
     }
 
     const auto worldPos = screenToWorld({cursorX, cursorY});
-    const auto nodeArea = Node::getBoundingBox(worldPos);
-
-    if (!WORLD_BOUNDS.contains(nodeArea)) {
+    if (!WORLD_BOUNDS.contains(worldPos)) {
         return;
     }
 
-    if (m_model->getNodeAtPosition(screenToWorld({cursorX, cursorY}), true, NODE_DIAMETER)) {
+    if (m_model->getNodeAtPosition(screenToWorld({cursorX, cursorY}), m_nodesRadius * 2.f, true)) {
         return;
     }
 
@@ -393,17 +449,45 @@ void GraphViewModel::onMouseClick(float cursorX, float cursorY, bool ctrlPressed
 
     onVisibleNode(lastNodeIndex, m_visibleData);
 
+    NodeIndex_t oldHoveredNodeIndex = m_hoveredNodeIndex;
     m_hoveredNodeIndex = lastNodeIndex;
+
+    for (auto* listener : m_listeners) {
+        if (oldHoveredNodeIndex != INVALID_NODE) {
+            listener->onNodeUnhover(oldHoveredNodeIndex);
+        }
+
+        listener->onNodeAdded(lastNodeIndex);
+        listener->onNodeHover(lastNodeIndex);
+    }
 }
 
 void GraphViewModel::onMouseMove(float cursorX, float cursorY) {
-    const auto hoveredNode = m_model->getNodeAtPosition(screenToWorld({cursorX, cursorY}));
+    const auto hoveredNode =
+        m_model->getNodeAtPosition(screenToWorld({cursorX, cursorY}), m_nodesRadius);
     if (!hoveredNode) {
+        NodeIndex_t oldHoveredNodeIndex = m_hoveredNodeIndex;
         m_hoveredNodeIndex = INVALID_NODE;
+
+        if (oldHoveredNodeIndex != INVALID_NODE) {
+            for (auto* listener : m_listeners) {
+                listener->onNodeUnhover(oldHoveredNodeIndex);
+            }
+        }
+
         return;
     }
 
+    NodeIndex_t oldHoveredNodeIndex = m_hoveredNodeIndex;
     m_hoveredNodeIndex = m_model->getNodeIndex(hoveredNode);
+
+    for (auto* listener : m_listeners) {
+        if (oldHoveredNodeIndex != INVALID_NODE) {
+            listener->onNodeUnhover(oldHoveredNodeIndex);
+        }
+
+        listener->onNodeHover(m_hoveredNodeIndex);
+    }
 }
 
 void GraphViewModel::setSelectBoxStart(float cursorX, float cursorY) {
@@ -430,17 +514,20 @@ void GraphViewModel::selectNodesInBox() {
     }
 
     constexpr auto MAX_SELECTABLE_NODES = 5'000'000;
-    m_model->visitNodes(m_selectBoxBounds, [this](NodeIndex_t nodeIndex) {
-        if (m_selectedNodes.size() >= MAX_SELECTABLE_NODES) {
-            return false;
-        }
+    m_model->visitNodes(
+        m_selectBoxBounds,
+        [this](NodeIndex_t nodeIndex) {
+            if (m_selectedNodes.size() >= MAX_SELECTABLE_NODES) {
+                return false;
+            }
 
-        if (!m_model->getNode(nodeIndex)->isSelected()) {
-            selectNode(nodeIndex);
-        }
+            if (!m_model->getNode(nodeIndex)->isSelected()) {
+                selectNode(nodeIndex);
+            }
 
-        return true;
-    });
+            return true;
+        },
+        m_nodesRadius);
 
     m_lastSelectBoxQueryTime = now;
 }
@@ -448,16 +535,28 @@ void GraphViewModel::selectNodesInBox() {
 void GraphViewModel::selectNode(NodeIndex_t nodeIndex) {
     m_model->getNode(nodeIndex)->markSelected();
     m_selectedNodes.insert(nodeIndex);
+
+    for (auto* listener : m_listeners) {
+        listener->onNodeSelected(nodeIndex);
+    }
 }
 
 void GraphViewModel::deselectNode(NodeIndex_t nodeIndex) {
     m_model->getNode(nodeIndex)->unmarkSelected();
     m_selectedNodes.erase(nodeIndex);
+
+    for (auto* listener : m_listeners) {
+        listener->onNodeDeselected(nodeIndex);
+    }
 }
 
 void GraphViewModel::deselectAllNodes() {
     for (const auto nodeIndex : m_selectedNodes) {
         m_model->getNode(nodeIndex)->unmarkSelected();
+
+        for (auto* listener : m_listeners) {
+            listener->onNodeDeselected(nodeIndex);
+        }
     }
     m_selectedNodes.clear();
 }
@@ -486,10 +585,11 @@ void GraphViewModel::updateVisibleNodes(VisibleData& visibleData) {
             onVisibleNode(nodeIndex, visibleData);
             return true;
         },
-        nodesPerCellPercentage);
+        m_nodesRadius, nodesPerCellPercentage);
 }
 
 void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
+#ifdef __EMSCRIPTEN__
     for (const auto [lookupIndex] : visibleData.m_visibleNodes) {
         const auto nodeIndex = visibleData.m_nodesIndexes[lookupIndex];
 
@@ -505,22 +605,103 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
                 const auto visitorData = static_cast<VisitorData*>(data);
                 const auto visibleData = visitorData->visibleData;
 
+                if (visibleData->m_visibleEdges.size() >= std::numeric_limits<int>::max() - 1) {
+                    return false;
+                }
+
                 const auto destNode = visitorData->model->getNode(index);
                 const auto destLookupIndex = destNode->getLookupIndex();
 
                 if (destLookupIndex >= visibleData->m_visibleNodes.size()) {
-                    return;
+                    return true;
                 }
 
                 if (index != visibleData->m_nodesIndexes[destLookupIndex]) {
-                    return;
+                    return true;
                 }
 
                 visibleData->m_visibleEdges.emplace_back(visitorData->srcLookupIndex,
                                                          destLookupIndex);
+                return true;
             },
             m_edgeDrawPercentage / 100.f);
     }
+#else
+    const auto threadCount = std::thread::hardware_concurrency();
+    const auto totalNodes = visibleData.m_visibleNodes.size();
+    if (totalNodes == 0) {
+        return;
+    }
+
+    const auto chunkSize = (totalNodes + threadCount - 1) / threadCount;
+    std::vector<std::vector<VisibleEdge> > threadEdges(threadCount);
+
+    auto worker = [this, &visibleData, &threadEdges](size_t start, size_t end, size_t threadIndex) {
+        for (size_t i = start; i < end; ++i) {
+            const auto lookupIndex = visibleData.m_visibleNodes[i].m_lookupIndex;
+            const auto nodeIndex = visibleData.m_nodesIndexes[lookupIndex];
+
+            struct VisitorData {
+                VisibleData* visibleData;
+                GraphModel* model;
+                uint32_t srcLookupIndex;
+                std::vector<VisibleEdge>* edges;
+            } visitorData{&visibleData, m_model, lookupIndex, &threadEdges[threadIndex]};
+
+            m_model->visitNeighbours(
+                nodeIndex, &visitorData,
+                [](void* data, NodeIndex_t index, int) {
+                    const auto visitorData = static_cast<VisitorData*>(data);
+                    const auto visibleData = visitorData->visibleData;
+
+                    if (visibleData->m_visibleEdges.size() >= std::numeric_limits<int>::max() - 1) {
+                        return false;
+                    }
+
+                    const auto destNode = visitorData->model->getNode(index);
+                    const auto destLookupIndex = destNode->getLookupIndex();
+
+                    if (destLookupIndex >= visibleData->m_visibleNodes.size()) {
+                        return true;
+                    }
+
+                    if (index != visibleData->m_nodesIndexes[destLookupIndex]) {
+                        return true;
+                    }
+
+                    visitorData->edges->emplace_back(visitorData->srcLookupIndex, destLookupIndex);
+                    return true;
+                },
+                m_edgeDrawPercentage / 100.f);
+        }
+    };
+
+    std::vector<std::thread> threads;
+    for (size_t i = 0; i < threadCount; ++i) {
+        size_t start = i * chunkSize;
+        size_t end = std::min(start + chunkSize, totalNodes);
+        if (start >= end) {
+            break;
+        }
+
+        threads.emplace_back(worker, start, end, i);
+    }
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    size_t totalEdges = 0;
+    for (const auto& edges : threadEdges) {
+        totalEdges += edges.size();
+    }
+
+    visibleData.m_visibleEdges.reserve(totalEdges);
+    for (const auto& edges : threadEdges) {
+        visibleData.m_visibleEdges.insert(visibleData.m_visibleEdges.end(), edges.begin(),
+                                          edges.end());
+    }
+#endif
 }
 
 void GraphViewModel::onVisibleNode(NodeIndex_t nodeIndex, VisibleData& visibleData) {
@@ -534,6 +715,10 @@ void GraphViewModel::onVisibleNode(NodeIndex_t nodeIndex, VisibleData& visibleDa
     node->setLookupIndex(lookupIndex);
 
     visibleData.m_visibleNodes.emplace_back(lookupIndex);
+
+    for (auto* listener : m_listeners) {
+        listener->onNodeAddedToVisibleData(nodeIndex, visibleData);
+    }
 }
 
 void GraphViewModel::clampCameraPositionInBounds() {
@@ -547,6 +732,7 @@ void GraphViewModel::clampCameraPositionInBounds() {
 
 void GraphViewModel::updateVisibleRegion() {
     m_visibleRegionArea = {screenToWorld({0.f, 0.f}), screenToWorld(m_displaySize)};
+    m_visibleRegionArea.clamp(m_model->getGraphBounds());
 }
 
 void GraphViewModel::invalidateVisibleData() {
@@ -561,12 +747,11 @@ void GraphViewModel::invalidateVisibleData() {
 }
 
 void GraphViewModel::addSampleNodes() {
-    Utils::loadJSON(m_model, "assets/brasov.json");
+    // Utils::loadOSM(m_model, R"()");
+    Utils::loadJSON(m_model, R"(assets/brasov.json)");
     centerOnNode(0);
 
-    return;
-
-    constexpr float start = -39970.f;
+    /*constexpr float start = -39970.f;
     constexpr float end = -start;
     constexpr float step = NODE_RADIUS * 1.6f;
 
@@ -620,5 +805,5 @@ void GraphViewModel::addSampleNodes() {
 
         m_model->addEdge(src, dest, 1);
         added++;
-    }
+    }*/
 }

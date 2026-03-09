@@ -3,6 +3,7 @@ module;
 
 export module graph_view_model;
 export import graph_view_model_defines;
+export import graph_view_model_listener;
 
 import graph_model;
 
@@ -11,6 +12,8 @@ export class GraphViewModel {
     void initialize(GraphModel* model, float displayWidth, float displayHeight);
     void onSDLEvent(const SDL_Event& event, bool focusOnUI);
     void preRenderUpdate();
+
+    void addListener(IGraphViewModelListener* listener);
 
     const std::vector<Vector2D>& getVisibleNodesPositions() const;
     std::vector<NodeColorInfo>& getVisibleNodesColors();
@@ -22,6 +25,8 @@ export class GraphViewModel {
     NodeIndex_t getHoveredNodeIndex() const;
     size_t getSelectedNodesCount() const;
     bool isNodeSelected(NodeIndex_t nodeIndex) const;
+
+    bool isValidLookupIndex(NodeIndex_t nodeIndex, uint32_t lookupIndex) const;
 
     float getZoomFactor() const;
     void setZoomFactor(float zoom);
@@ -37,6 +42,9 @@ export class GraphViewModel {
 
     int getMaxVisibleNodes() const;
     void setMaxVisibleNodes(int maxNodes);
+
+    float getNodesRadius() const;
+    void setNodesRadius(float radius);
 
     bool shouldCondensateNodesLowZoom() const;
     void setShouldCondensateNodesLowZoom(bool shouldCondensate);
@@ -95,7 +103,8 @@ export class GraphViewModel {
     int m_maxNodesPerCellPercentage{85};
     float m_nodeCondensationFactor{0.35f};
     int m_edgeDrawPercentage{100};
-    int m_maxVisibleNodes{5'000'000};
+    int m_maxVisibleNodes{7'500'000};
+    float m_nodesRadius{28.f};
 
     NodeIndex_t m_hoveredNodeIndex{INVALID_NODE};
     bool m_isSelectingUsingBox{false};
@@ -109,4 +118,6 @@ export class GraphViewModel {
 
     std::unordered_map<SDL_FingerID, SDL_TouchFingerEvent> m_activeFingers;
     float m_lastZoomDelta{};
+
+    std::vector<IGraphViewModelListener*> m_listeners{};
 };

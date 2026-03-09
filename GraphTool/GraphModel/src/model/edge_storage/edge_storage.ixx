@@ -25,6 +25,6 @@ export class EdgeStorage {
 
     virtual size_t getNeighbourCount(NodeIndex_t src) const = 0;
     virtual void visitNeighbours(NodeIndex_t src, void* userData,
-                                 void (*callback)(void* userData, NodeIndex_t dest, int weight),
+                                 bool (*callback)(void* userData, NodeIndex_t dest, int weight),
                                  float percentage, bool distinct) const = 0;
 };

@@ -5,6 +5,8 @@ module gridmap;
 
 import graph_model;
 
+GridMap::GridMap() { m_bounds.invalidate(); }
+
 void GridMap::insert(const Node* node, NodeIndex_t nodeIndex) {
     const auto [minCellX, maxCellX, minCellY, maxCellY] =
         calculateCellEntryForNode(node->getWorldPos());
@@ -135,8 +137,8 @@ void GridMap::setBounds(const BoundingBox2D& bounds) { m_bounds = bounds; }
 bool GridMap::isAllocated() const { return m_cellCountX > 0 && m_cellCountY > 0; }
 
 void GridMap::allocateCells() {
-    const auto width = static_cast<int>(m_bounds.width());
-    const auto height = static_cast<int>(m_bounds.height());
+    const auto width = std::max(1, static_cast<int>(m_bounds.width()));
+    const auto height = std::max(1, static_cast<int>(m_bounds.height()));
 
     m_cellCountX = (width + CELL_SIZE - 1) / CELL_SIZE;
     m_cellCountY = (height + CELL_SIZE - 1) / CELL_SIZE;

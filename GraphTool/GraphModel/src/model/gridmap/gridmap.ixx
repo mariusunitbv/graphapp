@@ -7,6 +7,8 @@ import graph_model_defines;
 
 export class GridMap {
    public:
+    GridMap();
+
     void insert(const Node* node, NodeIndex_t nodeIndex);
     void remove(const std::vector<NodeIndex_t>& indexRemap);
 
@@ -22,7 +24,7 @@ export class GridMap {
 
     template <typename Func>
     void visitNodes(std::span<const Node> nodes, const BoundingBox2D& area, Func&& func,
-                    float percentage) const;
+                    float nodesRadius, float percentage) const;
 
     const BoundingBox2D& getBounds() const;
     void setBounds(const BoundingBox2D& bounds);
@@ -53,7 +55,7 @@ export class GridMap {
 
 template <typename Func>
 void GridMap::visitNodes(std::span<const Node> nodes, const BoundingBox2D& area, Func&& func,
-                         float percentage) const {
+                         float nodesRadius, float percentage) const {
     const auto cellEntry = calculateCellEntryForArea(area);
     for (int cellY = cellEntry.m_minCellY; cellY <= cellEntry.m_maxCellY; ++cellY) {
         for (int cellX = cellEntry.m_minCellX; cellX <= cellEntry.m_maxCellX; ++cellX) {
@@ -67,7 +69,7 @@ void GridMap::visitNodes(std::span<const Node> nodes, const BoundingBox2D& area,
             for (int i = 0; i < limit; ++i) {
                 const auto nodeIndex = cell[i];
                 const auto& node = nodes[nodeIndex];
-                if (area.intersects(Node::getBoundingBox(node.getWorldPos()))) {
+                if (area.intersects(Node::getBoundingBox(node.getWorldPos(), nodesRadius))) {
                     if constexpr (std::is_invocable_r_v<bool, Func, NodeIndex_t>) {
                         if (!func(nodeIndex)) {
                             return;

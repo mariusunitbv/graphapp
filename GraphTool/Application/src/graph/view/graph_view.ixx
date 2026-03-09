@@ -18,14 +18,12 @@ struct GraphTheme {
     ImU32 m_hoveredAndSelectedNodeOutlineColor{IM_COL32(18, 222, 130, 255)};
 };
 
-export class GraphView {
+export class GraphView : public IGraphViewModelListener {
    public:
     ~GraphView();
 
     void initialize(const GraphModel* model, GraphViewModel* viewModel);
     void onSDLEvent(const SDL_Event& event);
-
-    void preRenderUpdate();
 
     void renderUI();
     void renderScene();
@@ -38,9 +36,22 @@ export class GraphView {
     int getMaxFps() const { return m_maxFps; }
     int getVsyncMode() const;
 
+   protected:
+    void onFullDataUpdate() override;
+
+    void onNodeSelected(NodeIndex_t nodeIndex) override;
+    void onNodeDeselected(NodeIndex_t nodeIndex) override;
+
+    void onNodeHover(NodeIndex_t nodeIndex) override;
+    void onNodeUnhover(NodeIndex_t nodeIndex) override;
+
+    void onNodeAdded(NodeIndex_t nodeIndex) override;
+    void onNodeAddedToVisibleData(NodeIndex_t nodeIndex, VisibleData& visibleData) override;
+
    private:
     void initializeTextures();
     void initializeGL();
+    void initializeNodesBuffersGL();
     void initializeEdgeGL();
     void initializeNodeGL();
     void initializeNodeFastGL();
@@ -62,12 +73,14 @@ export class GraphView {
     void drawMousePosition(ImDrawList* drawList);
     void drawWatermark(ImDrawList* drawList);
 
+    void setupNodeBuffers();
+
     void drawBackground();
     void drawGrid();
     void drawEdges();
     void drawNodes();
 
-    void colorNodes();
+    void colorNode(NodeIndex_t nodeIndex);
     ImU32 getNodeColor(NodeIndex_t nodeIndex) const;
     ImU32 getOutlineColor(NodeIndex_t nodeIndex) const;
 
@@ -82,6 +95,7 @@ export class GraphView {
     bool m_drawMinMax{false};
     bool m_drawNodes{true};
     bool m_drawNodesOutline{true};
+    bool m_drawEdges{true};
 
     bool m_isDeleteDialogOpen{false};
     bool m_isCenterOnNodeDialogOpen{false};
@@ -100,13 +114,18 @@ export class GraphView {
     int m_vsyncMode{0};
     int m_outlineThickness{2};
     float m_gridCellSize{100.f};
-    int m_nodeCutoffZoom{75};
+    int m_nodeCutoffZoom{55};
     int m_graphTextFontIndex{1};
-    float m_nodeRadiusScale{1.f};
 
     GLfloat m_pointSizeRange[2]{};
     GLuint m_unitbvLogoTexture{};
     GLint m_maxTextureSize{};
+
+    GLuint m_nodePositionTBO{};
+    GLuint m_nodeColorTBO{};
+
+    GLuint m_nodePositionTex{};
+    GLuint m_nodeColorTex{};
 
     struct GLObject {
         ~GLObject() {
@@ -128,60 +147,40 @@ export class GraphView {
         GLuint m_shaderProgram{};
     };
 
-    struct NodeGLObject : public GLObject {
-        ~NodeGLObject() {
-            if (m_positionTBO) {
-                glDeleteBuffers(1, &m_positionTBO);
-            }
+    GLObject m_nodeGLObject;
+    GLObject m_nodeFastGLObject;
+    GLObject m_edgeGLObject;
 
-            if (m_positionTex) {
-                glDeleteTextures(1, &m_positionTex);
-            }
+    struct NodeUniforms {
+        GLint m_nodePosition{-1};
+        GLint m_nodeColor{-1};
+        GLint m_nodeRadius{-1};
+        GLint m_screenSize{-1};
+        GLint m_cameraPos{-1};
+        GLint m_cameraZoom{-1};
+        GLint m_nodeThickness{-1};
 
-            if (m_colorTBO) {
-                glDeleteBuffers(1, &m_colorTBO);
-            }
-
-            if (m_colorTex) {
-                glDeleteTextures(1, &m_colorTex);
-            }
-        }
-
-        GLuint m_positionTBO{};
-        GLuint m_positionTex{};
-        GLuint m_colorTBO{};
-        GLuint m_colorTex{};
+#ifdef __EMSCRIPTEN__
+        GLint m_textureWidth{-1};
+#endif
     };
 
-    NodeGLObject m_nodeGLObject;
-    NodeGLObject m_nodeFastGLObject;
+    NodeUniforms m_nodeUniforms;
+    NodeUniforms m_fastNodeUniforms;
 
-    struct EdgeGLObject : public GLObject {
-        ~EdgeGLObject() {
-            if (m_positionTBO) {
-                glDeleteBuffers(1, &m_positionTBO);
-            }
+    struct EdgeUniforms {
+        GLint m_nodePosition{-1};
+        GLint m_nodeColor{-1};
+        GLint m_screenSize{-1};
+        GLint m_cameraPos{-1};
+        GLint m_cameraZoom{-1};
 
-            if (m_positionTex) {
-                glDeleteTextures(1, &m_positionTex);
-            }
-
-            if (m_colorTBO) {
-                glDeleteBuffers(1, &m_positionTBO);
-            }
-
-            if (m_colorTex) {
-                glDeleteTextures(1, &m_positionTex);
-            }
-        }
-
-        GLuint m_positionTBO{};
-        GLuint m_positionTex{};
-        GLuint m_colorTBO{};
-        GLuint m_colorTex{};
+#ifdef __EMSCRIPTEN__
+        GLint m_textureWidth{-1};
+#endif
     };
 
-    EdgeGLObject m_edgeGLObject;
+    EdgeUniforms m_edgeUniforms;
 
     struct GridLineInstanceData {
         Vector2D m_worldStart{};
@@ -191,4 +190,13 @@ export class GraphView {
     };
 
     GLObject m_gridGLObject;
+    GLint m_gridUniformScreenSize{-1};
+
+    int m_lastVisibleNodesCount{0};
+    int m_lastVisibleEdgesCount{0};
+
+    bool m_nodesBufferDirty{false};
+    bool m_edgesBufferDirty{false};
+    bool m_nodesColorDirty{false};
+    bool m_nodesPositionDirty{false};
 };

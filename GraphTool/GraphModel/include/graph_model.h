@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <format>
 
-#define GAPP_VERSION "pre1.1.0"
+#define GAPP_VERSION "pre1.2.0"
 
 #ifdef __EMSCRIPTEN__
 #define GAPP_THROW(message)

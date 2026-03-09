@@ -133,7 +133,6 @@ void Application::run() {
         }
 
         m_graphViewModel.preRenderUpdate();
-        m_graphView.preRenderUpdate();
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL3_NewFrame();

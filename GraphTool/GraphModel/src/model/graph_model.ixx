@@ -12,7 +12,7 @@ export class GraphModel {
    public:
     GraphModel();
 
-    static constexpr int getGridMapCellSize();
+    int getGridMapCellSize() const;
 
     void addNode(Vector2D worldPos);
     void removeSelectedNodes();
@@ -29,18 +29,18 @@ export class GraphModel {
     Node* getNode(NodeIndex_t index);
     const Node* getNode(NodeIndex_t index) const;
 
-    Node* getNodeAtPosition(Vector2D worldPos, bool firstOccurence = false,
-                            float minimumDistance = NODE_RADIUS,
+    Node* getNodeAtPosition(Vector2D worldPos, float minimumDistance, bool firstOccurence = false,
                             NodeIndex_t nodeToIgnore = INVALID_NODE);
-    const Node* getNodeAtPosition(Vector2D worldPos, bool firstOccurence = false,
-                                  float minimumDistance = NODE_RADIUS,
+    const Node* getNodeAtPosition(Vector2D worldPos, float minimumDistance,
+                                  bool firstOccurence = false,
                                   NodeIndex_t nodeToIgnore = INVALID_NODE) const;
 
     const BoundingBox2D& getGraphBounds() const;
     uint32_t estimateNodeCountInArea(const BoundingBox2D& area) const;
 
     template <typename Func>
-    void visitNodes(const BoundingBox2D& area, Func&& func, float percentage = 1.f) const;
+    void visitNodes(const BoundingBox2D& area, Func&& func, float nodesRadius,
+                    float percentage = 1.f) const;
 
     void addEdge(NodeIndex_t src, NodeIndex_t dest, int weight);
     void addEdgeFast(NodeIndex_t src, NodeIndex_t dest, int weight);
@@ -50,7 +50,7 @@ export class GraphModel {
 
     size_t getNodeDegree(NodeIndex_t index) const;
     void visitNeighbours(NodeIndex_t src, void* userData,
-                         void (*callback)(void* userData, NodeIndex_t dest, int weight),
+                         bool (*callback)(void* userData, NodeIndex_t dest, int weight),
                          float percentage = 1.f, bool distinct = false) const;
 
     void resizeEdgeStorage(size_t nodeCount);
@@ -69,9 +69,10 @@ export class GraphModel {
 };
 
 template <typename Func>
-void GraphModel::visitNodes(const BoundingBox2D& area, Func&& func, float percentage) const {
+void GraphModel::visitNodes(const BoundingBox2D& area, Func&& func, float nodesRadius,
+                            float percentage) const {
     static_assert(std::is_invocable_v<Func, NodeIndex_t>,
                   "visitNodes: callback must accept a single NodeIndex_t parameter");
 
-    m_gridMap.visitNodes(m_nodes, area, std::forward<Func>(func), percentage);
+    m_gridMap.visitNodes(m_nodes, area, std::forward<Func>(func), nodesRadius, percentage);
 }

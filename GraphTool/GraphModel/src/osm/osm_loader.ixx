@@ -15,7 +15,6 @@ export class OSMLoader {
    private:
     Vector2D mercatorToWorld(const Vector2D& mercatorPos) const;
 
-    void checkIfNodeForWaysNeeded();
     void getNeededNodes();
     void parseAndComputeBounds();
     void addNodesToGraph();
@@ -42,19 +41,21 @@ export class OSMLoader {
     double m_minY{std::numeric_limits<double>::max()};
     double m_maxY{std::numeric_limits<double>::min()};
 
-    float m_availableWidth{0};
-    float m_availableHeight{0};
-    float m_canvasAspectRatio{0};
+    BoundingBox2D m_mapBounds{};
 
     float m_dataWidth{0};
     float m_dataHeight{0};
-    float m_dataAspectRatio{0};
+
+    float m_scaledWidth{0};
+    float m_scaledHeight{0};
+    float m_scaledPaddingX{0};
+    float m_scaledPaddingY{0};
 
     uint32_t m_parsedWayCount{0};
     uint32_t m_parsedNodeCount{0};
 
     const osmium::geom::MercatorProjection m_projection{};
 
-    bool m_nodeForWaysNeeded : 1 {false};
+    bool m_nodeForWaysNeeded : 1 {true};
 #endif
 };

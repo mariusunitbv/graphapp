@@ -132,6 +132,8 @@ void JsonLoader::saveGraphToJson() const {
                                         }
                                     }
                                     sb->end_array();
+
+                                    return true;
                                 });
                         }
                         sb.end_array();

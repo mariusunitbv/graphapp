@@ -10,8 +10,6 @@ export using NodeIndex_t = uint32_t;
 export constexpr auto INVALID_NODE = std::numeric_limits<NodeIndex_t>::max();
 
 export constexpr auto NODE_LIMIT = 1'000'000'000;
-export constexpr auto NODE_RADIUS = 28.f;
-export constexpr auto NODE_DIAMETER = NODE_RADIUS * 2.f;
 
 export constexpr auto WORLD_BOUNDS_FIXED_SIZE = 500000.f;
 export constexpr BoundingBox2D WORLD_BOUNDS{-WORLD_BOUNDS_FIXED_SIZE, -WORLD_BOUNDS_FIXED_SIZE,
@@ -38,7 +36,7 @@ export struct Node {
     // Helper function to get the bounding box of a node based on its world position, used for
     // spatial queries. It is calculated from the worldPos and the NODE_RADIUS, which is constant
     // for all nodes.
-    static BoundingBox2D getBoundingBox(Vector2D worldPos, float radius = NODE_RADIUS);
+    static BoundingBox2D getBoundingBox(Vector2D worldPos, float radius);
 
     Vector2D getWorldPos() const;
 

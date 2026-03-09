@@ -13,79 +13,36 @@ OSMLoader::OSMLoader(GraphModel*, const std::string_view) {
 void OSMLoader::tryLoad() { GAPP_THROW("OSM loading is not supported in WebAssembly builds"); }
 #else
 static constexpr auto BOUND_LIMIT = 500'000;
-static constexpr auto graphSize =
-    BoundingBox2D{-BOUND_LIMIT, -BOUND_LIMIT, BOUND_LIMIT, BOUND_LIMIT};
-static constexpr auto ACCURACY = 0.03f;
+static constexpr auto ACCURACY = 0.05f;
 
 OSMLoader::OSMLoader(GraphModel* model, const std::string_view osmFile)
-    : m_model(model), m_osmPath(osmFile) {
+    : m_model(model), m_osmPath(osmFile), m_nodeForWaysNeeded(true) {
     if (osmFile.empty()) {
         GAPP_THROW("OSM file path cannot be empty");
     }
+
+    m_mapBounds = {-BOUND_LIMIT, -BOUND_LIMIT, BOUND_LIMIT, BOUND_LIMIT};
 }
 
 void OSMLoader::tryLoad() {
-    m_model->reserveArea(graphSize);
+    m_model->reserveArea(m_mapBounds);
 
-    checkIfNodeForWaysNeeded();
     getNeededNodes();
     parseAndComputeBounds();
     addNodesToGraph();
 }
 
 Vector2D OSMLoader::mercatorToWorld(const Vector2D& mercatorPos) const {
-    float finalWidth, finalHeight, offsetX = 0, offsetY = 0;
-    if (m_dataAspectRatio > m_canvasAspectRatio) {
-        finalWidth = m_availableWidth;
-        finalHeight = m_availableWidth / m_dataAspectRatio;
-        offsetY = (m_availableHeight - finalHeight) * 0.5f;
-    } else {
-        finalHeight = m_availableHeight;
-        finalWidth = m_availableHeight * m_dataAspectRatio;
-        offsetX = (m_availableWidth - finalWidth) * 0.5f;
-    }
-
     const auto nx = (mercatorPos.m_x - static_cast<float>(m_minX)) / m_dataWidth;
     const auto ny = (mercatorPos.m_y - static_cast<float>(m_minY)) / m_dataHeight;
 
-    const auto x = -BOUND_LIMIT + NODE_RADIUS + offsetX + nx * finalWidth;
-    const auto y = -BOUND_LIMIT + NODE_RADIUS + offsetY + (1.f - ny) * finalHeight;
+    const auto x = -BOUND_LIMIT + m_scaledPaddingX + nx * m_scaledWidth;
+    const auto y = -BOUND_LIMIT + m_scaledPaddingY + (1.f - ny) * m_scaledHeight;
 
     return {x, y};
 }
 
-void OSMLoader::checkIfNodeForWaysNeeded() {
-    using namespace osmium;
-
-    io::Reader reader(m_osmPath, osm_entity_bits::node | osm_entity_bits::way, io::read_meta::no);
-    size_t nodesChecked{};
-
-    while (auto buffer = reader.read()) {
-        for (const auto& way : buffer.select<Way>()) {
-            const auto& nodes = way.nodes();
-            for (const auto& node : nodes) {
-                if (nodesChecked >= 50) {
-                    std::cout << "Node locations for ways are not needed.\n";
-                    return;
-                }
-
-                if (!node.location().valid()) {
-                    m_nodeForWaysNeeded = true;
-                    std::cout << "Node locations for ways are needed.\n";
-                    return;
-                }
-
-                ++nodesChecked;
-            }
-        }
-    }
-}
-
 void OSMLoader::getNeededNodes() {
-    if (!m_nodeForWaysNeeded) {
-        return;
-    }
-
     using namespace osmium;
 
     std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
@@ -131,6 +88,14 @@ void OSMLoader::getNeededNodes() {
             m_parsedNodeCount += static_cast<uint32_t>(nodes.size());
 
             for (const auto& node : nodes) {
+                if (node.location().valid()) {
+                    std::cout << "Node Locations for ways are already available in the file. No "
+                                 "need to parse them separately.\n";
+                    m_nodeForWaysNeeded = false;
+
+                    return;
+                }
+
                 m_nodesLocations.emplace(node.ref(), osmium::Location{});
             }
         }
@@ -166,7 +131,7 @@ void OSMLoader::parseAndComputeBounds() {
 
     io::Reader reader(m_osmPath, readFlags, io::read_meta::no);
     while (auto buffer = reader.read()) {
-        if (m_nodeForWaysNeeded) {
+        if (m_nodeForWaysNeeded && parsedNodeLocations != m_nodesLocations.size()) {
             for (const auto& node : buffer.select<osmium::Node>()) {
                 auto it = m_nodesLocations.find(node.id());
                 if (it == m_nodesLocations.end()) {
@@ -259,18 +224,30 @@ void OSMLoader::parseAndComputeBounds() {
     std::cout << std::format("Finished parsing. Parsed {} ways with {} nodes.\n", m_parsedWayCount,
                              m_parsedNodeCount);
 
-    m_availableWidth = graphSize.width() - NODE_DIAMETER;
-    m_availableHeight = graphSize.height() - NODE_DIAMETER;
-    m_canvasAspectRatio = m_availableWidth / m_availableHeight;
-
     m_dataWidth = static_cast<float>(m_maxX - m_minX);
     m_dataHeight = static_cast<float>(m_maxY - m_minY);
-    m_dataAspectRatio = m_dataWidth / m_dataHeight;
+
+    const auto canvasAspectRatio = m_mapBounds.width() / m_mapBounds.height();
+    const auto dataAspectRatio = static_cast<float>((m_maxX - m_minX) / (m_maxY - m_minY));
+    if (dataAspectRatio > canvasAspectRatio) {
+        m_scaledWidth = m_mapBounds.width();
+        m_scaledHeight = m_mapBounds.width() / dataAspectRatio;
+        m_scaledPaddingY = (m_mapBounds.height() - m_scaledHeight) * 0.5f;
+    } else {
+        m_scaledWidth = m_mapBounds.height() * dataAspectRatio;
+        m_scaledHeight = m_mapBounds.height();
+        m_scaledPaddingX = (m_mapBounds.width() - m_scaledWidth) * 0.5f;
+    }
+
+    m_nodesLocations =
+        phmap::parallel_flat_hash_map<osmium::unsigned_object_id_type, osmium::Location>{};
 }
 
 void OSMLoader::addNodesToGraph() {
-    std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
-    std::chrono::steady_clock::time_point lastUpdate = startTime;
+    size_t lastSampleWay = 0;
+
+    std::chrono::steady_clock::time_point lastSampleTime = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point lastUpdate = lastSampleTime;
 
     for (size_t metaIndex = 0; metaIndex < m_waysMeta.size(); ++metaIndex) {
         const auto currentMeta = m_waysMeta[metaIndex];
@@ -288,7 +265,7 @@ void OSMLoader::addNodesToGraph() {
                                        static_cast<float>(mercatorPosCoord.y)};
 
             const auto worldPos = Vector2D::floor(mercatorToWorld(mercatorPos));
-            const auto nearNode = m_model->getNodeAtPosition(worldPos, false, ACCURACY);
+            const auto nearNode = m_model->getNodeAtPosition(worldPos, ACCURACY);
             if (nearNode) {
                 const auto nearNodeIndex = m_model->getNodeIndex(nearNode);
 
@@ -320,19 +297,29 @@ void OSMLoader::addNodesToGraph() {
         if (elapsed.count() >= 2) {
             lastUpdate = now;
 
-            const auto currentPercentage =
-                static_cast<float>(metaIndex + 1) / m_waysMeta.size() * 100.f;
-            const auto elapsedSinceStart =
-                std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
+            const auto processedWays = metaIndex + 1;
 
-            const auto remainingSeconds =
-                elapsedSinceStart * (100.f - currentPercentage) / currentPercentage;
+            const auto deltaWays = processedWays - lastSampleWay;
+            const auto deltaSeconds =
+                std::chrono::duration_cast<std::chrono::seconds>(now - lastSampleTime).count();
+
+            double secondsPerWay = 0.0;
+            if (deltaWays > 0) secondsPerWay = static_cast<double>(deltaSeconds) / deltaWays;
+
+            lastSampleWay = processedWays;
+            lastSampleTime = now;
+
+            const auto remainingWays = m_waysMeta.size() - processedWays;
+            const auto remainingSeconds = secondsPerWay * remainingWays;
 
             const auto remMinutes = static_cast<int>(remainingSeconds) / 60;
             const auto remSeconds = static_cast<int>(remainingSeconds) % 60;
 
+            const auto currentPercentage =
+                static_cast<double>(processedWays) / m_waysMeta.size() * 100.0;
+
             std::cout << std::format(
-                "Added {}/{} ways and {}/{} nodes... ({:.2f}%, ETA: {}m {}s)\n", metaIndex + 1,
+                "Added {}/{} ways and {}/{} nodes... ({:.2f}%, ETA: {}m {}s)\n", processedWays,
                 m_waysMeta.size(), m_model->getLastNodeIndex() + 1, m_parsedNodeCount,
                 currentPercentage, remMinutes, remSeconds);
         }

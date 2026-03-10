@@ -132,6 +132,7 @@ void GraphView::renderUI() {
     drawMinMax(drawList);
     drawSelectBox(drawList);
     drawMousePosition(drawList);
+    drawVersion(drawList);
     drawWatermark(drawList);
 }
 
@@ -489,16 +490,14 @@ void GraphView::initializeNodeGL() {
     glGenVertexArrays(1, &nodeGL.m_VAO);
     glBindVertexArray(nodeGL.m_VAO);
 
-    GLuint quadVBO;
-    glGenBuffers(1, &quadVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glGenBuffers(1, &nodeGL.m_quadVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, nodeGL.m_quadVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 
-    GLuint EBO;
-    glGenBuffers(1, &EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glGenBuffers(1, &nodeGL.m_EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, nodeGL.m_EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
 
     glGenBuffers(1, &nodeGL.m_VBO);
@@ -511,9 +510,6 @@ void GraphView::initializeNodeGL() {
     glVertexAttribDivisor(1, 1);
 
     glBindVertexArray(0);
-
-    glDeleteBuffers(1, &quadVBO);
-    glDeleteBuffers(1, &EBO);
 
     m_nodeUniforms.m_nodePosition = glGetUniformLocation(nodeGL.m_shaderProgram, "uNodePositions");
     m_nodeUniforms.m_nodeColor = glGetUniformLocation(nodeGL.m_shaderProgram, "uNodeColors");
@@ -704,16 +700,14 @@ void GraphView::initializeGridGL() {
     glGenVertexArrays(1, &gridGL.m_VAO);
     glBindVertexArray(gridGL.m_VAO);
 
-    GLuint quadVBO;
-    glGenBuffers(1, &quadVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glGenBuffers(1, &gridGL.m_quadVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, gridGL.m_quadVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 
-    GLuint EBO;
-    glGenBuffers(1, &EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glGenBuffers(1, &gridGL.m_EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gridGL.m_EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
 
     glGenBuffers(1, &gridGL.m_VBO);
@@ -740,9 +734,6 @@ void GraphView::initializeGridGL() {
     glVertexAttribDivisor(4, 1);
 
     glBindVertexArray(0);
-
-    glDeleteBuffers(1, &quadVBO);
-    glDeleteBuffers(1, &EBO);
 
     m_gridUniformScreenSize = glGetUniformLocation(gridGL.m_shaderProgram, "uScreenSize");
 }
@@ -771,6 +762,10 @@ void GraphView::drawMenuBar() {
         if (ImGui::BeginMenu("View")) {
             if (ImGui::MenuItem("Center on Node", "C")) {
                 m_isCenterOnNodeDialogOpen = true;
+            }
+
+            if (ImGui::MenuItem("Refresh Graph", "F5")) {
+                m_viewModel->refreshVisibleData();
             }
 
             ImGui::MenuItem("Render Grid", "G", &m_drawGrid);
@@ -1043,6 +1038,10 @@ void GraphView::drawSettings() {
             m_theme.m_hoveredAndSelectedNodeOutlineColor =
                 ImGui::ColorConvertFloat4ToU32(selectedHoveredOutlineColor);
         }
+
+        if (ImGui::Button("Force Full Update", {-FLT_MIN, 0})) {
+            colorNodes();
+        }
     } else if (currentTab == 1) {
         ImGui::SeparatorText("Performance");
 
@@ -1298,6 +1297,17 @@ void GraphView::drawMousePosition(ImDrawList* drawList) {
 
     drawList->AddText(font, font->FontSize, {mouseX + 10.f, mouseY - 10.f},
                       m_theme.m_nodeOutlineColor, buffer);
+}
+
+void GraphView::drawVersion(ImDrawList* drawList) {
+    const auto font = ImGui::GetIO().Fonts->Fonts[1];
+
+    const auto workPos = ImGui::GetMainViewport()->WorkPos;
+    const auto versionSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, GAPP_VERSION);
+
+    drawList->AddRectFilled(workPos + ImVec2{8, 8}, workPos + ImVec2{16, 16} + versionSize,
+                            IM_COL32(0, 0, 0, 120), 5.f);
+    drawList->AddText(font, font->FontSize, workPos + ImVec2{12, 12}, IM_COL32_WHITE, GAPP_VERSION);
 }
 
 void GraphView::drawWatermark(ImDrawList* drawList) {
@@ -1556,6 +1566,20 @@ void GraphView::drawNodes() {
     }
 
     glBindVertexArray(0);
+}
+
+void GraphView::colorNodes() {
+    auto& nodeColors = m_viewModel->getVisibleNodesColors();
+
+    for (uint32_t lookupIndex = 0; lookupIndex < nodeColors.size(); ++lookupIndex) {
+        const auto nodeIndex = m_viewModel->getVisibleNodesIndexes()[lookupIndex];
+
+        auto& nodeColor = nodeColors[lookupIndex];
+        nodeColor.m_color = getNodeColor(nodeIndex);
+        nodeColor.m_outlineColor = getOutlineColor(nodeIndex);
+    }
+
+    m_nodesColorDirty = true;
 }
 
 void GraphView::colorNode(NodeIndex_t nodeIndex) {

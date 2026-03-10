@@ -71,6 +71,7 @@ export class GraphView : public IGraphViewModelListener {
     void drawMinMax(ImDrawList* drawList);
     void drawSelectBox(ImDrawList* drawList);
     void drawMousePosition(ImDrawList* drawList);
+    void drawVersion(ImDrawList* drawList);
     void drawWatermark(ImDrawList* drawList);
 
     void setupNodeBuffers();
@@ -80,6 +81,7 @@ export class GraphView : public IGraphViewModelListener {
     void drawEdges();
     void drawNodes();
 
+    void colorNodes();
     void colorNode(NodeIndex_t nodeIndex);
     ImU32 getNodeColor(NodeIndex_t nodeIndex) const;
     ImU32 getOutlineColor(NodeIndex_t nodeIndex) const;
@@ -140,11 +142,22 @@ export class GraphView : public IGraphViewModelListener {
             if (m_shaderProgram) {
                 glDeleteProgram(m_shaderProgram);
             }
+
+            if (m_quadVBO) {
+                glDeleteBuffers(1, &m_quadVBO);
+            }
+
+            if (m_EBO) {
+                glDeleteBuffers(1, &m_EBO);
+            }
         }
 
         GLuint m_VAO{};
         GLuint m_VBO{};
         GLuint m_shaderProgram{};
+
+        GLuint m_quadVBO{};
+        GLuint m_EBO{};
     };
 
     GLObject m_nodeGLObject;

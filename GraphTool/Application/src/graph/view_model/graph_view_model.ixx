@@ -22,6 +22,8 @@ export class GraphViewModel {
     const std::vector<VisibleNode>& getVisibleNodes() const;
     const std::vector<VisibleEdge>& getVisibleEdges() const;
 
+    void refreshVisibleData();
+
     NodeIndex_t getHoveredNodeIndex() const;
     size_t getSelectedNodesCount() const;
     bool isNodeSelected(NodeIndex_t nodeIndex) const;

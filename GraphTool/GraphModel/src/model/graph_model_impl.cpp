@@ -14,8 +14,7 @@ void GraphModel::addNode(Vector2D worldPos) {
         GAPP_THROW("Node limit reached");
     }
 
-    worldPos = Vector2D::floor(worldPos);
-
+    worldPos = Vector2D::trunc(worldPos);
     if (!WORLD_BOUNDS.contains(worldPos)) {
         GAPP_THROW("Node position is out of world bounds");
     }

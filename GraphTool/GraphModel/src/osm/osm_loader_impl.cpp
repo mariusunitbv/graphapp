@@ -264,7 +264,7 @@ void OSMLoader::addNodesToGraph() {
             const Vector2D mercatorPos{static_cast<float>(mercatorPosCoord.x),
                                        static_cast<float>(mercatorPosCoord.y)};
 
-            const auto worldPos = Vector2D::floor(mercatorToWorld(mercatorPos));
+            const auto worldPos = Vector2D::trunc(mercatorToWorld(mercatorPos));
             const auto nearNode = m_model->getNodeAtPosition(worldPos, ACCURACY);
             if (nearNode) {
                 const auto nearNodeIndex = m_model->getNodeIndex(nearNode);

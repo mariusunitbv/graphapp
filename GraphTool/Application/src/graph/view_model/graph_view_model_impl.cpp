@@ -107,6 +107,9 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
                     }
 
                     break;
+                case SDLK_F5:
+                    refreshVisibleData();
+                    break;
             }
 
             break;
@@ -247,6 +250,8 @@ const std::vector<VisibleEdge>& GraphViewModel::getVisibleEdges() const {
 
     return m_visibleData.m_visibleEdges;
 }
+
+void GraphViewModel::refreshVisibleData() { invalidateVisibleData(); }
 
 NodeIndex_t GraphViewModel::getHoveredNodeIndex() const { return m_hoveredNodeIndex; }
 

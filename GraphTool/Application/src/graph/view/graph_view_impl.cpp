@@ -197,7 +197,7 @@ void GraphView::initializeGL() {
 
 #ifndef __EMSCRIPTEN__
     glEnable(GL_PROGRAM_POINT_SIZE);
-    glGetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, m_pointSizeRange);
+    glGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, m_pointSizeRange);
 #endif
 
     initializeEdgeGL();
@@ -1212,7 +1212,7 @@ void GraphView::drawNodesIndexes(ImDrawList* drawList) {
 
     const auto font = ImGui::GetIO().Fonts->Fonts[m_graphTextFontIndex];
     const auto& visibleNodesIndexes = m_viewModel->getVisibleNodesIndexes();
-    if (visibleNodesIndexes.empty() || visibleNodesIndexes.size() >= 10000) {
+    if (visibleNodesIndexes.empty() || visibleNodesIndexes.size() >= 100'000) {
         return;
     }
 
@@ -1512,6 +1512,11 @@ void GraphView::drawNodes() {
     constexpr auto shouldDrawFast = false;
 #else
     const auto shouldDrawFast = 2.f * radius < m_pointSizeRange[1];
+    if (m_usedFastDrawingLastFrame != shouldDrawFast) {
+        m_nodesBufferDirty = true;
+        m_lastVisibleNodesCount = 0;
+    }
+    m_usedFastDrawingLastFrame = shouldDrawFast;
 #endif
 
     const auto& nodeGL = shouldDrawFast ? m_nodeFastGLObject : m_nodeGLObject;

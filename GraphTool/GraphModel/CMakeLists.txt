@@ -7,6 +7,7 @@ file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
 	find_path(OSMIUM_INCLUDE_DIRS "osmium/version.hpp")
 	find_path(PARALLEL_HASHMAP_INCLUDE_DIRS "parallel_hashmap/btree.h")
+    find_package(expat CONFIG REQUIRED)
 endif()
 
 find_package(simdjson CONFIG REQUIRED)
@@ -30,6 +31,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    target_link_libraries(${PROJECT_NAME} PRIVATE expat::expat)
 	target_include_directories(${PROJECT_NAME} PRIVATE ${OSMIUM_INCLUDE_DIRS})
 	target_include_directories(${PROJECT_NAME} PRIVATE ${PARALLEL_HASHMAP_INCLUDE_DIRS})
 endif()

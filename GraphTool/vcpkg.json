@@ -29,6 +29,14 @@
       "name": "parallel-hashmap",
       "platform": "!wasm32"
     },
+    {
+      "name": "expat",
+      "platform": "!wasm32"
+    },
+    {
+      "name": "zlib",
+      "platform": "!wasm32"
+    },
     "sdl3"
   ]
 }

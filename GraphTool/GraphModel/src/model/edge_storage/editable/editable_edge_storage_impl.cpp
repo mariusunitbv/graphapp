@@ -58,7 +58,18 @@ bool EditableEdgeStorage::hasEdge(NodeIndex_t src, NodeIndex_t dest, int* outWei
 }
 
 void EditableEdgeStorage::removeEdge(NodeIndex_t src, NodeIndex_t dest) {
-    GAPP_THROW("Not implemented!");
+    if (src >= m_edges.size() || dest >= m_edges.size()) {
+        GAPP_THROW("Forgotten to call onNodeAdded(), size mismatch.");
+    }
+
+    auto& entry = m_edges[src];
+    auto it =
+        std::lower_bound(entry.begin(), entry.end(), dest,
+                         [](const Edge_t& edge, NodeIndex_t dest) { return edge.first < dest; });
+
+    if (it != entry.end() && it->first == dest) {
+        entry.erase(it);
+    }
 }
 
 void EditableEdgeStorage::remove(const std::vector<NodeIndex_t>& indexRemap) {

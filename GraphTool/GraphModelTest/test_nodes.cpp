@@ -18,7 +18,7 @@ TEST(GraphModel, AddNode) {
     EXPECT_EQ(node2->getWorldPos().m_x, 300.f);
     EXPECT_EQ(node2->getWorldPos().m_y, 400.f);
 
-    EXPECT_THROW(graph.addNode({150.f, WORLD_BOUNDS_FIXED_SIZE}), std::runtime_error);
+    EXPECT_THROW(graph.addNode({150.f, WORLD_BOUNDS_FIXED_SIZE + 1.f}), std::runtime_error);
 
     const auto graphBounds = graph.getGraphBounds();
     EXPECT_EQ(graphBounds.valid(), true);

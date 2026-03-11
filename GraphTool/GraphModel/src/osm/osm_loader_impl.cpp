@@ -5,7 +5,7 @@ module osm_loader;
 
 import graph_model_defines;
 
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__) || (defined(_WIN32) && !defined(_WIN64)) || defined(__i386__)
 OSMLoader::OSMLoader(GraphModel*, const std::string_view) {
     GAPP_THROW("OSM loading is not supported in WebAssembly builds");
 }

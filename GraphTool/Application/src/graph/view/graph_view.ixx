@@ -106,6 +106,7 @@ export class GraphView : public IGraphViewModelListener {
     bool m_appFullScreen{false};
 
 #ifndef __EMSCRIPTEN__
+    bool m_usedFastDrawingLastFrame{false};
     bool m_isFpsLimitEnabled{true};
     int m_maxFps{120};
 #else

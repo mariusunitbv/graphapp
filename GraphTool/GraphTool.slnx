@@ -6,6 +6,9 @@
   <Project Path="Application/Application.vcxproj" Id="b5bcf55c-7951-431d-8472-16ebb3a6cf82">
     <BuildDependency Project="GraphModel/GraphModel.vcxproj" />
   </Project>
-  <Project Path="GraphModel/GraphModel.vcxproj" Id="08ad282b-874e-4303-bf52-49577e03cdeb" />
+  <Project Path="GraphCommon/GraphCommon.vcxproj" Id="b0db4ece-c09e-40a4-a9b8-87ff3ad2cdff" />
+  <Project Path="GraphModel/GraphModel.vcxproj" Id="08ad282b-874e-4303-bf52-49577e03cdeb">
+    <BuildDependency Project="GraphCommon/GraphCommon.vcxproj" />
+  </Project>
   <Project Path="GraphModelTest/GraphModelTest.vcxproj" Id="81247077-f68f-4489-aa2d-770001affc0f" />
 </Solution>

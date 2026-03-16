@@ -114,7 +114,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;GraphModel.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;GraphModel.lib;GraphCommon.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy "$(ProjectDir)assets" "$(OutDir)assets" /E /I /Y</Command>
@@ -143,7 +143,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;GraphModel.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;GraphModel.lib;GraphCommon.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy "$(ProjectDir)assets" "$(OutDir)assets" /E /I /Y</Command>
@@ -169,7 +169,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;GraphModel.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;GraphModel.lib;GraphCommon.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy "$(ProjectDir)assets" "$(OutDir)assets" /E /I /Y</Command>
@@ -198,7 +198,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;GraphModel.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;GraphModel.lib;GraphCommon.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy "$(ProjectDir)assets" "$(OutDir)assets" /E /I /Y</Command>
@@ -208,12 +208,13 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\GraphCommon\src\common\graph_common.ixx" />
+    <ClCompile Include="..\GraphModel\src\loader\graph_loader.ixx" />
     <ClCompile Include="..\GraphModel\src\math\graph_math.ixx" />
     <ClCompile Include="..\GraphModel\src\model\defines\graph_model_defines.ixx" />
     <ClCompile Include="..\GraphModel\src\model\edge_storage\edge_storage.ixx" />
     <ClCompile Include="..\GraphModel\src\model\graph_model.ixx" />
     <ClCompile Include="..\GraphModel\src\model\gridmap\gridmap.ixx" />
-    <ClCompile Include="..\GraphModel\src\utils\utils.ixx" />
     <ClCompile Include="src\application\application.ixx" />
     <ClCompile Include="src\application\application_impl.cpp" />
     <ClCompile Include="src\graph\view\graph_view.ixx" />

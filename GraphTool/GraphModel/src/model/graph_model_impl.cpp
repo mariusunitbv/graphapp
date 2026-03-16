@@ -44,7 +44,7 @@ void GraphModel::removeSelectedNodes() {
     m_edgeStorage->remove(indexRemap);
 }
 
-void GraphModel::reserveNodes(size_t nodeCount) {
+void GraphModel::reserveNodes(uint32_t nodeCount) {
     if (!m_bulkInsertMode) {
         GAPP_THROW("reserveNodes can only be called in bulk insert mode");
     }
@@ -92,9 +92,10 @@ Node* GraphModel::getNodeAtPosition(Vector2D worldPos, float minimumDistance, bo
     NodeIndex_t closestNodeIndex = INVALID_NODE;
     if (firstOccurence) {
         closestNodeIndex =
-            m_gridMap.querySingleFast(m_nodes, worldPos, minimumDistance, nodeToIgnore);
+            m_gridMap.querySingleFast(m_nodes.span(), worldPos, minimumDistance, nodeToIgnore);
     } else {
-        closestNodeIndex = m_gridMap.querySingle(m_nodes, worldPos, minimumDistance, nodeToIgnore);
+        closestNodeIndex =
+            m_gridMap.querySingle(m_nodes.span(), worldPos, minimumDistance, nodeToIgnore);
     }
 
     if (closestNodeIndex == INVALID_NODE) {
@@ -144,7 +145,7 @@ void GraphModel::visitNeighbours(NodeIndex_t src, void* userData,
     m_edgeStorage->visitNeighbours(src, userData, callback, percentage, distinct);
 }
 
-void GraphModel::resizeEdgeStorage(size_t nodeCount) { m_edgeStorage->resize(nodeCount); }
+void GraphModel::resizeEdgeStorage(uint32_t nodeCount) { m_edgeStorage->resize(nodeCount); }
 
 bool GraphModel::updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds) {
     bool updated = false;
@@ -191,8 +192,8 @@ void GraphModel::rebuildGridMap() {
     }
 }
 
-std::vector<NodeIndex_t> GraphModel::removeSelectedNodesAndCalculateIndexRemap() {
-    std::vector<NodeIndex_t> indexRemap(m_nodes.size());
+common::MediumVector<NodeIndex_t> GraphModel::removeSelectedNodesAndCalculateIndexRemap() {
+    common::MediumVector<NodeIndex_t> indexRemap(m_nodes.size());
 
     NodeIndex_t writeIndex = 0;
     for (NodeIndex_t readIndex = 0; readIndex < m_nodes.size(); ++readIndex) {

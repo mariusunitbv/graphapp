@@ -11,7 +11,7 @@ JsonLoader::JsonLoader(GraphModel* model, const std::string_view jsonPath)
     }
 }
 
-void JsonLoader::loadGraphToJson() const {
+void JsonLoader::loadGraph() const {
     using namespace simdjson;
 
     ondemand::parser parser;
@@ -26,7 +26,7 @@ void JsonLoader::loadGraphToJson() const {
     const auto maxY = static_cast<float>(doc["maxY"].get_double().value());
 
     const auto nodeCount = doc["nodeCount"].get_uint64().value();
-    m_model->reserveNodes(nodeCount);
+    m_model->reserveNodes((uint32_t)nodeCount);
     m_model->reserveArea({minX, minY, maxX, maxY});
 
     for (ondemand::array node : doc["nodes"]) {
@@ -64,7 +64,7 @@ void JsonLoader::loadGraphToJson() const {
     m_model->endBulkInsert();
 }
 
-void JsonLoader::saveGraphToJson() const {
+void JsonLoader::saveGraph() const {
     using namespace simdjson;
 
     builder::string_builder sb;

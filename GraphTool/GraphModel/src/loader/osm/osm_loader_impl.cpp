@@ -10,7 +10,7 @@ OSMLoader::OSMLoader(GraphModel*, const std::string_view) {
     GAPP_THROW("OSM loading is not supported in WebAssembly builds");
 }
 
-void OSMLoader::tryLoad() { GAPP_THROW("OSM loading is not supported in WebAssembly builds"); }
+void OSMLoader::loadGraph() { GAPP_THROW("OSM loading is not supported in WebAssembly builds"); }
 #else
 static constexpr auto BOUND_LIMIT = 500'000;
 static constexpr auto ACCURACY = 0.05f;
@@ -24,7 +24,7 @@ OSMLoader::OSMLoader(GraphModel* model, const std::string_view osmFile)
     m_mapBounds = {-BOUND_LIMIT, -BOUND_LIMIT, BOUND_LIMIT, BOUND_LIMIT};
 }
 
-void OSMLoader::tryLoad() {
+void OSMLoader::loadGraph() {
     m_model->reserveArea(m_mapBounds);
 
     getNeededNodes();

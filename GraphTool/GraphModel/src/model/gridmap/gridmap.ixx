@@ -4,13 +4,14 @@ module;
 export module gridmap;
 
 import graph_model_defines;
+import graph_common;
 
 export class GridMap {
    public:
     GridMap();
 
     void insert(const Node* node, NodeIndex_t nodeIndex);
-    void remove(const std::vector<NodeIndex_t>& indexRemap);
+    void remove(const common::MediumVector<NodeIndex_t>& indexRemap);
 
     void incrementNodeCountInCells(Vector2D nodePos);
     void reserveNodeCountInCells();
@@ -32,33 +33,33 @@ export class GridMap {
     bool isAllocated() const;
     void allocateCells();
 
-    static constexpr auto CELL_SIZE = 500;
+    static constexpr auto CELL_SIZE = 200;
 
    private:
     struct EntryCell {
-        int m_minCellX{0};
-        int m_maxCellX{0};
-        int m_minCellY{0};
-        int m_maxCellY{0};
+        uint32_t m_minCellX{0};
+        uint32_t m_maxCellX{0};
+        uint32_t m_minCellY{0};
+        uint32_t m_maxCellY{0};
     };
 
     EntryCell calculateCellEntryForNode(Vector2D nodePos) const;
     EntryCell calculateCellEntryForArea(const BoundingBox2D& area) const;
 
-    int m_cellCountX{0};
-    int m_cellCountY{0};
+    uint32_t m_cellCountX{0};
+    uint32_t m_cellCountY{0};
 
     BoundingBox2D m_bounds{};
-    std::vector<std::vector<NodeIndex_t>> m_cells{};
-    std::vector<uint32_t> m_nodeCountInCell{};
+    common::MediumVector<common::MediumVector<NodeIndex_t>> m_cells{};
+    common::MediumVector<uint32_t> m_nodeCountInCell{};
 };
 
 template <typename Func>
 void GridMap::visitNodes(std::span<const Node> nodes, const BoundingBox2D& area, Func&& func,
                          float nodesRadius, float percentage) const {
     const auto cellEntry = calculateCellEntryForArea(area);
-    for (int cellY = cellEntry.m_minCellY; cellY <= cellEntry.m_maxCellY; ++cellY) {
-        for (int cellX = cellEntry.m_minCellX; cellX <= cellEntry.m_maxCellX; ++cellX) {
+    for (auto cellY = cellEntry.m_minCellY; cellY <= cellEntry.m_maxCellY; ++cellY) {
+        for (auto cellX = cellEntry.m_minCellX; cellX <= cellEntry.m_maxCellX; ++cellX) {
             const auto& cell = m_cells[cellY * m_cellCountX + cellX];
 
             int nodesInCell = static_cast<int>(cell.size());

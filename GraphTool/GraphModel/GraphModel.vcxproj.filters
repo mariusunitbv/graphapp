@@ -12,12 +12,13 @@
     <ClCompile Include="src\model\edge_storage\edge_storage.ixx" />
     <ClCompile Include="src\model\edge_storage\editable\editable_edge_storage_impl.cpp" />
     <ClCompile Include="src\model\edge_storage\editable\editable_edge_storage.ixx" />
-    <ClCompile Include="src\osm\osm_loader.ixx" />
-    <ClCompile Include="src\osm\osm_loader_impl.cpp" />
-    <ClCompile Include="src\utils\utils.ixx" />
-    <ClCompile Include="src\utils\utils.cpp" />
-    <ClCompile Include="src\json\json_loader.ixx" />
-    <ClCompile Include="src\json\json_loader_impl.cpp" />
+    <ClCompile Include="src\loader\osm\osm_loader.ixx" />
+    <ClCompile Include="src\loader\osm\osm_loader_impl.cpp" />
+    <ClCompile Include="src\loader\graph_loader_impl.cpp" />
+    <ClCompile Include="src\loader\json\json_loader.ixx" />
+    <ClCompile Include="src\loader\json\json_loader_impl.cpp" />
+    <ClCompile Include="src\loader\graph_loader.ixx" />
+    <ClCompile Include="..\GraphCommon\src\common\graph_common.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

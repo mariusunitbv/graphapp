@@ -1218,7 +1218,7 @@ void GraphView::drawNodesIndexes(ImDrawList* drawList) {
 
     for (uint32_t lookupIndex = static_cast<uint32_t>(visibleNodesIndexes.size());
          lookupIndex-- > 0;) {
-        char indexLabel[10];
+        char indexLabel[11];
 
         const auto index = visibleNodesIndexes[lookupIndex];
         auto temp = index;
@@ -1357,9 +1357,9 @@ void GraphView::setupNodeBuffers() {
         glBindBuffer(GL_TEXTURE_BUFFER, m_nodePositionTBO);
         glBufferData(GL_TEXTURE_BUFFER, nodePositions.size() * sizeof(Vector2D),
                      nodePositions.data(), GL_DYNAMIC_DRAW);
+#endif
 
         m_nodesPositionDirty = false;
-#endif
     }
 
     if (m_nodesColorDirty) {

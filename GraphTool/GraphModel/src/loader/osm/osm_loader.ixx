@@ -9,7 +9,7 @@ export class OSMLoader {
    public:
     OSMLoader(GraphModel* model, const std::string_view osmFile);
 
-    void tryLoad();
+    void loadGraph();
 
 #ifndef __EMSCRIPTEN__
    private:

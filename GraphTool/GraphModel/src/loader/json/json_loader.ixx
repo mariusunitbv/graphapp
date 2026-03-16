@@ -9,8 +9,8 @@ export class JsonLoader {
    public:
     JsonLoader(GraphModel* model, const std::string_view jsonPath);
 
-    void loadGraphToJson() const;
-    void saveGraphToJson() const;
+    void loadGraph() const;
+    void saveGraph() const;
 
    private:
     GraphModel* m_model{nullptr};

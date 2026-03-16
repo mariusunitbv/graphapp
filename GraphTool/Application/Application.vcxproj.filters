@@ -17,8 +17,9 @@
     <ClCompile Include="..\GraphModel\src\math\graph_math.ixx" />
     <ClCompile Include="src\graph\view_model\defines\graph_view_model_defines.ixx" />
     <ClCompile Include="..\GraphModel\src\model\edge_storage\edge_storage.ixx" />
-    <ClCompile Include="..\GraphModel\src\utils\utils.ixx" />
     <ClCompile Include="src\graph\view_model\listener\graph_view_model_listener.ixx" />
+    <ClCompile Include="..\GraphCommon\src\common\graph_common.ixx" />
+    <ClCompile Include="..\GraphModel\src\loader\graph_loader.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

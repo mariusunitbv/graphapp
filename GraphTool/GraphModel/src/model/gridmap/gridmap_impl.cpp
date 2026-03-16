@@ -10,16 +10,16 @@ GridMap::GridMap() { m_bounds.invalidate(); }
 void GridMap::insert(const Node* node, NodeIndex_t nodeIndex) {
     const auto [minCellX, maxCellX, minCellY, maxCellY] =
         calculateCellEntryForNode(node->getWorldPos());
-    for (size_t y = minCellY; y <= maxCellY; ++y) {
-        for (size_t x = minCellX; x <= maxCellX; ++x) {
+    for (auto y = minCellY; y <= maxCellY; ++y) {
+        for (auto x = minCellX; x <= maxCellX; ++x) {
             m_cells[y * m_cellCountX + x].push_back(nodeIndex);
         }
     }
 }
 
-void GridMap::remove(const std::vector<NodeIndex_t>& indexRemap) {
+void GridMap::remove(const common::MediumVector<NodeIndex_t>& indexRemap) {
     for (auto& cellNodes : m_cells) {
-        size_t i = 0;
+        auto i = 0u;
 
         while (i < cellNodes.size()) {
             auto nodeIndex = cellNodes[i];
@@ -41,8 +41,8 @@ void GridMap::incrementNodeCountInCells(Vector2D nodePos) {
     }
 
     const auto [minCellX, maxCellX, minCellY, maxCellY] = calculateCellEntryForNode(nodePos);
-    for (size_t y = minCellY; y <= maxCellY; ++y) {
-        for (size_t x = minCellX; x <= maxCellX; ++x) {
+    for (auto y = minCellY; y <= maxCellY; ++y) {
+        for (auto x = minCellX; x <= maxCellX; ++x) {
             ++m_nodeCountInCell[y * m_cellCountX + x];
         }
     }
@@ -57,7 +57,7 @@ void GridMap::reserveNodeCountInCells() {
         GAPP_THROW("Cell count and node count in cells must be the same to reserve node counts");
     }
 
-    for (size_t i = 0; i < m_nodeCountInCell.size(); ++i) {
+    for (auto i = 0u; i < m_nodeCountInCell.size(); ++i) {
         m_cells[i].reserve(m_nodeCountInCell[i]);
     }
 
@@ -72,8 +72,8 @@ NodeIndex_t GridMap::querySingle(std::span<const Node> nodes, Vector2D point, fl
     const auto [minCellX, maxCellX, minCellY, maxCellY] =
         calculateCellEntryForArea(Node::getBoundingBox(point, minimumDistance));
     NodeIndex_t closestNodeIndex = INVALID_NODE;
-    for (size_t y = minCellY; y <= maxCellY; ++y) {
-        for (size_t x = minCellX; x <= maxCellX; ++x) {
+    for (auto y = minCellY; y <= maxCellY; ++y) {
+        for (auto x = minCellX; x <= maxCellX; ++x) {
             const auto& cellNodes = m_cells[y * m_cellCountX + x];
             for (const auto nodeIndex : cellNodes) {
                 if (nodeIndex == nodeToIgnore) {
@@ -97,8 +97,8 @@ NodeIndex_t GridMap::querySingleFast(std::span<const Node> nodes, Vector2D point
                                      float minimumDistance, NodeIndex_t nodeToIgnore) const {
     const auto [minCellX, maxCellX, minCellY, maxCellY] =
         calculateCellEntryForArea(Node::getBoundingBox(point, minimumDistance));
-    for (size_t y = minCellY; y <= maxCellY; ++y) {
-        for (size_t x = minCellX; x <= maxCellX; ++x) {
+    for (auto y = minCellY; y <= maxCellY; ++y) {
+        for (auto x = minCellX; x <= maxCellX; ++x) {
             const auto& cellNodes = m_cells[y * m_cellCountX + x];
             for (const auto nodeIndex : cellNodes) {
                 if (nodeIndex == nodeToIgnore) {
@@ -121,8 +121,8 @@ uint32_t GridMap::estimateNodeCountInArea(const BoundingBox2D& area) const {
     uint32_t estimatedCount = 0;
 
     const auto [minCellX, maxCellX, minCellY, maxCellY] = calculateCellEntryForArea(area);
-    for (size_t y = minCellY; y <= maxCellY; ++y) {
-        for (size_t x = minCellX; x <= maxCellX; ++x) {
+    for (auto y = minCellY; y <= maxCellY; ++y) {
+        for (auto x = minCellX; x <= maxCellX; ++x) {
             estimatedCount += static_cast<uint32_t>(m_cells[y * m_cellCountX + x].size());
         }
     }
@@ -155,9 +155,12 @@ GridMap::EntryCell GridMap::calculateCellEntryForNode(Vector2D nodePos) const {
     const auto cellX = static_cast<int>(std::floor((nodePos.m_x - m_bounds.m_min.m_x) / CELL_SIZE));
     const auto cellY = static_cast<int>(std::floor((nodePos.m_y - m_bounds.m_min.m_y) / CELL_SIZE));
 
+    const auto cellCountX = static_cast<int>(m_cellCountX);
+    const auto cellCountY = static_cast<int>(m_cellCountY);
+
     EntryCell cell;
-    cell.m_minCellX = cell.m_maxCellX = std::clamp(cellX, 0, m_cellCountX - 1);
-    cell.m_minCellY = cell.m_maxCellY = std::clamp(cellY, 0, m_cellCountY - 1);
+    cell.m_minCellX = cell.m_maxCellX = std::clamp(cellX, 0, cellCountX - 1);
+    cell.m_minCellY = cell.m_maxCellY = std::clamp(cellY, 0, cellCountY - 1);
 
     return cell;
 }
@@ -167,21 +170,24 @@ GridMap::EntryCell GridMap::calculateCellEntryForArea(const BoundingBox2D& area)
         return {1, 0, 1, 0};
     }
 
-    const float relMinX = area.m_min.m_x - m_bounds.m_min.m_x;
-    const float relMaxX = area.m_max.m_x - m_bounds.m_min.m_x;
-    const float relMinY = area.m_min.m_y - m_bounds.m_min.m_y;
-    const float relMaxY = area.m_max.m_y - m_bounds.m_min.m_y;
+    const auto relMinX = area.m_min.m_x - m_bounds.m_min.m_x;
+    const auto relMaxX = area.m_max.m_x - m_bounds.m_min.m_x;
+    const auto relMinY = area.m_min.m_y - m_bounds.m_min.m_y;
+    const auto relMaxY = area.m_max.m_y - m_bounds.m_min.m_y;
 
     const auto minCellX = static_cast<int>(std::floor(relMinX / CELL_SIZE));
     const auto maxCellX = static_cast<int>(std::ceil(relMaxX / CELL_SIZE)) - 1;
     const auto minCellY = static_cast<int>(std::floor(relMinY / CELL_SIZE));
     const auto maxCellY = static_cast<int>(std::ceil(relMaxY / CELL_SIZE)) - 1;
 
+    const auto cellCountX = static_cast<int>(m_cellCountX);
+    const auto cellCountY = static_cast<int>(m_cellCountY);
+
     EntryCell cell;
-    cell.m_minCellX = std::clamp(minCellX, 0, m_cellCountX - 1);
-    cell.m_maxCellX = std::clamp(maxCellX, 0, m_cellCountX - 1);
-    cell.m_minCellY = std::clamp(minCellY, 0, m_cellCountY - 1);
-    cell.m_maxCellY = std::clamp(maxCellY, 0, m_cellCountY - 1);
+    cell.m_minCellX = std::clamp(minCellX, 0, cellCountX - 1);
+    cell.m_maxCellX = std::clamp(maxCellX, 0, cellCountX - 1);
+    cell.m_minCellY = std::clamp(minCellY, 0, cellCountY - 1);
+    cell.m_maxCellY = std::clamp(maxCellY, 0, cellCountY - 1);
 
     return cell;
 }

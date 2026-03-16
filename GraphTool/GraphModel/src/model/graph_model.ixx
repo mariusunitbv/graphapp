@@ -7,6 +7,7 @@ export import graph_model_defines;
 
 import gridmap;
 import edge_storage;
+import graph_common;
 
 export class GraphModel {
    public:
@@ -17,7 +18,7 @@ export class GraphModel {
     void addNode(Vector2D worldPos);
     void removeSelectedNodes();
 
-    void reserveNodes(size_t nodeCount);
+    void reserveNodes(uint32_t nodeCount);
     void reserveArea(const BoundingBox2D& area);
 
     void beginBulkInsert();
@@ -53,15 +54,15 @@ export class GraphModel {
                          bool (*callback)(void* userData, NodeIndex_t dest, int weight),
                          float percentage = 1.f, bool distinct = false) const;
 
-    void resizeEdgeStorage(size_t nodeCount);
+    void resizeEdgeStorage(uint32_t nodeCount);
 
    private:
     bool updateDynamicBoundsIfNeeded(const BoundingBox2D& bounds);
     void rebuildGridMap();
 
-    std::vector<NodeIndex_t> removeSelectedNodesAndCalculateIndexRemap();
+    common::MediumVector<NodeIndex_t> removeSelectedNodesAndCalculateIndexRemap();
 
-    std::vector<Node> m_nodes;
+    common::MediumVector<Node> m_nodes;
     GridMap m_gridMap;
     std::unique_ptr<EdgeStorage> m_edgeStorage;
 
@@ -74,5 +75,5 @@ void GraphModel::visitNodes(const BoundingBox2D& area, Func&& func, float nodesR
     static_assert(std::is_invocable_v<Func, NodeIndex_t>,
                   "visitNodes: callback must accept a single NodeIndex_t parameter");
 
-    m_gridMap.visitNodes(m_nodes, area, std::forward<Func>(func), nodesRadius, percentage);
+    m_gridMap.visitNodes(m_nodes.span(), area, std::forward<Func>(func), nodesRadius, percentage);
 }

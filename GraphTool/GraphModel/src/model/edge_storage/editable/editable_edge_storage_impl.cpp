@@ -3,7 +3,7 @@ module;
 
 module editable_edge_storage;
 
-void EditableEdgeStorage::resize(size_t nodeCount) { m_edges.resize(nodeCount); }
+void EditableEdgeStorage::resize(uint32_t nodeCount) { m_edges.resize(nodeCount); }
 
 void EditableEdgeStorage::onNodeAdded(NodeIndex_t nodeIndex) { m_edges.emplace_back(); }
 
@@ -25,7 +25,7 @@ void EditableEdgeStorage::addEdge(NodeIndex_t src, NodeIndex_t dest, int weight)
     if (it != entry.end() && it->first == dest) {
         it->second = weight;
     } else {
-        entry.insert(it, {dest, weight});
+        entry.insert(it, dest, weight);
     }
 }
 
@@ -72,7 +72,7 @@ void EditableEdgeStorage::removeEdge(NodeIndex_t src, NodeIndex_t dest) {
     }
 }
 
-void EditableEdgeStorage::remove(const std::vector<NodeIndex_t>& indexRemap) {
+void EditableEdgeStorage::remove(const common::MediumVector<NodeIndex_t>& indexRemap) {
     NodeIndex_t writeIndex = 0;
     for (NodeIndex_t readIndex = 0; readIndex < m_edges.size(); ++readIndex) {
         if (indexRemap[readIndex] == INVALID_NODE) {
@@ -80,7 +80,7 @@ void EditableEdgeStorage::remove(const std::vector<NodeIndex_t>& indexRemap) {
         }
 
         auto& readIndexList = m_edges[readIndex];
-        std::erase_if(readIndexList, [&indexRemap](Edge_t& edge) {
+        common::algorithms::erase_if(readIndexList, [&indexRemap](Edge_t& edge) {
             const auto newDest = indexRemap[edge.first];
             if (newDest == INVALID_NODE) {
                 return true;
@@ -107,7 +107,7 @@ void EditableEdgeStorage::sortEdges() {
     }
 }
 
-size_t EditableEdgeStorage::getNeighbourCount(NodeIndex_t src) const {
+uint32_t EditableEdgeStorage::getNeighbourCount(NodeIndex_t src) const {
     if (src >= m_edges.size()) {
         GAPP_THROW("Forgotten to call onNodeAdded(), size mismatch.");
     }
@@ -124,9 +124,9 @@ void EditableEdgeStorage::visitNeighbours(NodeIndex_t src, void* userData,
     }
 
     const auto& entry = m_edges[src];
-    const auto limit = static_cast<size_t>(entry.size() * percentage);
+    const auto limit = static_cast<uint32_t>(entry.size() * percentage);
 
-    for (size_t i = 0; i < limit; ++i) {
+    for (auto i = 0u; i < limit; ++i) {
         const auto& [dest, weight] = entry[i];
         if (distinct && src >= dest && hasEdge(dest, src)) {
             continue;

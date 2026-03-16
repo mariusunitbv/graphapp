@@ -3,7 +3,7 @@ module;
 
 module graph_view_model;
 
-import graph_utils;
+import graph_loader;
 
 void GraphViewModel::initialize(GraphModel* model, float displayWidth, float displayHeight) {
     m_model = model;
@@ -187,6 +187,7 @@ void GraphViewModel::preRenderUpdate() {
 
     if (!m_lastQueryRegionArea.contains(m_visibleRegionArea) || smallerLastQueryRegion) {
         invalidateVisibleData();
+        updateVisibleRegion();
 
         const auto extraMargin = m_displaySize * 1.25f;
         m_lastQueryRegionArea = {
@@ -752,18 +753,17 @@ void GraphViewModel::invalidateVisibleData() {
 }
 
 void GraphViewModel::addSampleNodes() {
-    // Utils::loadOSM(m_model, R"()");
-    Utils::loadJSON(m_model, R"(assets/brasov.json)");
+    GraphLoader::loadJSON(m_model, R"(assets/brasov.json)");
     centerOnNode(0);
 
-    /*constexpr float start = -39970.f;
+    return;
+
+    constexpr float start = -500'000.f;
     constexpr float end = -start;
-    constexpr float step = NODE_RADIUS * 1.6f;
+    const float step = m_nodesRadius * 1.f;
 
-    constexpr size_t stepsPerAxis = static_cast<size_t>((end - start) / step) + 1;
-    constexpr size_t nodeCount = stepsPerAxis * stepsPerAxis;
-
-    static_assert(nodeCount < NODE_LIMIT, "Node count exceeds limits");
+    const auto stepsPerAxis = static_cast<uint32_t>((end - start) / step) + 1;
+    const auto nodeCount = std::clamp(stepsPerAxis * stepsPerAxis, 1u, (uint32_t)NODE_LIMIT);
 
     m_model->beginBulkInsert();
 
@@ -810,5 +810,5 @@ void GraphViewModel::addSampleNodes() {
 
         m_model->addEdge(src, dest, 1);
         added++;
-    }*/
+    }
 }

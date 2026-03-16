@@ -26,8 +26,6 @@ export constexpr BoundingBox2D WORLD_BOUNDS{-WORLD_BOUNDS_FIXED_SIZE, -WORLD_BOU
 //  1. Memory efficiency: each node occupies exactly 8 bytes, no padding.
 //  2. Cache-friendly: contiguous arrays of nodes fit well in CPU cache.
 //  3. Bitfields allow storing all necessary data (position, color, state) without wasting space.
-
-#pragma pack(push, 4)
 export struct Node {
     Node() = default;
     explicit Node(Vector2D worldPos);
@@ -47,9 +45,6 @@ export struct Node {
     void unmarkSelected();
     bool isSelected() const;
 
-    uint32_t getLookupIndex() const;
-    void setLookupIndex(uint32_t lookupIndex);
-
    private:
     uint64_t m_worldPosX : 20 {};
     uint64_t m_worldPosY : 20 {};
@@ -62,9 +57,6 @@ export struct Node {
     // This will be used for algorithms that need to mark nodes as visited without needing extra
     // memory, it can be used as a bitfield for different purposes, but currently it's reserved.
     uint64_t m_reserved : 2 {0};
-
-    uint32_t m_lookupIndexCache{0};
 };
-#pragma pack(pop)
 
-static_assert(sizeof(Node) == 12, "Node struct must be 12 bytes.");
+static_assert(sizeof(Node) == 8, "Node struct must be 8 bytes.");

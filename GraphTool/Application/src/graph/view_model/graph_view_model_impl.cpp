@@ -75,9 +75,9 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
                 onCameraPan(-event.motion.xrel, -event.motion.yrel);
             } else if (leftMouseButtonDown && m_isSelectingUsingBox) {
                 setSelectBoxEnd(event.motion.x, event.motion.y);
+            } else {
+                onMouseMove(event.motion.x, event.motion.y);
             }
-
-            onMouseMove(event.motion.x, event.motion.y);
 
         } break;
         case SDL_EVENT_MOUSE_WHEEL:
@@ -228,15 +228,7 @@ std::vector<NodeColorInfo>& GraphViewModel::getVisibleNodesColors() {
     return m_visibleData.m_nodesColors;
 }
 
-const std::vector<NodeIndex_t>& GraphViewModel::getVisibleNodesIndexes() const {
-    if (m_shouldUseCachedVisibleNodes) {
-        return m_cachedVisibleData.m_nodesIndexes;
-    }
-
-    return m_visibleData.m_nodesIndexes;
-}
-
-const std::vector<VisibleNode>& GraphViewModel::getVisibleNodes() const {
+const std::vector<NodeIndex_t>& GraphViewModel::getVisibleNodes() const {
     if (m_shouldUseCachedVisibleNodes) {
         return m_cachedVisibleData.m_visibleNodes;
     }
@@ -262,16 +254,15 @@ bool GraphViewModel::isNodeSelected(NodeIndex_t nodeIndex) const {
     return m_model->getNode(nodeIndex)->isSelected();
 }
 
-bool GraphViewModel::isValidLookupIndex(NodeIndex_t nodeIndex, uint32_t lookupIndex) const {
-    if (lookupIndex >= getVisibleNodes().size()) {
-        return false;
+std::optional<uint32_t> GraphViewModel::getLookupIndex(NodeIndex_t nodeIndex) const {
+    const auto& visibleNodes = getVisibleNodes();
+
+    auto it = std::lower_bound(visibleNodes.begin(), visibleNodes.end(), nodeIndex);
+    if (it != visibleNodes.end() && *it == nodeIndex) {
+        return static_cast<uint32_t>(std::distance(visibleNodes.begin(), it));
     }
 
-    if (nodeIndex != getVisibleNodesIndexes()[lookupIndex]) {
-        return false;
-    }
-
-    return true;
+    return std::nullopt;
 }
 
 float GraphViewModel::getZoomFactor() const { return m_camera.m_zoom; }
@@ -576,10 +567,8 @@ void GraphViewModel::updateVisibleNodes(VisibleData& visibleData) {
         nodesPerCellPercentage = m_maxNodesPerCellPercentage / 100.f;
     }
 
-    visibleData.m_nodesPositions.reserve(estimatedNodeCount);
-    visibleData.m_nodesColors.reserve(estimatedNodeCount);
-    visibleData.m_nodesIndexes.reserve(estimatedNodeCount);
-    visibleData.m_visibleNodes.reserve(estimatedNodeCount);
+    visibleData.m_visibleNodes.reserve(
+        static_cast<uint32_t>(estimatedNodeCount * nodesPerCellPercentage) + 1);
 
     m_model->visitNodes(
         m_lastQueryRegionArea,
@@ -588,22 +577,24 @@ void GraphViewModel::updateVisibleNodes(VisibleData& visibleData) {
                 return false;
             }
 
-            onVisibleNode(nodeIndex, visibleData);
+            visibleData.m_visibleNodes.emplace_back(nodeIndex);
             return true;
         },
         m_nodesRadius, nodesPerCellPercentage);
+
+    setupVisibleNodes(visibleData);
 }
 
 void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
 #ifdef __EMSCRIPTEN__
-    for (const auto [lookupIndex] : visibleData.m_visibleNodes) {
-        const auto nodeIndex = visibleData.m_nodesIndexes[lookupIndex];
+    for (uint32_t lookupIndex = 0; lookupIndex < visibleData.m_visibleNodes.size(); ++lookupIndex) {
+        const auto nodeIndex = visibleData.m_visibleNodes[lookupIndex];
 
         struct VisitorData {
             VisibleData* visibleData;
-            GraphModel* model;
+            NodeIndex_t srcNodeIndex;
             uint32_t srcLookupIndex;
-        } visitorData{&visibleData, m_model, lookupIndex};
+        } visitorData{&visibleData, nodeIndex, lookupIndex};
 
         m_model->visitNeighbours(
             nodeIndex, &visitorData,
@@ -615,26 +606,35 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
                     return false;
                 }
 
-                const auto destNode = visitorData->model->getNode(index);
-                const auto destLookupIndex = destNode->getLookupIndex();
+                const auto beginIt = visibleData->m_visibleNodes.begin();
+                const auto endIt = visibleData->m_visibleNodes.end();
 
-                if (destLookupIndex >= visibleData->m_visibleNodes.size()) {
+                const auto srcNodeIndex = visitorData->srcNodeIndex;
+                const auto srcLookupIndex = visitorData->srcLookupIndex;
+
+                std::vector<NodeIndex_t>::iterator destLookupIt;
+                if (index > srcNodeIndex) {
+                    destLookupIt = std::lower_bound(beginIt + srcLookupIndex, endIt, index);
+                } else {
+                    destLookupIt = std::lower_bound(beginIt, beginIt + srcLookupIndex, index);
+                }
+
+                if (destLookupIt == visibleData->m_visibleNodes.end() || *destLookupIt != index) {
                     return true;
                 }
 
-                if (index != visibleData->m_nodesIndexes[destLookupIndex]) {
-                    return true;
-                }
-
+                const auto destLookupIndex = static_cast<uint32_t>(
+                    std::distance(visibleData->m_visibleNodes.begin(), destLookupIt));
                 visibleData->m_visibleEdges.emplace_back(visitorData->srcLookupIndex,
                                                          destLookupIndex);
+
                 return true;
             },
             m_edgeDrawPercentage / 100.f);
     }
 #else
     const auto threadCount = std::thread::hardware_concurrency();
-    const auto totalNodes = visibleData.m_visibleNodes.size();
+    const auto totalNodes = static_cast<uint32_t>(visibleData.m_visibleNodes.size());
     if (totalNodes == 0) {
         return;
     }
@@ -642,17 +642,17 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
     const auto chunkSize = (totalNodes + threadCount - 1) / threadCount;
     std::vector<std::vector<VisibleEdge> > threadEdges(threadCount);
 
-    auto worker = [this, &visibleData, &threadEdges](size_t start, size_t end, size_t threadIndex) {
-        for (size_t i = start; i < end; ++i) {
-            const auto lookupIndex = visibleData.m_visibleNodes[i].m_lookupIndex;
-            const auto nodeIndex = visibleData.m_nodesIndexes[lookupIndex];
+    auto worker = [this, &visibleData, &threadEdges](uint32_t start, uint32_t end,
+                                                     uint32_t threadIndex) {
+        for (uint32_t lookupIndex = start; lookupIndex < end; ++lookupIndex) {
+            const auto nodeIndex = visibleData.m_visibleNodes[lookupIndex];
 
             struct VisitorData {
                 VisibleData* visibleData;
-                GraphModel* model;
+                NodeIndex_t srcNodeIndex;
                 uint32_t srcLookupIndex;
                 std::vector<VisibleEdge>* edges;
-            } visitorData{&visibleData, m_model, lookupIndex, &threadEdges[threadIndex]};
+            } visitorData{&visibleData, nodeIndex, lookupIndex, &threadEdges[threadIndex]};
 
             m_model->visitNeighbours(
                 nodeIndex, &visitorData,
@@ -660,22 +660,32 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
                     const auto visitorData = static_cast<VisitorData*>(data);
                     const auto visibleData = visitorData->visibleData;
 
-                    if (visibleData->m_visibleEdges.size() >= std::numeric_limits<int>::max() - 1) {
+                    if (visitorData->edges->size() >= std::numeric_limits<int>::max() - 1) {
                         return false;
                     }
 
-                    const auto destNode = visitorData->model->getNode(index);
-                    const auto destLookupIndex = destNode->getLookupIndex();
+                    const auto beginIt = visibleData->m_visibleNodes.begin();
+                    const auto endIt = visibleData->m_visibleNodes.end();
 
-                    if (destLookupIndex >= visibleData->m_visibleNodes.size()) {
+                    const auto srcNodeIndex = visitorData->srcNodeIndex;
+                    const auto srcLookupIndex = visitorData->srcLookupIndex;
+
+                    std::vector<NodeIndex_t>::iterator destLookupIt;
+                    if (index > srcNodeIndex) {
+                        destLookupIt = std::lower_bound(beginIt + srcLookupIndex, endIt, index);
+                    } else {
+                        destLookupIt = std::lower_bound(beginIt, beginIt + srcLookupIndex, index);
+                    }
+
+                    if (destLookupIt == visibleData->m_visibleNodes.end() ||
+                        *destLookupIt != index) {
                         return true;
                     }
 
-                    if (index != visibleData->m_nodesIndexes[destLookupIndex]) {
-                        return true;
-                    }
-
+                    const auto destLookupIndex = static_cast<uint32_t>(
+                        std::distance(visibleData->m_visibleNodes.begin(), destLookupIt));
                     visitorData->edges->emplace_back(visitorData->srcLookupIndex, destLookupIndex);
+
                     return true;
                 },
                 m_edgeDrawPercentage / 100.f);
@@ -683,9 +693,9 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
     };
 
     std::vector<std::thread> threads;
-    for (size_t i = 0; i < threadCount; ++i) {
-        size_t start = i * chunkSize;
-        size_t end = std::min(start + chunkSize, totalNodes);
+    for (uint32_t i = 0; i < threadCount; ++i) {
+        const auto start = i * chunkSize;
+        const auto end = std::min(start + chunkSize, totalNodes);
         if (start >= end) {
             break;
         }
@@ -711,19 +721,51 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
 }
 
 void GraphViewModel::onVisibleNode(NodeIndex_t nodeIndex, VisibleData& visibleData) {
-    const auto node = m_model->getNode(nodeIndex);
-
-    visibleData.m_nodesPositions.push_back(node->getWorldPos());
+    visibleData.m_nodesPositions.push_back(m_model->getNode(nodeIndex)->getWorldPos());
     visibleData.m_nodesColors.emplace_back();
-    visibleData.m_nodesIndexes.push_back(nodeIndex);
+    visibleData.m_visibleNodes.emplace_back(nodeIndex);
+}
 
-    const auto lookupIndex = static_cast<uint32_t>(visibleData.m_visibleNodes.size());
-    node->setLookupIndex(lookupIndex);
+void GraphViewModel::setupVisibleNodes(VisibleData& visibleData) {
+    const auto size = visibleData.m_visibleNodes.size();
+    std::vector<NodeIndex_t> tmpIndexes(size);
 
-    visibleData.m_visibleNodes.emplace_back(lookupIndex);
+    for (auto byte = 0u; byte < 4; ++byte) {
+        const auto shift = byte * 8;
 
-    for (auto* listener : m_listeners) {
-        listener->onNodeAddedToVisibleData(nodeIndex, visibleData);
+        uint32_t count[256]{}, total = 0;
+        for (auto i = 0u; i < size; ++i) {
+            const auto key = (visibleData.m_visibleNodes[i] >> shift) & 0xFF;
+            ++count[key];
+        }
+
+        for (auto i = 0u; i < 256; ++i) {
+            const auto oldCount = count[i];
+            count[i] = total;
+            total += oldCount;
+        }
+
+        for (auto i = 0u; i < size; ++i) {
+            const auto key = (visibleData.m_visibleNodes[i] >> shift) & 0xFF;
+            const auto index = count[key]++;
+
+            tmpIndexes[index] = visibleData.m_visibleNodes[i];
+        }
+
+        visibleData.m_visibleNodes.swap(tmpIndexes);
+    }
+
+    visibleData.m_nodesPositions.reserve(size);
+    visibleData.m_nodesColors.resize(size);
+
+    for (uint32_t lookupIndex = 0; lookupIndex < visibleData.m_visibleNodes.size(); ++lookupIndex) {
+        const auto nodeIndex = visibleData.m_visibleNodes[lookupIndex];
+        const auto node = m_model->getNode(nodeIndex);
+
+        visibleData.m_nodesPositions.push_back(node->getWorldPos());
+        for (auto* listener : m_listeners) {
+            listener->onNodeAddedToVisibleData(nodeIndex, lookupIndex, visibleData);
+        }
     }
 }
 

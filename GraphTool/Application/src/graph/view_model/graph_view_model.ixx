@@ -17,9 +17,8 @@ export class GraphViewModel {
 
     const std::vector<Vector2D>& getVisibleNodesPositions() const;
     std::vector<NodeColorInfo>& getVisibleNodesColors();
-    const std::vector<NodeIndex_t>& getVisibleNodesIndexes() const;
 
-    const std::vector<VisibleNode>& getVisibleNodes() const;
+    const std::vector<NodeIndex_t>& getVisibleNodes() const;
     const std::vector<VisibleEdge>& getVisibleEdges() const;
 
     void refreshVisibleData();
@@ -28,7 +27,7 @@ export class GraphViewModel {
     size_t getSelectedNodesCount() const;
     bool isNodeSelected(NodeIndex_t nodeIndex) const;
 
-    bool isValidLookupIndex(NodeIndex_t nodeIndex, uint32_t lookupIndex) const;
+    std::optional<uint32_t> getLookupIndex(NodeIndex_t nodeIndex) const;
 
     float getZoomFactor() const;
     void setZoomFactor(float zoom);
@@ -82,6 +81,7 @@ export class GraphViewModel {
     void updateVisibleNodes(VisibleData& visibleData);
     void updateVisibleEdges(VisibleData& visibleData);
     void onVisibleNode(NodeIndex_t nodeIndex, VisibleData& visibleData);
+    void setupVisibleNodes(VisibleData& visibleData);
 
     void clampCameraPositionInBounds();
     void updateVisibleRegion();

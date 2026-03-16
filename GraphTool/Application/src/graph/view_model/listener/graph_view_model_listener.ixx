@@ -19,5 +19,6 @@ export class IGraphViewModelListener {
     virtual void onNodeUnhover(NodeIndex_t nodeIndex) = 0;
 
     virtual void onNodeAdded(NodeIndex_t nodeIndex) = 0;
-    virtual void onNodeAddedToVisibleData(NodeIndex_t nodeIndex, VisibleData& visibleData) = 0;
+    virtual void onNodeAddedToVisibleData(NodeIndex_t nodeIndex, uint32_t lookupIndex,
+                                          VisibleData& visibleData) = 0;
 };

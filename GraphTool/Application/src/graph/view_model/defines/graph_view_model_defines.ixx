@@ -15,10 +15,6 @@ export struct NodeColorInfo {
     uint32_t m_outlineColor;
 };
 
-export struct VisibleNode {
-    uint32_t m_lookupIndex;
-};
-
 export struct VisibleEdge {
     uint32_t m_startNodeIndexLookup;
     uint32_t m_endNodeIndexLookup;
@@ -27,8 +23,7 @@ export struct VisibleEdge {
 export struct VisibleData {
     std::vector<Vector2D> m_nodesPositions;
     std::vector<NodeColorInfo> m_nodesColors;
-    std::vector<NodeIndex_t> m_nodesIndexes;
 
-    std::vector<VisibleNode> m_visibleNodes;
+    std::vector<NodeIndex_t> m_visibleNodes;
     std::vector<VisibleEdge> m_visibleEdges;
 };

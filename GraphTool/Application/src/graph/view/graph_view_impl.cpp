@@ -159,7 +159,7 @@ int GraphView::getVsyncMode() const {
 }
 
 void GraphView::onFullDataUpdate() {
-    m_nodesBufferDirty = m_edgesBufferDirty = m_nodesColorDirty = m_nodesPositionDirty = true;
+    m_edgesBufferDirty = m_nodesColorDirty = m_nodesPositionDirty = true;
 }
 
 void GraphView::onNodeSelected(NodeIndex_t nodeIndex) { colorNode(nodeIndex); }
@@ -171,14 +171,13 @@ void GraphView::onNodeHover(NodeIndex_t nodeIndex) { colorNode(nodeIndex); }
 void GraphView::onNodeUnhover(NodeIndex_t nodeIndex) { colorNode(nodeIndex); }
 
 void GraphView::onNodeAdded(NodeIndex_t nodeIndex) {
-    m_nodesBufferDirty = m_nodesColorDirty = m_nodesPositionDirty = true;
+    m_nodesColorDirty = m_nodesPositionDirty = true;
 
     colorNode(nodeIndex);
 }
 
-void GraphView::onNodeAddedToVisibleData(NodeIndex_t nodeIndex, VisibleData& visibleData) {
-    const auto lookupIndex = m_model->getNode(nodeIndex)->getLookupIndex();
-
+void GraphView::onNodeAddedToVisibleData(NodeIndex_t nodeIndex, uint32_t lookupIndex,
+                                         VisibleData& visibleData) {
     auto& nodeColor = visibleData.m_nodesColors[lookupIndex];
     nodeColor.m_color = getNodeColor(nodeIndex);
     nodeColor.m_outlineColor = getOutlineColor(nodeIndex);
@@ -369,7 +368,6 @@ void GraphView::initializeEdgeGL() {
 void GraphView::initializeNodeGL() {
     constexpr auto vertexShaderSource = GLSL_VERSION R"(
         layout(location = 0) in vec2 aPos;
-        layout(location = 1) in uint aLookupIndex;
 
         uniform float uNodeRadius;
         uniform vec2 uScreenSize;
@@ -419,7 +417,7 @@ void GraphView::initializeNodeGL() {
         out vec2 vTexCoord;
         
         void main() {
-            vec2 worldPos = fetchNodePosition(int(aLookupIndex));
+            vec2 worldPos = fetchNodePosition(int(gl_InstanceID));
 
             vec2 screenPos = (worldPos - uCameraPos) * uCameraZoom + uScreenSize * 0.5;
             vec2 pos = screenPos + aPos * uNodeRadius;
@@ -429,7 +427,7 @@ void GraphView::initializeNodeGL() {
 
             gl_Position = vec4(ndc, 0.0, 1.0);
 
-            uvec4 colorsPacked = fetchNodeColors(int(aLookupIndex));
+            uvec4 colorsPacked = fetchNodeColors(int(gl_InstanceID));
             uint color = colorsPacked.x;
             uint outlineColor = colorsPacked.y;
             
@@ -500,15 +498,6 @@ void GraphView::initializeNodeGL() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, nodeGL.m_EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
 
-    glGenBuffers(1, &nodeGL.m_VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, nodeGL.m_VBO);
-    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
-
-    glEnableVertexAttribArray(1);
-    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(VisibleNode),
-                           (void*)offsetof(VisibleNode, m_lookupIndex));
-    glVertexAttribDivisor(1, 1);
-
     glBindVertexArray(0);
 
     m_nodeUniforms.m_nodePosition = glGetUniformLocation(nodeGL.m_shaderProgram, "uNodePositions");
@@ -528,8 +517,6 @@ void GraphView::initializeNodeGL() {
 void GraphView::initializeNodeFastGL() {
 #ifndef __EMSCRIPTEN__
     constexpr auto vertexShaderSource = GLSL_VERSION R"(
-        layout(location = 0) in uint aLookupIndex;
-
         uniform samplerBuffer uNodePositions;
         uniform usamplerBuffer uNodeColors;
 
@@ -551,9 +538,9 @@ void GraphView::initializeNodeFastGL() {
         }
 
         void main() {
-            vec2 worldPos = texelFetch(uNodePositions, int(aLookupIndex)).xy;
+            vec2 worldPos = texelFetch(uNodePositions, int(gl_InstanceID)).xy;
             
-            uvec4 colorsPacked = texelFetch(uNodeColors, int(aLookupIndex));
+            uvec4 colorsPacked = texelFetch(uNodeColors, int(gl_InstanceID));
             uint color = colorsPacked.x;
             uint outlineColor = colorsPacked.y;
 
@@ -613,14 +600,6 @@ void GraphView::initializeNodeFastGL() {
 
     glGenVertexArrays(1, &nodeGL.m_VAO);
     glBindVertexArray(nodeGL.m_VAO);
-
-    glGenBuffers(1, &nodeGL.m_VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, nodeGL.m_VBO);
-    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribIPointer(0, 1, GL_UNSIGNED_INT, sizeof(VisibleNode), (void*)0);
-    glVertexAttribDivisor(0, 1);
 
     glBindVertexArray(0);
 
@@ -1211,7 +1190,7 @@ void GraphView::drawNodesIndexes(ImDrawList* drawList) {
     }
 
     const auto font = ImGui::GetIO().Fonts->Fonts[m_graphTextFontIndex];
-    const auto& visibleNodesIndexes = m_viewModel->getVisibleNodesIndexes();
+    const auto& visibleNodesIndexes = m_viewModel->getVisibleNodes();
     if (visibleNodesIndexes.empty() || visibleNodesIndexes.size() >= 100'000) {
         return;
     }
@@ -1512,31 +1491,12 @@ void GraphView::drawNodes() {
     constexpr auto shouldDrawFast = false;
 #else
     const auto shouldDrawFast = 2.f * radius < m_pointSizeRange[1];
-    if (m_usedFastDrawingLastFrame != shouldDrawFast) {
-        m_nodesBufferDirty = true;
-        m_lastVisibleNodesCount = 0;
-    }
-    m_usedFastDrawingLastFrame = shouldDrawFast;
 #endif
 
     const auto& nodeGL = shouldDrawFast ? m_nodeFastGLObject : m_nodeGLObject;
     const auto& uniforms = shouldDrawFast ? m_fastNodeUniforms : m_nodeUniforms;
 
     glBindVertexArray(nodeGL.m_VAO);
-
-    if (m_nodesBufferDirty) {
-        glBindBuffer(GL_ARRAY_BUFFER, nodeGL.m_VBO);
-        if (visibleNodes.size() != m_lastVisibleNodesCount) {
-            glBufferData(GL_ARRAY_BUFFER, visibleNodes.size() * sizeof(VisibleNode),
-                         visibleNodes.data(), GL_DYNAMIC_DRAW);
-            m_lastVisibleNodesCount = static_cast<int>(visibleNodes.size());
-        } else {
-            glBufferSubData(GL_ARRAY_BUFFER, 0, visibleNodes.size() * sizeof(VisibleNode),
-                            visibleNodes.data());
-        }
-
-        m_nodesBufferDirty = false;
-    }
 
     glUseProgram(nodeGL.m_shaderProgram);
     glUniform1i(uniforms.m_nodePosition, 0);
@@ -1564,10 +1524,11 @@ void GraphView::drawNodes() {
     glBindTexture(GL_TEXTURE_BUFFER, m_nodeColorTex);
 #endif
 
+    const auto visibleNodesCount = static_cast<int>(visibleNodes.size());
     if (shouldDrawFast) {
-        glDrawArraysInstanced(GL_POINTS, 0, 1, m_lastVisibleNodesCount);
+        glDrawArraysInstanced(GL_POINTS, 0, 1, visibleNodesCount);
     } else {
-        glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, m_lastVisibleNodesCount);
+        glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, visibleNodesCount);
     }
 
     glBindVertexArray(0);
@@ -1577,7 +1538,7 @@ void GraphView::colorNodes() {
     auto& nodeColors = m_viewModel->getVisibleNodesColors();
 
     for (uint32_t lookupIndex = 0; lookupIndex < nodeColors.size(); ++lookupIndex) {
-        const auto nodeIndex = m_viewModel->getVisibleNodesIndexes()[lookupIndex];
+        const auto nodeIndex = m_viewModel->getVisibleNodes()[lookupIndex];
 
         auto& nodeColor = nodeColors[lookupIndex];
         nodeColor.m_color = getNodeColor(nodeIndex);
@@ -1588,11 +1549,12 @@ void GraphView::colorNodes() {
 }
 
 void GraphView::colorNode(NodeIndex_t nodeIndex) {
-    const auto lookupIndex = m_model->getNode(nodeIndex)->getLookupIndex();
-    if (!m_viewModel->isValidLookupIndex(nodeIndex, lookupIndex)) {
+    const auto lookupIndexOpt = m_viewModel->getLookupIndex(nodeIndex);
+    if (!lookupIndexOpt.has_value()) {
         return;
     }
 
+    const auto lookupIndex = lookupIndexOpt.value();
     auto& nodeColor = m_viewModel->getVisibleNodesColors()[lookupIndex];
     nodeColor.m_color = getNodeColor(nodeIndex);
     nodeColor.m_outlineColor = getOutlineColor(nodeIndex);

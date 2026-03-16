@@ -46,7 +46,8 @@ export class GraphView : public IGraphViewModelListener {
     void onNodeUnhover(NodeIndex_t nodeIndex) override;
 
     void onNodeAdded(NodeIndex_t nodeIndex) override;
-    void onNodeAddedToVisibleData(NodeIndex_t nodeIndex, VisibleData& visibleData) override;
+    void onNodeAddedToVisibleData(NodeIndex_t nodeIndex, uint32_t lookupIndex,
+                                  VisibleData& visibleData) override;
 
    private:
     void initializeTextures();
@@ -106,7 +107,6 @@ export class GraphView : public IGraphViewModelListener {
     bool m_appFullScreen{false};
 
 #ifndef __EMSCRIPTEN__
-    bool m_usedFastDrawingLastFrame{false};
     bool m_isFpsLimitEnabled{true};
     int m_maxFps{120};
 #else
@@ -206,10 +206,8 @@ export class GraphView : public IGraphViewModelListener {
     GLObject m_gridGLObject;
     GLint m_gridUniformScreenSize{-1};
 
-    int m_lastVisibleNodesCount{0};
     int m_lastVisibleEdgesCount{0};
 
-    bool m_nodesBufferDirty{false};
     bool m_edgesBufferDirty{false};
     bool m_nodesColorDirty{false};
     bool m_nodesPositionDirty{false};

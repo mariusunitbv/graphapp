@@ -56,7 +56,3 @@ void Node::markSelected() { m_selected = 1; }
 void Node::unmarkSelected() { m_selected = 0; }
 
 bool Node::isSelected() const { return m_selected == 1; }
-
-uint32_t Node::getLookupIndex() const { return m_lookupIndexCache; }
-
-void Node::setLookupIndex(uint32_t lookupIndex) { m_lookupIndexCache = lookupIndex; }

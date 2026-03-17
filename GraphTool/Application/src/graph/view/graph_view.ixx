@@ -199,12 +199,12 @@ export class GraphView : public IGraphViewModelListener {
     struct GridLineInstanceData {
         Vector2D m_worldStart{};
         Vector2D m_worldEnd{};
-        ImU32 m_color{};
         float m_thickness{};
     };
 
     GLObject m_gridGLObject;
     GLint m_gridUniformScreenSize{-1};
+    GLint m_gridUniformColor{-1};
 
     int m_lastVisibleEdgesCount{0};
 

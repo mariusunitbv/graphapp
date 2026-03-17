@@ -635,7 +635,7 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
 
                 return true;
             },
-            m_edgeDrawPercentage / 100.f);
+            m_edgeDrawPercentage / 100.f, true);
     }
 #else
     const auto threadCount = std::thread::hardware_concurrency();
@@ -693,7 +693,7 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
 
                     return true;
                 },
-                m_edgeDrawPercentage / 100.f);
+                m_edgeDrawPercentage / 100.f, true);
         }
     };
 

@@ -619,13 +619,22 @@ void GraphView::initializeGridGL() {
         layout(location = 0) in vec2 aPos;
         layout(location = 1) in vec2 aScreenStart;
         layout(location = 2) in vec2 aScreenEnd;
-        layout(location = 3) in vec4 aColor;
-        layout(location = 4) in float aThickness;
+        layout(location = 3) in float aThickness;
 
         uniform vec2 uScreenSize;
+        uniform uint uColor;
 
         out vec4 vColor;
         
+        vec4 unpackColor(uint packedColor) {
+            return vec4(
+                float(packedColor & 0xFFu) / 255.0,
+                float((packedColor >> 8) & 0xFFu) / 255.0,
+                float((packedColor >> 16) & 0xFFu) / 255.0,
+                float((packedColor >> 24) & 0xFFu) / 255.0
+            );
+        }
+
         void main() {
             vec2 lineDir = aScreenEnd - aScreenStart;
             vec2 normal = vec2(-lineDir.y, lineDir.x);
@@ -638,7 +647,7 @@ void GraphView::initializeGridGL() {
             ndc.y = -ndc.y;
 
             gl_Position = vec4(ndc, 0.0, 1.0);
-            vColor = aColor;
+            vColor = unpackColor(uColor);
         }
 )";
 
@@ -702,18 +711,14 @@ void GraphView::initializeGridGL() {
     glVertexAttribDivisor(2, 1);
 
     glEnableVertexAttribArray(3);
-    glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(GridLineInstanceData),
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(GridLineInstanceData),
                           (void*)(4 * sizeof(float)));
     glVertexAttribDivisor(3, 1);
-
-    glEnableVertexAttribArray(4);
-    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(GridLineInstanceData),
-                          (void*)(4 * sizeof(float) + 4 * sizeof(uint8_t)));
-    glVertexAttribDivisor(4, 1);
 
     glBindVertexArray(0);
 
     m_gridUniformScreenSize = glGetUniformLocation(gridGL.m_shaderProgram, "uScreenSize");
+    m_gridUniformColor = glGetUniformLocation(gridGL.m_shaderProgram, "uColor");
 }
 
 GLuint GraphView::compileShader(GLenum type, const char* source) {
@@ -1386,8 +1391,7 @@ void GraphView::drawGrid() {
         const auto thickness = (std::abs(x) < 0.1f) ? 3.5f : 1.f;
 
         gridLines.emplace_back(Vector2D{lineScreenPos.m_x, topLeftScreen.m_y},
-                               Vector2D{lineScreenPos.m_x, bottomRightScreen.m_y},
-                               m_theme.m_gridColor, thickness);
+                               Vector2D{lineScreenPos.m_x, bottomRightScreen.m_y}, thickness);
     }
 
     const auto firstHorizontalLineY =
@@ -1397,8 +1401,7 @@ void GraphView::drawGrid() {
         const auto thickness = (std::abs(y) < 0.1f) ? 3.5f : 1.f;
 
         gridLines.emplace_back(Vector2D{topLeftScreen.m_x, lineScreenPos.m_y},
-                               Vector2D{bottomRightScreen.m_x, lineScreenPos.m_y},
-                               m_theme.m_gridColor, thickness);
+                               Vector2D{bottomRightScreen.m_x, lineScreenPos.m_y}, thickness);
     }
 
     const auto& gridGL = m_gridGLObject;
@@ -1410,6 +1413,7 @@ void GraphView::drawGrid() {
 
     glUseProgram(gridGL.m_shaderProgram);
     glUniform2f(m_gridUniformScreenSize, displaySize.x, displaySize.y);
+    glUniform1ui(m_gridUniformColor, m_theme.m_gridColor);
 
     glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, (int)gridLines.size());
 

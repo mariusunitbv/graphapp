@@ -35,11 +35,14 @@ void EditableEdgeStorage::addEdgeFast(NodeIndex_t src, NodeIndex_t dest, int wei
     }
 
     auto& entry = m_edges[src];
-    if (!entry.empty() && entry.back().first == dest) {
-        entry.back().second = weight;
-        return;
-    } else if (!entry.empty() && entry.back().first > dest) {
-        m_edgesSorted = false;
+    if (!entry.empty()) {
+        const auto lastNodeIndex = entry.back().first;
+        if (lastNodeIndex == dest) {
+            entry.back().second = weight;
+            return;
+        } else if (lastNodeIndex > dest) {
+            m_edgesSorted = false;
+        }
     }
 
     entry.emplace_back(dest, weight);

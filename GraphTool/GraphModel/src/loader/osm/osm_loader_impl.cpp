@@ -221,9 +221,13 @@ void OSMLoader::parseAndComputeBounds() {
         if (elapsed.count() >= 2) {
             lastUpdate = now;
             if (!m_waysMeta.empty()) {
-                common::Logger::get().information(
-                    "Parsing {}/{} ways... ({:.2f}%)", parsedWayCount, m_totalWayCount,
-                    static_cast<double>(parsedWayCount) / m_totalWayCount * 100.0);
+                if (!m_nodeForWaysNeeded) {
+                    common::Logger::get().information("Parsing {} ways...", parsedWayCount);
+                } else {
+                    common::Logger::get().information(
+                        "Parsing {}/{} ways... ({:.2f}%)", parsedWayCount, m_totalWayCount,
+                        static_cast<double>(parsedWayCount) / m_totalWayCount * 100.0);
+                }
             }
         }
     }
@@ -327,18 +331,31 @@ void OSMLoader::addNodesToGraph() {
             const auto currentPercentage =
                 static_cast<double>(processedWays) / m_waysMeta.size() * 100.0;
 
-            common::Logger::get().information(
-                "Added {}/{} ways and {}/{} nodes... ({:.2f}%, ETA: {}m {}s)", processedWays,
-                m_waysMeta.size(), m_model->getLastNodeIndex() + 1, m_totalNodeCount,
-                currentPercentage, remMinutes, remSeconds);
+            if (!m_nodeForWaysNeeded) {
+                common::Logger::get().information(
+                    "Added {}/{} ways and {} nodes... ({:.2f}%, ETA: {}m {}s)", processedWays,
+                    m_waysMeta.size(), m_model->getLastNodeIndex() + 1, currentPercentage,
+                    remMinutes, remSeconds);
+            } else {
+                common::Logger::get().information(
+                    "Added {}/{} ways and {}/{} nodes... ({:.2f}%, ETA: {}m {}s)", processedWays,
+                    m_waysMeta.size(), m_model->getLastNodeIndex() + 1, m_totalNodeCount,
+                    currentPercentage, remMinutes, remSeconds);
+            }
         }
     }
 
     m_model->sortEdges();
 
-    common::Logger::get().information(
-        "Finished adding nodes. Added {}/{} ways and {}/{} nodes (ACCURACY = {}).",
-        m_waysMeta.size(), m_waysMeta.size(), m_model->getLastNodeIndex() + 1, m_totalNodeCount,
-        ACCURACY);
+    if (!m_nodeForWaysNeeded) {
+        common::Logger::get().information(
+            "Finished adding nodes. Added {}/{} ways and {} nodes (ACCURACY = {}).",
+            m_waysMeta.size(), m_waysMeta.size(), m_model->getLastNodeIndex() + 1, ACCURACY);
+    } else {
+        common::Logger::get().information(
+            "Finished adding nodes. Added {}/{} ways and {}/{} nodes (ACCURACY = {}).",
+            m_waysMeta.size(), m_waysMeta.size(), m_model->getLastNodeIndex() + 1, m_totalNodeCount,
+            ACCURACY);
+    }
 }
 #endif

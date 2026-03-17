@@ -15,10 +15,10 @@
     <ClCompile Include="src\loader\osm\osm_loader.ixx" />
     <ClCompile Include="src\loader\osm\osm_loader_impl.cpp" />
     <ClCompile Include="src\loader\graph_loader_impl.cpp" />
-    <ClCompile Include="src\loader\json\json_loader.ixx" />
-    <ClCompile Include="src\loader\json\json_loader_impl.cpp" />
     <ClCompile Include="src\loader\graph_loader.ixx" />
     <ClCompile Include="..\GraphCommon\src\common\graph_common.ixx" />
+    <ClCompile Include="src\loader\binary\binary_loader.ixx" />
+    <ClCompile Include="src\loader\binary\binary_loader_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

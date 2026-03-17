@@ -6,5 +6,6 @@
   <ItemGroup>
     <ClCompile Include="src\pch\pch.cpp" />
     <ClCompile Include="src\common\graph_common.ixx" />
+    <ClCompile Include="src\common\graph_common_impl.cpp" />
   </ItemGroup>
 </Project>

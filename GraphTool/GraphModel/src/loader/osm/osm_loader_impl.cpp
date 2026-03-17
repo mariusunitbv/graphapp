@@ -3,14 +3,17 @@ module;
 
 module osm_loader;
 
+import graph_common;
 import graph_model_defines;
 
 #if defined(__EMSCRIPTEN__) || (defined(_WIN32) && !defined(_WIN64)) || defined(__i386__)
 OSMLoader::OSMLoader(GraphModel*, const std::string_view) {
-    GAPP_THROW("OSM loading is not supported in WebAssembly builds");
+    common::Logger::get().error("OSM loading is not supported for current build.");
 }
 
-void OSMLoader::loadGraph() { GAPP_THROW("OSM loading is not supported in WebAssembly builds"); }
+void OSMLoader::loadGraph() {
+    common::Logger::get().error("OSM loading is not supported for current build.");
+}
 #else
 static constexpr auto BOUND_LIMIT = 500'000;
 static constexpr auto ACCURACY = 0.05f;
@@ -44,6 +47,8 @@ Vector2D OSMLoader::mercatorToWorld(const Vector2D& mercatorPos) const {
 
 void OSMLoader::getNeededNodes() {
     using namespace osmium;
+
+    common::ScopedTimer timer("OSMLoader::getNeededNodes()");
 
     std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
 
@@ -84,13 +89,13 @@ void OSMLoader::getNeededNodes() {
                 continue;
             }
 
-            ++m_parsedWayCount;
-            m_parsedNodeCount += static_cast<uint32_t>(nodes.size());
-
+            ++m_totalWayCount;
             for (const auto& node : nodes) {
                 if (node.location().valid()) {
-                    std::cout << "Node Locations for ways are already available in the file. No "
-                                 "need to parse them separately.\n";
+                    common::Logger::get().information(
+                        "Node Locations for ways are already available in the file. No need to "
+                        "parse "
+                        "them separately.");
                     m_nodeForWaysNeeded = false;
 
                     return;
@@ -104,26 +109,28 @@ void OSMLoader::getNeededNodes() {
         const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate);
         if (elapsed.count() >= 2) {
             lastUpdate = now;
-            if (m_parsedWayCount > 0) {
-                std::cout << std::format("Found {} ways with {} nodes that need to be parsed...\n",
-                                         m_parsedWayCount, m_parsedNodeCount);
+            if (m_totalWayCount > 0) {
+                common::Logger::get().information(
+                    "Found {} ways with {} nodes that need to be parsed...", m_totalWayCount,
+                    m_nodesLocations.size());
             }
         }
     }
 
     m_nodesForWays.reserve(m_nodesLocations.size());
-    m_waysMeta.reserve(m_parsedWayCount);
+    m_waysMeta.reserve(m_totalWayCount);
 
-    std::cout << std::format(
-        "Finished checking nodes for ways. Found {} ways with {} nodes that need to be parsed.\n",
-        m_parsedWayCount, m_parsedNodeCount);
+    common::Logger::get().information(
+        "Finished checking nodes for ways. Found {} ways with {} nodes that need to be parsed.",
+        m_totalWayCount, m_nodesLocations.size());
 }
 
 void OSMLoader::parseAndComputeBounds() {
     using namespace osmium;
 
-    uint32_t parsedNodeLocations = 0;
-    m_parsedWayCount = m_parsedNodeCount = 0;
+    common::ScopedTimer timer("OSMLoader::parseAndComputeBounds()");
+
+    uint32_t parsedNodeLocations = 0, parsedWayCount = 0;
     std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
 
     const auto readFlags =
@@ -147,8 +154,8 @@ void OSMLoader::parseAndComputeBounds() {
                 std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate);
             if (duration.count() >= 2) {
                 lastUpdate = now;
-                std::cout << std::format("Retrieved {}/{} nodes for ways...\n", parsedNodeLocations,
-                                         m_nodesLocations.size());
+                common::Logger::get().information("Retrieved {}/{} nodes for ways...",
+                                                  parsedNodeLocations, m_nodesLocations.size());
             }
         }
 
@@ -187,8 +194,7 @@ void OSMLoader::parseAndComputeBounds() {
                 continue;
             }
 
-            ++m_parsedWayCount;
-            m_parsedNodeCount += static_cast<uint32_t>(nodes.size());
+            ++parsedWayCount;
 
             const auto oneWay = way.tags().get_value_by_key("oneway");
             const auto isOneWay = oneWay && (*oneWay == 'y' || *oneWay == 't' || *oneWay == '1');
@@ -215,14 +221,14 @@ void OSMLoader::parseAndComputeBounds() {
         if (elapsed.count() >= 2) {
             lastUpdate = now;
             if (!m_waysMeta.empty()) {
-                std::cout << std::format("Parsing {} ways with {} nodes...\n", m_parsedWayCount,
-                                         m_parsedNodeCount);
+                common::Logger::get().information(
+                    "Parsing {}/{} ways... ({:.2f}%)", parsedWayCount, m_totalWayCount,
+                    static_cast<double>(parsedWayCount) / m_totalWayCount * 100.0);
             }
         }
     }
 
-    std::cout << std::format("Finished parsing. Parsed {} ways with {} nodes.\n", m_parsedWayCount,
-                             m_parsedNodeCount);
+    common::Logger::get().information("Finished parsing. Parsed {} ways.", parsedWayCount);
 
     m_dataWidth = static_cast<float>(m_maxX - m_minX);
     m_dataHeight = static_cast<float>(m_maxY - m_minY);
@@ -239,12 +245,15 @@ void OSMLoader::parseAndComputeBounds() {
         m_scaledPaddingX = (m_mapBounds.width() - m_scaledWidth) * 0.5f;
     }
 
+    m_totalNodeCount = static_cast<uint32_t>(m_nodesLocations.size());
     m_nodesLocations =
         phmap::parallel_flat_hash_map<osmium::unsigned_object_id_type, osmium::Location>{};
 }
 
 void OSMLoader::addNodesToGraph() {
     size_t lastSampleWay = 0;
+
+    common::ScopedTimer timer("OSMLoader::addNodesToGraph()");
 
     std::chrono::steady_clock::time_point lastSampleTime = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point lastUpdate = lastSampleTime;
@@ -318,18 +327,18 @@ void OSMLoader::addNodesToGraph() {
             const auto currentPercentage =
                 static_cast<double>(processedWays) / m_waysMeta.size() * 100.0;
 
-            std::cout << std::format(
-                "Added {}/{} ways and {}/{} nodes... ({:.2f}%, ETA: {}m {}s)\n", processedWays,
-                m_waysMeta.size(), m_model->getLastNodeIndex() + 1, m_parsedNodeCount,
+            common::Logger::get().information(
+                "Added {}/{} ways and {}/{} nodes... ({:.2f}%, ETA: {}m {}s)", processedWays,
+                m_waysMeta.size(), m_model->getLastNodeIndex() + 1, m_totalNodeCount,
                 currentPercentage, remMinutes, remSeconds);
         }
     }
 
     m_model->sortEdges();
 
-    std::cout << std::format(
-        "Finished adding nodes. Added {}/{} ways and {}/{} nodes (ACCURACY = {}).\n",
-        m_waysMeta.size(), m_waysMeta.size(), m_model->getLastNodeIndex() + 1, m_parsedNodeCount,
+    common::Logger::get().information(
+        "Finished adding nodes. Added {}/{} ways and {}/{} nodes (ACCURACY = {}).",
+        m_waysMeta.size(), m_waysMeta.size(), m_model->getLastNodeIndex() + 1, m_totalNodeCount,
         ACCURACY);
 }
 #endif

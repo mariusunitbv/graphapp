@@ -3,27 +3,27 @@ module;
 
 module graph_loader;
 
+import graph_common;
 import osm_loader;
-import json_loader;
+import binary_loader;
 
 void GraphLoader::loadOSM(GraphModel* model, const std::string_view osmFilePath) {
+    common::ScopedTimer timer("GraphLoader::loadOSM({}, {})", (void*)model, osmFilePath);
+
     OSMLoader loader(model, osmFilePath);
-
-    const auto now = std::chrono::steady_clock::now();
-    loader.loadGraph();
-    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                              std::chrono::steady_clock::now() - now)
-                              .count();
-
-    std::cout << "Loaded \"" << osmFilePath << "\" file in " << duration << " ms.\n";
-}
-
-void GraphLoader::loadJSON(GraphModel* model, const std::string_view jsonFilePath) {
-    JsonLoader loader(model, jsonFilePath);
     loader.loadGraph();
 }
 
-void GraphLoader::saveJSON(GraphModel* model, const std::string_view jsonFilePath) {
-    JsonLoader loader(model, jsonFilePath);
+void GraphLoader::loadBinary(GraphModel* model, const std::string_view binaryFilePath) {
+    common::ScopedTimer timer("GraphLoader::loadBinary({}, {})", (void*)model, binaryFilePath);
+
+    BinaryLoader loader(model, binaryFilePath);
+    loader.loadGraph();
+}
+
+void GraphLoader::saveBinary(GraphModel* model, const std::string_view binaryFilePath) {
+    common::ScopedTimer timer("GraphLoader::saveBinary({}, {})", (void*)model, binaryFilePath);
+
+    BinaryLoader loader(model, binaryFilePath);
     loader.saveGraph();
 }

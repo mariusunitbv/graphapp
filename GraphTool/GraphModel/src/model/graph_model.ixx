@@ -47,9 +47,10 @@ export class GraphModel {
     void addEdgeFast(NodeIndex_t src, NodeIndex_t dest, int weight);
     void removeEdge(NodeIndex_t src, NodeIndex_t dest);
 
+    void reserveDegree(NodeIndex_t nodeIndex, uint32_t degree);
     void sortEdges();
 
-    size_t getNodeDegree(NodeIndex_t index) const;
+    uint32_t getNodeDegree(NodeIndex_t index) const;
     void visitNeighbours(NodeIndex_t src, void* userData,
                          bool (*callback)(void* userData, NodeIndex_t dest, int weight),
                          float percentage = 1.f, bool distinct = false) const;

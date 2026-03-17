@@ -10,7 +10,7 @@ if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     find_package(expat CONFIG REQUIRED)
 endif()
 
-find_package(simdjson CONFIG REQUIRED)
+find_package(lz4 CONFIG REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES})
 
@@ -25,7 +25,7 @@ if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,--no-undefined -Wl,--gc-sections)
 endif()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE GraphCommon simdjson::simdjson)
+target_link_libraries(${PROJECT_NAME} PRIVATE GraphCommon lz4::lz4)
 target_include_directories(${PROJECT_NAME} PRIVATE 
 	"${CMAKE_CURRENT_SOURCE_DIR}/src/pch"
 )

@@ -1,5 +1,9 @@
 {
   "dependencies": [
+    {
+      "name": "expat",
+      "platform": "!wasm32"
+    },
     "freetype",
     {
       "name": "glad",
@@ -16,10 +20,6 @@
         "sdl3-binding"
       ]
     },
-	{
-      "name": "simdjson",
-      "version>=": "4.2.4"
-    },
     {
       "name": "libosmium",
       "platform": "!wasm32"
@@ -29,14 +29,15 @@
       "name": "parallel-hashmap",
       "platform": "!wasm32"
     },
+    "sdl3",
     {
-      "name": "expat",
-      "platform": "!wasm32"
+      "name": "simdjson",
+      "version>=": "4.2.4"
     },
     {
       "name": "zlib",
       "platform": "!wasm32"
     },
-    "sdl3"
+    "lz4"
   ]
 }

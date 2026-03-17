@@ -309,5 +309,94 @@ export namespace common {
             vec.resize(writeIndex);
             return oldSize - writeIndex;
         }
+
+        template <typename T, typename S, typename Equal>
+        S unique(Vector<T, S>& vec, Equal equal) {
+            if (vec.empty()) {
+                return 0;
+            }
+
+            S writeIndex = 1, oldSize = vec.size();
+            for (S readIndex = 1; readIndex < oldSize; ++readIndex) {
+                if (equal(vec[readIndex], vec[writeIndex - 1])) {
+                    continue;
+                }
+
+                if (writeIndex != readIndex) {
+                    vec[writeIndex] = std::move_if_noexcept(vec[readIndex]);
+                }
+
+                ++writeIndex;
+            }
+
+            vec.resize(writeIndex);
+            return oldSize - writeIndex;
+        }
     }  // namespace algorithms
+}  // namespace common
+
+export namespace common {
+    class Logger {
+       public:
+        enum class Level : uint8_t {
+            DEBUG_LEVEL,
+            INFORMATION_LEVEL,
+            WARNING_LEVEL,
+            ERROR_LEVEL,
+            DISABLED_LEVEL
+        };
+
+        static Logger& get();
+
+        void setLevel(Level level);
+        void logUnformatted(Level level, const char* message);
+
+        template <typename... Args>
+        void debug(std::format_string<Args...> fmt, Args&&... args) {
+            auto formatted = std::format(fmt, std::forward<Args>(args)...);
+            logUnformatted(Level::DEBUG_LEVEL, formatted.c_str());
+        }
+
+        template <typename... Args>
+        void information(std::format_string<Args...> fmt, Args&&... args) {
+            auto formatted = std::format(fmt, std::forward<Args>(args)...);
+            logUnformatted(Level::INFORMATION_LEVEL, formatted.c_str());
+        }
+
+        template <typename... Args>
+        void warning(std::format_string<Args...> fmt, Args&&... args) {
+            auto formatted = std::format(fmt, std::forward<Args>(args)...);
+            logUnformatted(Level::WARNING_LEVEL, formatted.c_str());
+        }
+
+        template <typename... Args>
+        void error(std::format_string<Args...> fmt, Args&&... args) {
+            auto formatted = std::format(fmt, std::forward<Args>(args)...);
+            logUnformatted(Level::ERROR_LEVEL, formatted.c_str());
+        }
+
+       private:
+        std::string_view getColor(Level level) const;
+
+        void logTimestamp();
+        void logLevel(Level level);
+
+        Level m_level{Level::DEBUG_LEVEL};
+    };
+}  // namespace common
+
+export namespace common {
+    class ScopedTimer {
+       public:
+        template <typename... Args>
+        explicit ScopedTimer(std::format_string<Args...> fmt, Args&&... args)
+            : m_name(std::format(fmt, std::forward<Args>(args)...)),
+              m_start(std::chrono::steady_clock::now()) {}
+
+        ~ScopedTimer();
+
+       private:
+        std::string m_name;
+        std::chrono::steady_clock::time_point m_start;
+    };
 }  // namespace common

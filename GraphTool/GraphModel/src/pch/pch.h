@@ -15,6 +15,8 @@
 #include "../../include/graph_model.h"
 
 // External library headers
+#include <lz4frame.h>
+
 #ifndef __EMSCRIPTEN__
 #include <parallel_hashmap/phmap.h>
 

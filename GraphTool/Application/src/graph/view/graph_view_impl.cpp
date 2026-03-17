@@ -192,7 +192,6 @@ void GraphView::initializeGL() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_maxTextureSize);
-    std::cout << "Max texture size: " << m_maxTextureSize << std::endl;
 
 #ifndef __EMSCRIPTEN__
     glEnable(GL_PROGRAM_POINT_SIZE);

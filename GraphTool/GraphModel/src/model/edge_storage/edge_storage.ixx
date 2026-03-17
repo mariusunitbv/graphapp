@@ -23,6 +23,7 @@ export class EdgeStorage {
     virtual void removeEdge(NodeIndex_t src, NodeIndex_t dest) = 0;
     virtual void remove(const common::MediumVector<NodeIndex_t>& indexRemap) = 0;
 
+    virtual void reserveDegree(NodeIndex_t nodeIndex, uint32_t degree) = 0;
     virtual void sortEdges() = 0;
 
     virtual uint32_t getNeighbourCount(NodeIndex_t src) const = 0;

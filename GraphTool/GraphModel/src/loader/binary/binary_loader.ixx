@@ -1,18 +1,18 @@
 module;
 #include <pch.h>
 
-export module json_loader;
+export module binary_loader;
 
 import graph_model;
 
-export class JsonLoader {
+export class BinaryLoader {
    public:
-    JsonLoader(GraphModel* model, const std::string_view jsonPath);
+    BinaryLoader(GraphModel* model, const std::string_view binaryPath);
 
     void loadGraph() const;
     void saveGraph() const;
 
    private:
     GraphModel* m_model{nullptr};
-    std::string m_jsonPath;
+    std::string m_binaryPath;
 };

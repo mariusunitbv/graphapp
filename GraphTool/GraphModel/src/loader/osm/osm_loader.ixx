@@ -51,8 +51,7 @@ export class OSMLoader {
     float m_scaledPaddingX{0};
     float m_scaledPaddingY{0};
 
-    uint32_t m_parsedWayCount{0};
-    uint32_t m_parsedNodeCount{0};
+    uint32_t m_totalWayCount{0}, m_totalNodeCount{0};
 
     const osmium::geom::MercatorProjection m_projection{};
 

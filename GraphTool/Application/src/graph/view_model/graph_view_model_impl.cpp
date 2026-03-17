@@ -4,6 +4,7 @@ module;
 module graph_view_model;
 
 import graph_loader;
+import graph_common;
 
 void GraphViewModel::initialize(GraphModel* model, float displayWidth, float displayHeight) {
     m_model = model;
@@ -186,6 +187,8 @@ void GraphViewModel::preRenderUpdate() {
         visibleWidth < lastWidth * alpha || visibleHeight < lastHeight * alpha;
 
     if (!m_lastQueryRegionArea.contains(m_visibleRegionArea) || smallerLastQueryRegion) {
+        common::ScopedTimer timer("Updating visible data");
+
         invalidateVisibleData();
         updateVisibleRegion();
 
@@ -341,6 +344,8 @@ Vector2D GraphViewModel::screenToWorld(Vector2D screenPos) const {
 }
 
 void GraphViewModel::removeSelectedNodes() {
+    common::ScopedTimer timer("GraphViewModel::removeSelectedNodes()");
+
     m_model->removeSelectedNodes();
 
     m_visibleData = {};
@@ -795,7 +800,9 @@ void GraphViewModel::invalidateVisibleData() {
 }
 
 void GraphViewModel::addSampleNodes() {
-    GraphLoader::loadJSON(m_model, R"(assets/brasov.json)");
+    common::ScopedTimer timer("GraphViewModel::addSampleNodes()");
+
+    GraphLoader::loadBinary(m_model, R"(assets/brasov.bin)");
     centerOnNode(0);
 
     return;
@@ -805,19 +812,18 @@ void GraphViewModel::addSampleNodes() {
     const float step = m_nodesRadius * 1.f;
 
     const auto stepsPerAxis = static_cast<uint32_t>((end - start) / step) + 1;
-    const auto nodeCount = std::clamp(stepsPerAxis * stepsPerAxis, 1u, (uint32_t)NODE_LIMIT);
+    const auto nodeCount = std::clamp(stepsPerAxis * stepsPerAxis, 1u, (uint32_t)(NODE_LIMIT - 1));
 
     m_model->beginBulkInsert();
 
     m_model->reserveNodes(nodeCount);
     m_model->reserveArea({{start, start}, {end, end}});
 
-    std::cout << "Adding " << nodeCount << " nodes for testing...\n";
-
+    common::Logger::get().information("Adding {} nodes for testing...", nodeCount);
     for (float y = start; y <= end; y += step) {
         bool nodeLimitReached = false;
         if (nodeLimitReached) {
-            std::cout << "Node limit reached while adding sample nodes.\n";
+            common::Logger::get().warning("Node limit reached while adding sample nodes.");
             break;
         }
 
@@ -832,16 +838,16 @@ void GraphViewModel::addSampleNodes() {
         }
     }
 
-    std::cout << "Building GridMap.\n";
+    common::Logger::get().information("Finished adding nodes. Building GridMap...");
 
     const auto now = std::chrono::steady_clock::now();
     m_model->endBulkInsert();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - now);
 
-    std::cout << "GridMap built in " << duration.count() << " ms.\n";
-    std::cout << "Finished adding nodes.\n";
+    common::Logger::get().information("GridMap built in {} ms.", duration.count());
 
+    common::Logger::get().information("Adding edges for testing...");
     size_t added = 0;
     while (added < 5'000'000) {
         NodeIndex_t src = xorshift32() % nodeCount;
@@ -851,6 +857,7 @@ void GraphViewModel::addSampleNodes() {
         if (src > dest) std::swap(src, dest);
 
         m_model->addEdge(src, dest, 1);
-        added++;
+        ++added;
     }
+    common::Logger::get().information("Finished adding edges.");
 }

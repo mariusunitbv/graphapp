@@ -18,6 +18,7 @@ export class EditableEdgeStorage : public EdgeStorage {
     void removeEdge(NodeIndex_t src, NodeIndex_t dest) override;
     void remove(const common::MediumVector<NodeIndex_t>& indexRemap) override;
 
+    void reserveDegree(NodeIndex_t nodeIndex, uint32_t degree) override;
     void sortEdges() override;
 
     uint32_t getNeighbourCount(NodeIndex_t src) const override;
@@ -27,4 +28,5 @@ export class EditableEdgeStorage : public EdgeStorage {
 
    private:
     common::MediumVector<common::TinyVector<Edge_t>> m_edges;
+    bool m_edgesSorted{true};
 };

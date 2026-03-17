@@ -133,9 +133,13 @@ void GraphModel::removeEdge(NodeIndex_t src, NodeIndex_t dest) {
     m_edgeStorage->removeEdge(src, dest);
 }
 
+void GraphModel::reserveDegree(NodeIndex_t nodeIndex, uint32_t degree) {
+    m_edgeStorage->reserveDegree(nodeIndex, degree);
+}
+
 void GraphModel::sortEdges() { m_edgeStorage->sortEdges(); }
 
-size_t GraphModel::getNodeDegree(NodeIndex_t index) const {
+uint32_t GraphModel::getNodeDegree(NodeIndex_t index) const {
     return m_edgeStorage->getNeighbourCount(index);
 }
 

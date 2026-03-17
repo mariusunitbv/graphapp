@@ -34,7 +34,15 @@ void EditableEdgeStorage::addEdgeFast(NodeIndex_t src, NodeIndex_t dest, int wei
         GAPP_THROW("Forgotten to call onNodeAdded(), size mismatch.");
     }
 
-    m_edges[src].emplace_back(dest, weight);
+    auto& entry = m_edges[src];
+    if (!entry.empty() && entry.back().first == dest) {
+        entry.back().second = weight;
+        return;
+    } else if (!entry.empty() && entry.back().first > dest) {
+        m_edgesSorted = false;
+    }
+
+    entry.emplace_back(dest, weight);
 }
 
 bool EditableEdgeStorage::hasEdge(NodeIndex_t src, NodeIndex_t dest, int* outWeight) const {
@@ -100,11 +108,28 @@ void EditableEdgeStorage::remove(const common::MediumVector<NodeIndex_t>& indexR
     m_edges.resize(writeIndex);
 }
 
+void EditableEdgeStorage::reserveDegree(NodeIndex_t nodeIndex, uint32_t degree) {
+    if (nodeIndex >= m_edges.size()) {
+        GAPP_THROW("Forgotten to call onNodeAdded(), size mismatch.");
+    }
+
+    m_edges[nodeIndex].reserve(degree);
+}
+
 void EditableEdgeStorage::sortEdges() {
+    if (m_edgesSorted) {
+        return;
+    }
+
     for (auto& entry : m_edges) {
         std::sort(entry.begin(), entry.end(),
                   [](const Edge_t& a, const Edge_t& b) { return a.first < b.first; });
+
+        common::algorithms::unique(
+            entry, [](const Edge_t& a, const Edge_t& b) { return a.first == b.first; });
     }
+
+    m_edgesSorted = true;
 }
 
 uint32_t EditableEdgeStorage::getNeighbourCount(NodeIndex_t src) const {

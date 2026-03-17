@@ -8,7 +8,7 @@ import graph_model;
 export class GraphLoader {
    public:
     static void loadOSM(GraphModel* model, const std::string_view osmFilePath);
-    static void loadJSON(GraphModel* model, const std::string_view jsonFilePath);
+    static void loadBinary(GraphModel* model, const std::string_view binaryFilePath);
 
-    static void saveJSON(GraphModel* model, const std::string_view jsonFilePath);
+    static void saveBinary(GraphModel* model, const std::string_view binaryFilePath);
 };

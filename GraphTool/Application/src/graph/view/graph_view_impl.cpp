@@ -84,7 +84,8 @@ void GraphView::onSDLEvent(const SDL_Event& event) {
     }
 }
 
-void GraphView::renderUI() {
+void GraphView::renderUI(const std::vector<GraphDocument>& openDocuments,
+                         size_t& currentOpenedDocument) {
     ImDrawList* drawList = ImGui::GetBackgroundDrawList();
 
     if (!isFocusOnUI() && m_viewModel->getHoveredNodeIndex() != INVALID_NODE) {
@@ -95,24 +96,7 @@ void GraphView::renderUI() {
     drawDeleteConfirmationDialog();
     drawCenterOnNodeDialog();
 
-    ImGuiID dockspaceId = ImGui::GetID("MyDockSpace");
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
-
-    if (!ImGui::DockBuilderGetNode(dockspaceId)) {
-        ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace);
-        ImGui::DockBuilderSetNodeSize(dockspaceId, viewport->Size);
-
-        ImGuiID mainDockID = dockspaceId;
-        ImGuiID fileViewID{}, inspectorViewID{};
-        ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Left, 0.2f, &fileViewID, &mainDockID);
-        ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Right, 0.3f, &inspectorViewID, nullptr);
-
-        ImGui::DockBuilderDockWindow("File View", fileViewID);
-        ImGui::DockBuilderDockWindow("Inspector", inspectorViewID);
-        ImGui::DockBuilderFinish(dockspaceId);
-    }
-
-    ImGui::DockSpaceOverViewport(dockspaceId, viewport, ImGuiDockNodeFlags_PassthruCentralNode);
+    setupDockSpace();
 
     // We don't need focus the first time the window appears.
     static bool initialized = false;
@@ -125,7 +109,7 @@ void GraphView::renderUI() {
         ImGui::ShowDemoWindow(&m_showDemoWindow);
     }
 
-    // drawFileView();
+    drawFileView(openDocuments, currentOpenedDocument);
     // drawInspector();
     drawStatusBar();
     drawSettings();
@@ -135,7 +119,7 @@ void GraphView::renderUI() {
     drawSelectBox(drawList);
     drawMousePosition(drawList);
     drawVersion(drawList);
-    drawWatermark(drawList);
+    drawWatermark(ImGui::GetForegroundDrawList());
 }
 
 void GraphView::renderScene() {
@@ -740,6 +724,43 @@ GLuint GraphView::compileShader(GLenum type, const char* source) {
     return shader;
 }
 
+void GraphView::setupDockSpace() {
+    ImGuiID dockspaceId = ImGui::GetID("MyDockSpace");
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+    if (!ImGui::DockBuilderGetNode(dockspaceId)) {
+        ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace);
+        ImGui::DockBuilderSetNodeSize(dockspaceId, viewport->Size);
+
+        ImGuiID mainDockID = dockspaceId;
+        ImGuiID fileViewID{}, inspectorViewID{};
+        ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Left, 0.2f, &fileViewID, &mainDockID);
+        ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Right, 0.3f, &inspectorViewID, nullptr);
+
+        ImGui::DockBuilderDockWindow("File View", fileViewID);
+        ImGui::DockBuilderDockWindow("Inspector", inspectorViewID);
+        ImGui::DockBuilderFinish(dockspaceId);
+    }
+
+    const float statusBarHeight = ImGui::GetFont()->FontSize + 3.f;
+
+    ImGui::SetNextWindowPos(viewport->WorkPos - ImVec2{1, 1});
+    ImGui::SetNextWindowSize(viewport->WorkSize - ImVec2{0, statusBarHeight - 2});
+    ImGui::SetNextWindowViewport(viewport->ID);
+
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+                                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                                    ImGuiWindowFlags_NoDocking |
+                                    ImGuiWindowFlags_NoBringToFrontOnFocus |
+                                    ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoNavFocus;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::Begin("DockSpace Window", nullptr, window_flags);
+    ImGui::DockSpace(dockspaceId, ImVec2(0, 0), ImGuiDockNodeFlags_PassthruCentralNode);
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
 void GraphView::drawMenuBar() {
     ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 12);
     if (ImGui::BeginMainMenuBar()) {
@@ -760,6 +781,11 @@ void GraphView::drawMenuBar() {
                 ImGui::MenuItem("Show Nodes", "N", &m_drawNodes);
                 ImGui::MenuItem("Show Nodes Outline", nullptr, &m_drawNodesOutline);
                 ImGui::MenuItem("Show Edges", "E", &m_drawEdges);
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("UI Elements")) {
+                ImGui::MenuItem("Show File View", nullptr, &m_fileViewOpen);
                 ImGui::EndMenu();
             }
 
@@ -916,8 +942,28 @@ void GraphView::drawCenterOnNodeDialog() {
     }
 }
 
-void GraphView::drawFileView() {
-    if (ImGui::Begin("File View")) {
+void GraphView::drawFileView(const std::vector<GraphDocument>& openDocuments,
+                             size_t& currentOpenedDocument) {
+    if (!m_fileViewOpen) {
+        return;
+    }
+
+    if (ImGui::Begin("File View", &m_fileViewOpen)) {
+        ImGui::TextUnformatted("Opened documents:");
+        if (ImGui::BeginListBox("##documents", {-FLT_MIN, -FLT_MIN})) {
+            for (int i = 0; i < openDocuments.size(); ++i) {
+                const auto& document = openDocuments[i];
+
+                ImGui::PushID(&document);
+                if (ImGui::Selectable(
+                        document.m_path.empty() ? "Unsaved Graph" : document.m_path.c_str(),
+                        currentOpenedDocument == i)) {
+                    currentOpenedDocument = i;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndListBox();
+        }
     }
     ImGui::End();
 }

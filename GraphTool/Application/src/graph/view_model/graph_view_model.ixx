@@ -9,12 +9,21 @@ import graph_model;
 
 export class GraphViewModel {
    public:
-    void initialize(GraphModel* model, float displayWidth, float displayHeight);
+    GraphViewModel() = default;
+
+    GraphViewModel(const GraphViewModel&) = delete;
+    GraphViewModel& operator=(const GraphViewModel&) = delete;
+
+    GraphViewModel(GraphViewModel&& rhs) noexcept;
+    GraphViewModel& operator=(GraphViewModel&& rhs) noexcept;
+
     void onSDLEvent(const SDL_Event& event, bool focusOnUI);
     void preRenderUpdate();
 
     void setModel(GraphModel* model);
     void addListener(IGraphViewModelListener* listener);
+
+    void updateSceneSize(float displayWidth, float displayHeight);
 
     const std::vector<Vector2D>& getVisibleNodesPositions() const;
     std::vector<NodeColorInfo>& getVisibleNodesColors();
@@ -66,6 +75,7 @@ export class GraphViewModel {
 
     void loadBrasov();
     void loadLuxembourg();
+    void loadSmallSampleGraph();
 
    private:
     void onSceneResize(float displayWidth, float displayHeight);
@@ -90,8 +100,6 @@ export class GraphViewModel {
     void clampCameraPositionInBounds();
     void updateVisibleRegion();
     void invalidateVisibleData();
-
-    void addSampleNodes();
 
     GraphModel* m_model{nullptr};
 

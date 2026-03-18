@@ -19,6 +19,8 @@ export class Application {
     void setupFonts(float scale);
 
     void createNewDocument(float width, float height);
+    void onSwitchedDocument(GraphDocument& graphDocument);
+
     const char* getGlslVersion() const;
 
     void handleMaximizationShortcut();

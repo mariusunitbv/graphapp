@@ -17,4 +17,6 @@ export struct GraphDocument {
 
     GraphModel m_model{};
     GraphViewModel m_viewModel{};
+
+    std::string m_path;
 };

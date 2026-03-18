@@ -6,10 +6,33 @@ module graph_view_model;
 import graph_loader;
 import graph_common;
 
-void GraphViewModel::initialize(GraphModel* model, float displayWidth, float displayHeight) {
-    m_model = model;
+GraphViewModel::GraphViewModel(GraphViewModel&& rhs) noexcept
+    : m_camera(rhs.m_camera),
+      m_displaySize(rhs.m_displaySize),
+      m_selectedNodes(std::move(rhs.m_selectedNodes)),
+      m_maxNodesPerCellPercentage(rhs.m_maxNodesPerCellPercentage),
+      m_nodeCondensationFactor(rhs.m_nodeCondensationFactor),
+      m_edgeDrawPercentage(rhs.m_edgeDrawPercentage),
+      m_maxVisibleNodes(rhs.m_maxVisibleNodes),
+      m_nodesRadius(rhs.m_nodesRadius),
+      m_shouldCondensateNodesLowZoom(rhs.m_shouldCondensateNodesLowZoom),
+      m_listeners(std::move(rhs.m_listeners)) {}
 
-    onSceneResize(displayWidth, displayHeight);
+GraphViewModel& GraphViewModel::operator=(GraphViewModel&& rhs) noexcept {
+    if (this != &rhs) {
+        m_camera = rhs.m_camera;
+        m_displaySize = rhs.m_displaySize;
+        m_selectedNodes = std::move(rhs.m_selectedNodes);
+        m_maxNodesPerCellPercentage = rhs.m_maxNodesPerCellPercentage;
+        m_nodeCondensationFactor = rhs.m_nodeCondensationFactor;
+        m_edgeDrawPercentage = rhs.m_edgeDrawPercentage;
+        m_maxVisibleNodes = rhs.m_maxVisibleNodes;
+        m_nodesRadius = rhs.m_nodesRadius;
+        m_shouldCondensateNodesLowZoom = rhs.m_shouldCondensateNodesLowZoom;
+        m_listeners = std::move(rhs.m_listeners);
+    }
+
+    return *this;
 }
 
 void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
@@ -216,6 +239,10 @@ void GraphViewModel::addListener(IGraphViewModelListener* listener) {
     m_listeners.push_back(listener);
 }
 
+void GraphViewModel::updateSceneSize(float displayWidth, float displayHeight) {
+    onSceneResize(displayWidth, displayHeight);
+}
+
 const std::vector<Vector2D>& GraphViewModel::getVisibleNodesPositions() const {
     if (m_shouldUseCachedVisibleNodes) {
         return m_cachedVisibleData.m_nodesPositions;
@@ -381,8 +408,64 @@ void GraphViewModel::loadBrasov() {
 }
 
 void GraphViewModel::loadLuxembourg() {
-    GraphLoader::loadOSM(m_model, R"(D:\Harti PBF\luxembourg-251215.osm.pbf)");
+    GraphLoader::loadBinary(m_model, R"(assets/luxembourg.bin)");
     centerOnNode(0);
+}
+
+void GraphViewModel::loadSmallSampleGraph() {
+    constexpr float start = -5'000.f;
+    constexpr float end = -start;
+    const float step = m_nodesRadius * 2.f + 1.f;
+
+    const auto stepsPerAxis = static_cast<uint32_t>((end - start) / step) + 1;
+    const auto nodeCount = std::clamp(stepsPerAxis * stepsPerAxis, 1u, (uint32_t)(NODE_LIMIT - 1));
+
+    m_model->beginBulkInsert();
+
+    m_model->reserveNodes(nodeCount);
+    m_model->reserveArea({{start, start}, {end, end}});
+
+    common::Logger::get().information("Adding {} nodes for testing...", nodeCount);
+    for (float y = start; y <= end; y += step) {
+        bool nodeLimitReached = false;
+        if (nodeLimitReached) {
+            common::Logger::get().warning("Node limit reached while adding sample nodes.");
+            break;
+        }
+
+        for (float x = start; x <= end; x += step) {
+            const auto lastNodeIndex = m_model->getLastNodeIndex();
+            if (lastNodeIndex != INVALID_NODE && lastNodeIndex >= nodeCount - 1) {
+                nodeLimitReached = true;
+                break;
+            }
+
+            m_model->addNode({x, y});
+        }
+    }
+
+    common::Logger::get().information("Finished adding nodes. Building GridMap...");
+
+    const auto now = std::chrono::steady_clock::now();
+    m_model->endBulkInsert();
+    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - now);
+
+    common::Logger::get().information("GridMap built in {} ms.", duration.count());
+
+    common::Logger::get().information("Adding edges for testing...");
+    size_t added = 0;
+    while (added < 500) {
+        NodeIndex_t src = xorshift32() % nodeCount;
+        NodeIndex_t dest = xorshift32() % nodeCount;
+
+        if (src == dest) continue;
+        if (src > dest) std::swap(src, dest);
+
+        m_model->addEdge(src, dest, 1);
+        ++added;
+    }
+    common::Logger::get().information("Finished adding edges.");
 }
 
 void GraphViewModel::onSceneResize(float displayWidth, float displayHeight) {
@@ -808,68 +891,4 @@ void GraphViewModel::invalidateVisibleData() {
     m_cachedVisibleData = std::move(m_visibleData);
 
     m_lastQueryRegionArea = {};
-}
-
-void GraphViewModel::addSampleNodes() {
-    common::ScopedTimer timer("GraphViewModel::addSampleNodes()");
-
-    GraphLoader::loadOSM(m_model, R"(D:\Harti PBF\luxembourg-251215.osm.pbf)");
-    GraphLoader::loadBinary(m_model, R"(assets/brasov.bin)");
-    centerOnNode(0);
-
-    return;
-
-    constexpr float start = -500'000.f;
-    constexpr float end = -start;
-    const float step = m_nodesRadius * 1.f;
-
-    const auto stepsPerAxis = static_cast<uint32_t>((end - start) / step) + 1;
-    const auto nodeCount = std::clamp(stepsPerAxis * stepsPerAxis, 1u, (uint32_t)(NODE_LIMIT - 1));
-
-    m_model->beginBulkInsert();
-
-    m_model->reserveNodes(nodeCount);
-    m_model->reserveArea({{start, start}, {end, end}});
-
-    common::Logger::get().information("Adding {} nodes for testing...", nodeCount);
-    for (float y = start; y <= end; y += step) {
-        bool nodeLimitReached = false;
-        if (nodeLimitReached) {
-            common::Logger::get().warning("Node limit reached while adding sample nodes.");
-            break;
-        }
-
-        for (float x = start; x <= end; x += step) {
-            const auto lastNodeIndex = m_model->getLastNodeIndex();
-            if (lastNodeIndex != INVALID_NODE && lastNodeIndex >= nodeCount - 1) {
-                nodeLimitReached = true;
-                break;
-            }
-
-            m_model->addNode({x, y});
-        }
-    }
-
-    common::Logger::get().information("Finished adding nodes. Building GridMap...");
-
-    const auto now = std::chrono::steady_clock::now();
-    m_model->endBulkInsert();
-    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - now);
-
-    common::Logger::get().information("GridMap built in {} ms.", duration.count());
-
-    common::Logger::get().information("Adding edges for testing...");
-    size_t added = 0;
-    while (added < 5'000'000) {
-        NodeIndex_t src = xorshift32() % nodeCount;
-        NodeIndex_t dest = xorshift32() % nodeCount;
-
-        if (src == dest) continue;
-        if (src > dest) std::swap(src, dest);
-
-        m_model->addEdge(src, dest, 1);
-        ++added;
-    }
-    common::Logger::get().information("Finished adding edges.");
 }

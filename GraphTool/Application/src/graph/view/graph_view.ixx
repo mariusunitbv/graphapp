@@ -7,6 +7,7 @@ export import graph_view_settings;
 
 import graph_model;
 import graph_view_model;
+import graph_document;
 
 export class GraphView : public IGraphViewModelListener {
    public:
@@ -16,7 +17,7 @@ export class GraphView : public IGraphViewModelListener {
     void preRenderUpdate(const GraphModel* model, GraphViewModel* viewModel);
     void onSDLEvent(const SDL_Event& event);
 
-    void renderUI();
+    void renderUI(const std::vector<GraphDocument>& openDocuments, size_t& currentOpenedDocument);
     void renderScene();
 
     bool isFocusOnUI() const;
@@ -51,11 +52,13 @@ export class GraphView : public IGraphViewModelListener {
 
     GLuint compileShader(GLenum type, const char* source);
 
+    void setupDockSpace();
     void drawMenuBar();
     void drawStatusBar();
     void drawDeleteConfirmationDialog();
     void drawCenterOnNodeDialog();
-    void drawFileView();
+    void drawFileView(const std::vector<GraphDocument>& openDocuments,
+                      size_t& currentOpenedDocument);
     void drawInspector();
     void drawSettings();
 
@@ -95,6 +98,7 @@ export class GraphView : public IGraphViewModelListener {
     bool m_isSettingsOpen{false};
     bool m_showDemoWindow{false};
     bool m_appFullScreen{false};
+    bool m_fileViewOpen{true};
 
 #ifndef __EMSCRIPTEN__
     bool m_isFpsLimitEnabled{true};

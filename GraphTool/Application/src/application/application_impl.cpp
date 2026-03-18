@@ -84,9 +84,11 @@ void Application::initialize() {
 
     createNewDocument(startWidth, startHeight);
     createNewDocument(startWidth, startHeight);
+    createNewDocument(startWidth, startHeight);
 
     m_openDocuments[0].m_viewModel.loadBrasov();
     m_openDocuments[1].m_viewModel.loadLuxembourg();
+    m_openDocuments[2].m_viewModel.loadSmallSampleGraph();
 }
 
 void Application::run() {
@@ -110,7 +112,14 @@ void Application::run() {
             SDL_GL_SetSwapInterval(m_graphView.getVsyncMode());
         }
 
+        static size_t lastOpenedDocument = m_currentDocumentIndex;
+
         auto& openDocument = m_openDocuments[m_currentDocumentIndex];
+        if (lastOpenedDocument != m_currentDocumentIndex) {
+            onSwitchedDocument(openDocument);
+            lastOpenedDocument = m_currentDocumentIndex;
+        }
+
         GraphModel* currentModel = &openDocument.m_model;
         GraphViewModel* currentViewModel = &openDocument.m_viewModel;
 
@@ -136,16 +145,6 @@ void Application::run() {
                     case SDLK_F11:
                         m_graphView.toggleFullScreen();
                         break;
-                    case SDLK_P:
-                        if (m_currentDocumentIndex == 0) {
-                            m_currentDocumentIndex = 1;
-                        } else {
-                            m_currentDocumentIndex = 0;
-                        }
-
-                        m_openDocuments[m_currentDocumentIndex].m_viewModel.refreshVisibleData();
-
-                        break;
                 }
             }
 #endif
@@ -160,7 +159,7 @@ void Application::run() {
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        m_graphView.renderUI();
+        m_graphView.renderUI(m_openDocuments, m_currentDocumentIndex);
         ImGui::Render();
 
         auto scale = 1.f;
@@ -245,6 +244,15 @@ void Application::setupFonts(float scale) {
 void Application::createNewDocument(float width, float height) {
     m_openDocuments.emplace_back(width, height);
     m_openDocuments.back().m_viewModel.addListener(&m_graphView);
+}
+
+void Application::onSwitchedDocument(GraphDocument& graphDocument) {
+    int width, height;
+    SDL_GetWindowSize(m_window, &width, &height);
+
+    graphDocument.m_viewModel.updateSceneSize(static_cast<float>(width),
+                                              static_cast<float>(height));
+    graphDocument.m_viewModel.refreshVisibleData();
 }
 
 const char* Application::getGlslVersion() const {

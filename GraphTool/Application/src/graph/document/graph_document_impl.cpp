@@ -4,7 +4,8 @@ module;
 module graph_document;
 
 GraphDocument::GraphDocument(float displayWidth, float displayHeight) {
-    m_viewModel.initialize(&m_model, displayWidth, displayHeight);
+    m_viewModel.setModel(&m_model);
+    m_viewModel.updateSceneSize(displayWidth, displayHeight);
 }
 
 GraphDocument::GraphDocument(GraphDocument&& rhs) noexcept
@@ -16,6 +17,7 @@ GraphDocument& GraphDocument::operator=(GraphDocument&& rhs) noexcept {
     if (this != &rhs) {
         m_model = std::move(rhs.m_model);
         m_viewModel = std::move(rhs.m_viewModel);
+
         m_viewModel.setModel(&m_model);
     }
 

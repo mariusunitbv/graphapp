@@ -10,7 +10,6 @@ void GraphViewModel::initialize(GraphModel* model, float displayWidth, float dis
     m_model = model;
 
     onSceneResize(displayWidth, displayHeight);
-    addSampleNodes();
 }
 
 void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
@@ -211,6 +210,8 @@ void GraphViewModel::preRenderUpdate() {
     }
 }
 
+void GraphViewModel::setModel(GraphModel* model) { m_model = model; }
+
 void GraphViewModel::addListener(IGraphViewModelListener* listener) {
     m_listeners.push_back(listener);
 }
@@ -372,6 +373,16 @@ void GraphViewModel::centerOnNode(NodeIndex_t nodeIndex) {
     m_hoveredNodeIndex = nodeIndex;
 
     updateVisibleRegion();
+}
+
+void GraphViewModel::loadBrasov() {
+    GraphLoader::loadBinary(m_model, R"(assets/brasov.bin)");
+    centerOnNode(0);
+}
+
+void GraphViewModel::loadLuxembourg() {
+    GraphLoader::loadOSM(m_model, R"(D:\Harti PBF\luxembourg-251215.osm.pbf)");
+    centerOnNode(0);
 }
 
 void GraphViewModel::onSceneResize(float displayWidth, float displayHeight) {
@@ -802,6 +813,7 @@ void GraphViewModel::invalidateVisibleData() {
 void GraphViewModel::addSampleNodes() {
     common::ScopedTimer timer("GraphViewModel::addSampleNodes()");
 
+    GraphLoader::loadOSM(m_model, R"(D:\Harti PBF\luxembourg-251215.osm.pbf)");
     GraphLoader::loadBinary(m_model, R"(assets/brasov.bin)");
     centerOnNode(0);
 

@@ -20,6 +20,9 @@
     <ClCompile Include="src\graph\view_model\listener\graph_view_model_listener.ixx" />
     <ClCompile Include="..\GraphCommon\src\common\graph_common.ixx" />
     <ClCompile Include="..\GraphModel\src\loader\graph_loader.ixx" />
+    <ClCompile Include="src\graph\view\settings\graph_view_settings.ixx" />
+    <ClCompile Include="src\graph\document\graph_document.ixx" />
+    <ClCompile Include="src\graph\document\graph_document_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

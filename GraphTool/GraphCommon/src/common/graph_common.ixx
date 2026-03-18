@@ -258,6 +258,10 @@ export namespace common {
         }
 
         void destruct() {
+            if (m_data == nullptr) {
+                return;
+            }
+
             if constexpr (!std::is_trivially_destructible_v<T>) {
                 for (S i = 0; i < m_size; ++i) {
                     m_data[i].~T();

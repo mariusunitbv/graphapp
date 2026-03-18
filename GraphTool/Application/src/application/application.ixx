@@ -3,9 +3,8 @@ module;
 
 export module application;
 
+import graph_document;
 import graph_view;
-import graph_model;
-import graph_view_model;
 
 export class Application {
    public:
@@ -19,7 +18,7 @@ export class Application {
     void setupWindowIcon();
     void setupFonts(float scale);
 
-    void initializeGraph(float width, float height);
+    void createNewDocument(float width, float height);
     const char* getGlslVersion() const;
 
     void handleMaximizationShortcut();
@@ -30,7 +29,9 @@ export class Application {
     SDL_Window* m_window{nullptr};
     SDL_GLContext m_glContext{nullptr};
 
-    GraphModel m_graphModel{};
-    GraphViewModel m_graphViewModel{};
     GraphView m_graphView{};
+    GraphViewSettings m_graphViewSettings{};
+
+    std::vector<GraphDocument> m_openDocuments{};
+    size_t m_currentDocumentIndex{0};
 };

@@ -37,14 +37,16 @@ GraphView::~GraphView() {
     }
 }
 
-void GraphView::initialize(const GraphModel* model, GraphViewModel* viewModel) {
-    m_model = model;
-    m_viewModel = viewModel;
-
-    m_viewModel->addListener(this);
+void GraphView::initialize(GraphViewSettings* viewSettings) {
+    m_viewSettings = viewSettings;
 
     initializeTextures();
     initializeGL();
+}
+
+void GraphView::preRenderUpdate(const GraphModel* model, GraphViewModel* viewModel) {
+    m_model = model;
+    m_viewModel = viewModel;
 }
 
 void GraphView::onSDLEvent(const SDL_Event& event) {
@@ -959,66 +961,66 @@ void GraphView::drawSettings() {
     if (currentTab == 0) {
         ImGui::SeparatorText("Graph Appearance");
 
+        auto& theme = m_viewSettings->m_theme;
+
         ImGui::TextUnformatted("Graph Background:");
         ImGui::SetNextItemWidth(-FLT_MIN);
-        auto backgroundColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_backgroundColor);
+        auto backgroundColor = ImGui::ColorConvertU32ToFloat4(theme.m_backgroundColor);
         if (ImGui::ColorEdit4("##bg", (float*)&backgroundColor)) {
-            m_theme.m_backgroundColor = ImGui::ColorConvertFloat4ToU32(backgroundColor);
+            theme.m_backgroundColor = ImGui::ColorConvertFloat4ToU32(backgroundColor);
         }
 
         ImGui::TextUnformatted("Grid Lines:");
         ImGui::SetNextItemWidth(-FLT_MIN);
-        auto gridColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_gridColor);
+        auto gridColor = ImGui::ColorConvertU32ToFloat4(theme.m_gridColor);
         if (ImGui::ColorEdit4("##gr", (float*)&gridColor)) {
-            m_theme.m_gridColor = ImGui::ColorConvertFloat4ToU32(gridColor);
+            theme.m_gridColor = ImGui::ColorConvertFloat4ToU32(gridColor);
         }
 
         ImGui::TextUnformatted("Graph Extent:");
         ImGui::SetNextItemWidth(-FLT_MIN);
-        auto minMaxColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_minMaxColor);
+        auto minMaxColor = ImGui::ColorConvertU32ToFloat4(theme.m_minMaxColor);
         if (ImGui::ColorEdit4("##mmb", (float*)&minMaxColor)) {
-            m_theme.m_minMaxColor = ImGui::ColorConvertFloat4ToU32(minMaxColor);
+            theme.m_minMaxColor = ImGui::ColorConvertFloat4ToU32(minMaxColor);
         }
 
         ImGui::SeparatorText("Node Appearance");
 
         ImGui::TextUnformatted("Default Color:");
         ImGui::SetNextItemWidth(-FLT_MIN);
-        auto nodeColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_nodeColor);
+        auto nodeColor = ImGui::ColorConvertU32ToFloat4(theme.m_nodeColor);
         if (ImGui::ColorEdit4("##ndc", (float*)&nodeColor)) {
-            m_theme.m_nodeColor = ImGui::ColorConvertFloat4ToU32(nodeColor);
+            theme.m_nodeColor = ImGui::ColorConvertFloat4ToU32(nodeColor);
         }
 
         ImGui::TextUnformatted("Default Outline:");
         ImGui::SetNextItemWidth(-FLT_MIN);
-        auto nodeBorderColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_nodeOutlineColor);
+        auto nodeBorderColor = ImGui::ColorConvertU32ToFloat4(theme.m_nodeOutlineColor);
         if (ImGui::ColorEdit4("##ndo", (float*)&nodeBorderColor)) {
-            m_theme.m_nodeOutlineColor = ImGui::ColorConvertFloat4ToU32(nodeBorderColor);
+            theme.m_nodeOutlineColor = ImGui::ColorConvertFloat4ToU32(nodeBorderColor);
         }
 
         ImGui::TextUnformatted("Selected Outline:");
         ImGui::SetNextItemWidth(-FLT_MIN);
         auto selectedOutlineColor =
-            ImGui::ColorConvertU32ToFloat4(m_theme.m_selectedNodeOutlineColor);
+            ImGui::ColorConvertU32ToFloat4(theme.m_selectedNodeOutlineColor);
         if (ImGui::ColorEdit4("##so", (float*)&selectedOutlineColor)) {
-            m_theme.m_selectedNodeOutlineColor =
-                ImGui::ColorConvertFloat4ToU32(selectedOutlineColor);
+            theme.m_selectedNodeOutlineColor = ImGui::ColorConvertFloat4ToU32(selectedOutlineColor);
         }
 
         ImGui::TextUnformatted("Hovered Outline:");
         ImGui::SetNextItemWidth(-FLT_MIN);
-        auto hoveredOutlineColor =
-            ImGui::ColorConvertU32ToFloat4(m_theme.m_hoveredNodeOutlineColor);
+        auto hoveredOutlineColor = ImGui::ColorConvertU32ToFloat4(theme.m_hoveredNodeOutlineColor);
         if (ImGui::ColorEdit4("##ho", (float*)&hoveredOutlineColor)) {
-            m_theme.m_hoveredNodeOutlineColor = ImGui::ColorConvertFloat4ToU32(hoveredOutlineColor);
+            theme.m_hoveredNodeOutlineColor = ImGui::ColorConvertFloat4ToU32(hoveredOutlineColor);
         }
 
         ImGui::TextUnformatted("Selected and Hovered Outline:");
         ImGui::SetNextItemWidth(-FLT_MIN);
         auto selectedHoveredOutlineColor =
-            ImGui::ColorConvertU32ToFloat4(m_theme.m_hoveredAndSelectedNodeOutlineColor);
+            ImGui::ColorConvertU32ToFloat4(theme.m_hoveredAndSelectedNodeOutlineColor);
         if (ImGui::ColorEdit4("##snho", (float*)&selectedHoveredOutlineColor)) {
-            m_theme.m_hoveredAndSelectedNodeOutlineColor =
+            theme.m_hoveredAndSelectedNodeOutlineColor =
                 ImGui::ColorConvertFloat4ToU32(selectedHoveredOutlineColor);
         }
 
@@ -1235,8 +1237,9 @@ void GraphView::drawMinMax(ImDrawList* drawList) {
     const auto topLeftBoundsScreen = toImVec(m_viewModel->worldToScreen(WORLD_BOUNDS.m_min));
     const auto bottomRightBoundsScreen = toImVec(m_viewModel->worldToScreen(WORLD_BOUNDS.m_max));
 
-    drawList->AddRect(topLeftBoundsScreen, bottomRightBoundsScreen, m_theme.m_gridColor, 0.f, 0,
-                      3.f);
+    const auto& theme = m_viewSettings->m_theme;
+
+    drawList->AddRect(topLeftBoundsScreen, bottomRightBoundsScreen, theme.m_gridColor, 0.f, 0, 3.f);
 
     if (!m_drawMinMax) {
         return;
@@ -1247,7 +1250,7 @@ void GraphView::drawMinMax(ImDrawList* drawList) {
     const auto topLeftScreen = toImVec(m_viewModel->worldToScreen(bounds.m_min));
     const auto bottomRightScreen = toImVec(m_viewModel->worldToScreen(bounds.m_max));
 
-    drawList->AddRect(topLeftScreen, bottomRightScreen, m_theme.m_minMaxColor, 0.f, 0, 1.f);
+    drawList->AddRect(topLeftScreen, bottomRightScreen, theme.m_minMaxColor, 0.f, 0, 1.f);
 }
 
 void GraphView::drawSelectBox(ImDrawList* drawList) {
@@ -1279,7 +1282,7 @@ void GraphView::drawMousePosition(ImDrawList* drawList) {
     const auto font = ImGui::GetIO().Fonts->Fonts[m_graphTextFontIndex];
 
     drawList->AddText(font, font->FontSize, {mouseX + 10.f, mouseY - 10.f},
-                      m_theme.m_nodeOutlineColor, buffer);
+                      m_viewSettings->m_theme.m_nodeOutlineColor, buffer);
 }
 
 void GraphView::drawVersion(ImDrawList* drawList) {
@@ -1361,7 +1364,8 @@ void GraphView::setupNodeBuffers() {
 }
 
 void GraphView::drawBackground() {
-    const auto backgroundColor = ImGui::ColorConvertU32ToFloat4(m_theme.m_backgroundColor);
+    const auto backgroundColor =
+        ImGui::ColorConvertU32ToFloat4(m_viewSettings->m_theme.m_backgroundColor);
     glClearColor(backgroundColor.x, backgroundColor.y, backgroundColor.z, backgroundColor.w);
 }
 
@@ -1413,7 +1417,7 @@ void GraphView::drawGrid() {
 
     glUseProgram(gridGL.m_shaderProgram);
     glUniform2f(m_gridUniformScreenSize, displaySize.x, displaySize.y);
-    glUniform1ui(m_gridUniformColor, m_theme.m_gridColor);
+    glUniform1ui(m_gridUniformColor, m_viewSettings->m_theme.m_gridColor);
 
     glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, (int)gridLines.size());
 
@@ -1568,7 +1572,9 @@ void GraphView::colorNode(NodeIndex_t nodeIndex) {
 ImU32 GraphView::getNodeColor(NodeIndex_t nodeIndex) const {
     const auto node = m_model->getNode(nodeIndex);
 
-    int nodeAlpha = (m_theme.m_nodeColor >> 24) & 0xFF;
+    const auto& theme = m_viewSettings->m_theme;
+
+    int nodeAlpha = (theme.m_nodeColor >> 24) & 0xFF;
     if (nodeIndex == m_viewModel->getHoveredNodeIndex()) {
         nodeAlpha = std::max(nodeAlpha - 60, 30);
     }
@@ -1577,20 +1583,22 @@ ImU32 GraphView::getNodeColor(NodeIndex_t nodeIndex) const {
         return node->getABGR(nodeAlpha);
     }
 
-    return m_theme.m_nodeColor & 0x00FFFFFF | (nodeAlpha << 24);
+    return theme.m_nodeColor & 0x00FFFFFF | (nodeAlpha << 24);
 }
 
 ImU32 GraphView::getOutlineColor(NodeIndex_t nodeIndex) const {
     const auto isHovered = nodeIndex == m_viewModel->getHoveredNodeIndex();
     const auto isSelected = m_viewModel->isNodeSelected(nodeIndex);
 
-    ImU32 color = m_theme.m_nodeOutlineColor;
+    const auto& theme = m_viewSettings->m_theme;
+
+    ImU32 color = theme.m_nodeOutlineColor;
     if (isSelected && isHovered) {
-        color = m_theme.m_hoveredAndSelectedNodeOutlineColor;
+        color = theme.m_hoveredAndSelectedNodeOutlineColor;
     } else if (isHovered) {
-        color = m_theme.m_hoveredNodeOutlineColor;
+        color = theme.m_hoveredNodeOutlineColor;
     } else if (isSelected) {
-        color = m_theme.m_selectedNodeOutlineColor;
+        color = theme.m_selectedNodeOutlineColor;
     }
 
     int outlineAlpha = (color >> 24) & 0xFF;

@@ -13,6 +13,7 @@ export class GraphViewModel {
     void onSDLEvent(const SDL_Event& event, bool focusOnUI);
     void preRenderUpdate();
 
+    void setModel(GraphModel* model);
     void addListener(IGraphViewModelListener* listener);
 
     const std::vector<Vector2D>& getVisibleNodesPositions() const;
@@ -62,6 +63,9 @@ export class GraphViewModel {
     const BoundingBox2D& getSelectBoxBounds() const;
 
     void centerOnNode(NodeIndex_t nodeIndex);
+
+    void loadBrasov();
+    void loadLuxembourg();
 
    private:
     void onSceneResize(float displayWidth, float displayHeight);

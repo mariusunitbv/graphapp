@@ -80,7 +80,13 @@ void Application::initialize() {
     ImGui_ImplSDL3_InitForOpenGL(m_window, m_glContext);
     ImGui_ImplOpenGL3_Init(glslVersion);
 
-    initializeGraph(startWidth, startHeight);
+    m_graphView.initialize(&m_graphViewSettings);
+
+    createNewDocument(startWidth, startHeight);
+    createNewDocument(startWidth, startHeight);
+
+    m_openDocuments[0].m_viewModel.loadBrasov();
+    m_openDocuments[1].m_viewModel.loadLuxembourg();
 }
 
 void Application::run() {
@@ -104,6 +110,12 @@ void Application::run() {
             SDL_GL_SetSwapInterval(m_graphView.getVsyncMode());
         }
 
+        auto& openDocument = m_openDocuments[m_currentDocumentIndex];
+        GraphModel* currentModel = &openDocument.m_model;
+        GraphViewModel* currentViewModel = &openDocument.m_viewModel;
+
+        m_graphView.preRenderUpdate(currentModel, currentViewModel);
+
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL3_ProcessEvent(&event);
@@ -124,15 +136,25 @@ void Application::run() {
                     case SDLK_F11:
                         m_graphView.toggleFullScreen();
                         break;
+                    case SDLK_P:
+                        if (m_currentDocumentIndex == 0) {
+                            m_currentDocumentIndex = 1;
+                        } else {
+                            m_currentDocumentIndex = 0;
+                        }
+
+                        m_openDocuments[m_currentDocumentIndex].m_viewModel.refreshVisibleData();
+
+                        break;
                 }
             }
 #endif
 
-            m_graphViewModel.onSDLEvent(event, m_graphView.isFocusOnUI());
+            currentViewModel->onSDLEvent(event, m_graphView.isFocusOnUI());
             m_graphView.onSDLEvent(event);
         }
 
-        m_graphViewModel.preRenderUpdate();
+        currentViewModel->preRenderUpdate();
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
@@ -220,9 +242,9 @@ void Application::setupFonts(float scale) {
     io.Fonts->Build();
 }
 
-void Application::initializeGraph(float width, float height) {
-    m_graphViewModel.initialize(&m_graphModel, width, height);
-    m_graphView.initialize(&m_graphModel, &m_graphViewModel);
+void Application::createNewDocument(float width, float height) {
+    m_openDocuments.emplace_back(width, height);
+    m_openDocuments.back().m_viewModel.addListener(&m_graphView);
 }
 
 const char* Application::getGlslVersion() const {

@@ -9,7 +9,7 @@ Node::Node(Vector2D worldPos) : m_selected{0} {
     m_worldPosX = static_cast<uint32_t>(static_cast<int>(worldPos.m_x) + WORLD_POS_OFFSET);
     m_worldPosY = static_cast<uint32_t>(static_cast<int>(worldPos.m_y) + WORLD_POS_OFFSET);
 
-    setColor(xorshift32(), xorshift32(), xorshift32());
+    m_red = m_green = m_blue = 0;
 }
 
 BoundingBox2D Node::getBoundingBox(Vector2D worldPos, float radius) {

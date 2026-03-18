@@ -1,32 +1,24 @@
 module;
 #include <pch.h>
 
-export module graph_view;
+export module graph_renderer;
 
+export import graph_model;
+export import graph_view_model;
 export import graph_view_settings;
 
-import graph_model;
-import graph_view_model;
-import graph_document;
-
-export class GraphView : public IGraphViewModelListener {
+export class GraphRenderer : public IGraphViewModelListener {
    public:
-    ~GraphView();
+    ~GraphRenderer();
 
-    void initialize(GraphViewSettings* viewSettings);
+    void initialize(const GraphViewSettings* viewSettings);
     void preRenderUpdate(const GraphModel* model, GraphViewModel* viewModel);
-    void onSDLEvent(const SDL_Event& event);
 
-    void renderUI(const std::vector<GraphDocument>& openDocuments, size_t& currentOpenedDocument);
-    void renderScene();
+    // Render using ImGui draw lists.
+    void render();
 
-    bool isFocusOnUI() const;
-
-    void toggleFullScreen() { m_appFullScreen = !m_appFullScreen; }
-    bool isFullScreen() const { return m_appFullScreen; }
-    bool isFpsLimitEnabled() const { return m_isFpsLimitEnabled; }
-    int getMaxFps() const { return m_maxFps; }
-    int getVsyncMode() const;
+    // Render using native GL calls.
+    void renderNative();
 
    protected:
     void onFullDataUpdate() override;
@@ -42,8 +34,6 @@ export class GraphView : public IGraphViewModelListener {
                                   VisibleData& visibleData) override;
 
    private:
-    void initializeTextures();
-    void initializeGL();
     void initializeNodesBuffersGL();
     void initializeEdgeGL();
     void initializeNodeGL();
@@ -52,70 +42,32 @@ export class GraphView : public IGraphViewModelListener {
 
     GLuint compileShader(GLenum type, const char* source);
 
-    void setupDockSpace();
-    void drawMenuBar();
-    void drawStatusBar();
-    void drawDeleteConfirmationDialog();
-    void drawCenterOnNodeDialog();
-    void drawFileView(const std::vector<GraphDocument>& openDocuments,
-                      size_t& currentOpenedDocument);
-    void drawInspector();
-    void drawSettings();
+    void setupNodeBuffers();
+    void drawBackground();
+    void drawGrid();
+    void drawEdges();
+    void drawNodes();
 
     void drawNodesIndexes(ImDrawList* drawList);
     void drawMinMax(ImDrawList* drawList);
     void drawSelectBox(ImDrawList* drawList);
     void drawMousePosition(ImDrawList* drawList);
-    void drawVersion(ImDrawList* drawList);
-    void drawWatermark(ImDrawList* drawList);
+    void drawUnfocusedBackground(ImDrawList* drawList);
+    void drawAddNodesText(ImDrawList* drawList);
 
-    void setupNodeBuffers();
-
-    void drawBackground();
-    void drawGrid();
-    void drawEdges();
-    void drawNodes();
+    bool shouldDrawNodes() const;
+    bool isFocusOnUI() const;
 
     void colorNodes();
     void colorNode(NodeIndex_t nodeIndex);
     ImU32 getNodeColor(NodeIndex_t nodeIndex) const;
     ImU32 getOutlineColor(NodeIndex_t nodeIndex) const;
 
-    bool shouldDrawNodes() const;
-
     const GraphModel* m_model{nullptr};
     GraphViewModel* m_viewModel{nullptr};
-    GraphViewSettings* m_viewSettings{nullptr};
-
-    bool m_drawGrid{true};
-    bool m_drawMinMax{false};
-    bool m_drawNodes{true};
-    bool m_drawNodesOutline{true};
-    bool m_drawEdges{true};
-
-    bool m_isDeleteDialogOpen{false};
-    bool m_isCenterOnNodeDialogOpen{false};
-    bool m_isSettingsOpen{false};
-    bool m_showDemoWindow{false};
-    bool m_appFullScreen{false};
-    bool m_fileViewOpen{true};
-
-#ifndef __EMSCRIPTEN__
-    bool m_isFpsLimitEnabled{true};
-    int m_maxFps{120};
-#else
-    static constexpr int m_maxFps{0};
-    static constexpr bool m_isFpsLimitEnabled{false};
-#endif
-
-    int m_vsyncMode{0};
-    int m_outlineThickness{2};
-    float m_gridCellSize{100.f};
-    int m_nodeCutoffZoom{55};
-    int m_graphTextFontIndex{1};
+    const GraphViewSettings* m_viewSettings{nullptr};
 
     GLfloat m_pointSizeRange[2]{};
-    GLuint m_unitbvLogoTexture{};
     GLint m_maxTextureSize{};
 
     GLuint m_nodePositionTBO{};

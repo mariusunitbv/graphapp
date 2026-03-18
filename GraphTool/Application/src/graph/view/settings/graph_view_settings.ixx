@@ -17,4 +17,17 @@ struct GraphTheme {
 
 export struct GraphViewSettings {
     GraphTheme m_theme{};
+
+    bool m_drawGrid{true};
+    bool m_drawMinMax{false};
+    bool m_drawNodes{true};
+    bool m_drawNodesOutline{true};
+    bool m_drawEdges{true};
+
+    bool m_shouldFullColorNodes{false};
+
+    int m_outlineThickness{2};
+    float m_gridCellSize{100.f};
+    int m_nodeCutoffZoom{55};
+    int m_graphTextFontIndex{1};
 };

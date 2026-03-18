@@ -80,15 +80,9 @@ void Application::initialize() {
     ImGui_ImplSDL3_InitForOpenGL(m_window, m_glContext);
     ImGui_ImplOpenGL3_Init(glslVersion);
 
-    m_graphView.initialize(&m_graphViewSettings);
-
-    createNewDocument(startWidth, startHeight);
-    createNewDocument(startWidth, startHeight);
-    createNewDocument(startWidth, startHeight);
-
-    m_openDocuments[0].m_viewModel.loadBrasov();
-    m_openDocuments[1].m_viewModel.loadLuxembourg();
-    m_openDocuments[2].m_viewModel.loadSmallSampleGraph();
+    m_graphUI.initialize(&m_graphViewSettings, &m_documentHandler);
+    m_graphRenderer.initialize(&m_graphViewSettings);
+    m_documentHandler.initialize(&m_graphRenderer);
 }
 
 void Application::run() {
@@ -100,20 +94,25 @@ void Application::run() {
         const auto frameStart = SDL_GetPerformanceCounter();
 
         static bool fullscreenState = false;
-        if (fullscreenState != m_graphView.isFullScreen()) {
+        if (fullscreenState != m_graphUI.isFullScreen()) {
             fullscreenState = !fullscreenState;
             SDL_SetWindowFullscreen(m_window, fullscreenState);
         }
 #endif
 
         static int vsyncState = -1;
-        if (vsyncState != m_graphView.getVsyncMode()) {
-            vsyncState = m_graphView.getVsyncMode();
-            SDL_GL_SetSwapInterval(m_graphView.getVsyncMode());
+        if (vsyncState != m_graphUI.getVsyncMode()) {
+            vsyncState = m_graphUI.getVsyncMode();
+            SDL_GL_SetSwapInterval(m_graphUI.getVsyncMode());
+        }
+
+        if (m_openDocuments.empty()) {
+            m_documentHandler.addEmptyDocument(m_openDocuments);
+            m_currentDocumentIndex = 0;
+            onSwitchedDocument(m_openDocuments[0]);
         }
 
         static size_t lastOpenedDocument = m_currentDocumentIndex;
-
         auto& openDocument = m_openDocuments[m_currentDocumentIndex];
         if (lastOpenedDocument != m_currentDocumentIndex) {
             onSwitchedDocument(openDocument);
@@ -123,7 +122,8 @@ void Application::run() {
         GraphModel* currentModel = &openDocument.m_model;
         GraphViewModel* currentViewModel = &openDocument.m_viewModel;
 
-        m_graphView.preRenderUpdate(currentModel, currentViewModel);
+        m_graphUI.preRenderUpdate(currentModel, currentViewModel);
+        m_graphRenderer.preRenderUpdate(currentModel, currentViewModel);
 
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -143,14 +143,23 @@ void Application::run() {
                         handleMaximizationShortcut();
                         break;
                     case SDLK_F11:
-                        m_graphView.toggleFullScreen();
+                        m_graphUI.toggleFullScreen();
+                        break;
+                    case SDLK_W:
+                        if (SDL_GetModState() & SDL_KMOD_CTRL) {
+                            m_documentHandler.scheduleCloseDocument(m_currentDocumentIndex);
+                        }
                         break;
                 }
             }
+
+            if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+                m_graphUI.refreshRootFolder();
+            }
 #endif
 
-            currentViewModel->onSDLEvent(event, m_graphView.isFocusOnUI());
-            m_graphView.onSDLEvent(event);
+            currentViewModel->onSDLEvent(event, m_graphUI.isFocusOnUI());
+            m_graphUI.onSDLEvent(event);
         }
 
         currentViewModel->preRenderUpdate();
@@ -159,7 +168,9 @@ void Application::run() {
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        m_graphView.renderUI(m_openDocuments, m_currentDocumentIndex);
+        m_graphRenderer.render();
+        m_graphUI.render(m_openDocuments, m_currentDocumentIndex);
+
         ImGui::Render();
 
         auto scale = 1.f;
@@ -171,10 +182,12 @@ void Application::run() {
         glViewport(0, 0, (int)(io.DisplaySize.x * scale), (int)(io.DisplaySize.y * scale));
         glClear(GL_COLOR_BUFFER_BIT);
 
-        m_graphView.renderScene();
+        m_graphRenderer.renderNative();
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(m_window);
+
+        m_documentHandler.processTasks(m_openDocuments, m_currentDocumentIndex);
 
 #ifndef __EMSCRIPTEN__
         limitFps(frameStart);
@@ -241,11 +254,6 @@ void Application::setupFonts(float scale) {
     io.Fonts->Build();
 }
 
-void Application::createNewDocument(float width, float height) {
-    m_openDocuments.emplace_back(width, height);
-    m_openDocuments.back().m_viewModel.addListener(&m_graphView);
-}
-
 void Application::onSwitchedDocument(GraphDocument& graphDocument) {
     int width, height;
     SDL_GetWindowSize(m_window, &width, &height);
@@ -287,12 +295,12 @@ void Application::limitFps(Uint64 frameStart) {
     const auto minimized = flags & SDL_WINDOW_MINIMIZED;
     const auto unfocused = !(flags & SDL_WINDOW_INPUT_FOCUS);
 
-    auto maxFps = m_graphView.getMaxFps();
+    auto maxFps = m_graphUI.getMaxFps();
     if (minimized || unfocused) {
         maxFps = 5;
     }
 
-    if (m_graphView.isFpsLimitEnabled() || minimized || unfocused) {
+    if (m_graphUI.isFpsLimitEnabled() || minimized || unfocused) {
         const auto targetFrameTime = 1.0 / maxFps;
         const auto elapsed = (double)(SDL_GetPerformanceCounter() - frameStart) / frequency;
         if (elapsed < targetFrameTime) {

@@ -3,8 +3,9 @@ module;
 
 export module application;
 
-import graph_document;
-import graph_view;
+import graph_ui;
+import graph_renderer;
+import graph_document_handler;
 
 export class Application {
    public:
@@ -18,7 +19,6 @@ export class Application {
     void setupWindowIcon();
     void setupFonts(float scale);
 
-    void createNewDocument(float width, float height);
     void onSwitchedDocument(GraphDocument& graphDocument);
 
     const char* getGlslVersion() const;
@@ -31,8 +31,10 @@ export class Application {
     SDL_Window* m_window{nullptr};
     SDL_GLContext m_glContext{nullptr};
 
-    GraphView m_graphView{};
+    GraphUI m_graphUI{};
+    GraphRenderer m_graphRenderer{};
     GraphViewSettings m_graphViewSettings{};
+    GraphDocumentHandler m_documentHandler{};
 
     std::vector<GraphDocument> m_openDocuments{};
     size_t m_currentDocumentIndex{0};

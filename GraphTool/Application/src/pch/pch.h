@@ -3,6 +3,7 @@
 // C/C++ standard library headers
 #include <unordered_map>
 #include <unordered_set>
+#include <filesystem>
 #include <execution>
 #include <algorithm>
 #include <iostream>

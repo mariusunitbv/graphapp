@@ -21,8 +21,11 @@ export class GraphViewModel {
     void preRenderUpdate();
 
     void setModel(GraphModel* model);
+    GraphModel* getModel() const;
+
     void addListener(IGraphViewModelListener* listener);
 
+    Vector2D getSceneSize() const;
     void updateSceneSize(float displayWidth, float displayHeight);
 
     const std::vector<Vector2D>& getVisibleNodesPositions() const;
@@ -72,10 +75,6 @@ export class GraphViewModel {
     const BoundingBox2D& getSelectBoxBounds() const;
 
     void centerOnNode(NodeIndex_t nodeIndex);
-
-    void loadBrasov();
-    void loadLuxembourg();
-    void loadSmallSampleGraph();
 
    private:
     void onSceneResize(float displayWidth, float displayHeight);

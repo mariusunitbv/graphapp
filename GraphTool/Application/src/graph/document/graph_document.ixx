@@ -15,6 +15,8 @@ export struct GraphDocument {
     GraphDocument(GraphDocument&& rhs) noexcept;
     GraphDocument& operator=(GraphDocument&& rhs) noexcept;
 
+    const char* getName() const;
+
     GraphModel m_model{};
     GraphViewModel m_viewModel{};
 

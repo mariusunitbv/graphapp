@@ -7,8 +7,8 @@
     <ClCompile Include="src\application\application_impl.cpp" />
     <ClCompile Include="src\graph\view\texture_loader\texture_loader.ixx" />
     <ClCompile Include="src\graph\view\texture_loader\texture_loader_impl.cpp" />
-    <ClCompile Include="src\graph\view\graph_view.ixx" />
-    <ClCompile Include="src\graph\view\graph_view_impl.cpp" />
+    <ClCompile Include="src\graph\view\ui\graph_ui.ixx" />
+    <ClCompile Include="src\graph\view\ui\graph_ui_impl.cpp" />
     <ClCompile Include="src\graph\view_model\graph_view_model.ixx" />
     <ClCompile Include="src\graph\view_model\graph_view_model_impl.cpp" />
     <ClCompile Include="..\GraphModel\src\model\graph_model.ixx" />
@@ -23,6 +23,10 @@
     <ClCompile Include="src\graph\view\settings\graph_view_settings.ixx" />
     <ClCompile Include="src\graph\document\graph_document.ixx" />
     <ClCompile Include="src\graph\document\graph_document_impl.cpp" />
+    <ClCompile Include="src\graph\view\renderer\graph_renderer.ixx" />
+    <ClCompile Include="src\graph\view\renderer\graph_renderer_impl.cpp" />
+    <ClCompile Include="src\graph\document\handler\graph_document_handler.ixx" />
+    <ClCompile Include="src\graph\document\handler\graph_document_handler_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

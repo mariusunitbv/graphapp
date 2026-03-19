@@ -49,6 +49,10 @@ export struct BoundingBox2D {
     constexpr auto width() const { return m_max.m_x - m_min.m_x; }
     constexpr auto height() const { return m_max.m_y - m_min.m_y; }
 
+    constexpr auto null() const {
+        return m_min.m_x == 0.f && m_min.m_y == 0.f && m_max.m_x == 0.f && m_max.m_y == 0.f;
+    }
+
     constexpr auto valid() const { return m_min.m_x < m_max.m_x && m_min.m_y < m_max.m_y; }
 
     constexpr auto intersects(const BoundingBox2D& other) const {

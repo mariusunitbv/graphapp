@@ -3,7 +3,7 @@ module;
 
 export module graph_view_settings;
 
-struct GraphTheme {
+export struct GraphTheme {
     ImU32 m_backgroundColor{IM_COL32(20, 20, 20, 255)};
     ImU32 m_gridColor{IM_COL32(35, 35, 35, 255)};
     ImU32 m_minMaxColor{IM_COL32(255, 0, 0, 255)};

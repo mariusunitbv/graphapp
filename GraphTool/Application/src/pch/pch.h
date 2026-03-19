@@ -3,6 +3,7 @@
 // C/C++ standard library headers
 #include <unordered_map>
 #include <unordered_set>
+#include <shared_mutex>
 #include <filesystem>
 #include <execution>
 #include <algorithm>
@@ -24,6 +25,7 @@
 #include <SDL3/SDL_surface.h>
 
 #define IMGUI_DEFINE_MATH_OPERATORS
+#define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 #include <imgui.h>
 #include <imgui_freetype.h>
 #include <imgui_internal.h>

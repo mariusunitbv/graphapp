@@ -140,7 +140,9 @@ void Application::run() {
             if (event.type == SDL_EVENT_KEY_DOWN) {
                 switch (event.key.key) {
                     case SDLK_F:
-                        handleMaximizationShortcut();
+                        if (!m_graphUI.isFocusOnUI()) {
+                            handleMaximizationShortcut();
+                        }
                         break;
                     case SDLK_F11:
                         m_graphUI.toggleFullScreen();

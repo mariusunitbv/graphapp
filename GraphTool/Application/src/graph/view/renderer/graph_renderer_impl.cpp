@@ -68,8 +68,6 @@ void GraphRenderer::render() {
     drawMinMax(drawList);
     drawSelectBox(drawList);
     drawMousePosition(drawList);
-    drawUnfocusedBackground(drawList);
-    drawAddNodesText(drawList);
 }
 
 void GraphRenderer::renderNative() {
@@ -956,40 +954,6 @@ void GraphRenderer::drawMousePosition(ImDrawList* drawList) {
 
     drawList->AddText(font, font->FontSize, {mouseX + 10.f, mouseY - 10.f},
                       m_viewSettings->m_theme.m_nodeOutlineColor, buffer);
-}
-
-void GraphRenderer::drawUnfocusedBackground(ImDrawList* drawList) {
-    if (!isFocusOnUI()) {
-        return;
-    }
-
-    const auto displaySize = ImGui::GetIO().DisplaySize;
-
-    drawList->AddRectFilled({0, 0}, displaySize, IM_COL32(0, 0, 0, 60));
-
-    constexpr auto unfocusedText = "Unfocused. Left Click to focus.";
-    const auto font = ImGui::GetIO().Fonts->Fonts[m_viewSettings->m_graphTextFontIndex];
-    const auto textSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, unfocusedText);
-    const auto textPos = (displaySize - textSize) * 0.5f;
-
-    drawList->AddRectFilled(textPos - ImVec2(5, 5), textPos + textSize + ImVec2(5, 5),
-                            IM_COL32(0, 0, 0, 120));
-    drawList->AddText(font, font->FontSize, textPos, IM_COL32(255, 255, 255, 255), unfocusedText);
-}
-
-void GraphRenderer::drawAddNodesText(ImDrawList* drawList) {
-    if (isFocusOnUI() || m_model->getLastNodeIndex() != INVALID_NODE) {
-        return;
-    }
-
-    constexpr auto helperText = "Left Click to add nodes.";
-    const auto font = ImGui::GetIO().Fonts->Fonts[m_viewSettings->m_graphTextFontIndex];
-    const auto textSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, helperText);
-    const auto textPos = (ImGui::GetIO().DisplaySize - textSize) * 0.5f;
-
-    drawList->AddRectFilled(textPos - ImVec2(5, 5), textPos + textSize + ImVec2(5, 5),
-                            IM_COL32(0, 0, 0, 120));
-    drawList->AddText(font, font->FontSize, textPos, IM_COL32(255, 255, 255, 255), helperText);
 }
 
 bool GraphRenderer::shouldDrawNodes() const {

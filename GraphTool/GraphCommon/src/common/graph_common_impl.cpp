@@ -15,6 +15,8 @@ namespace common {
         return logger;
     }
 
+    Logger::Logger() { m_messageBuffer.reserve(150); }
+
     void Logger::setLevel(Level level) { m_level = level; }
 
     void Logger::logUnformatted(Level level, const char* message) {
@@ -22,15 +24,30 @@ namespace common {
             return;
         }
 
+        m_messageBuffer.clear();
+
+        size_t positionWithoutColor = 0;
+
 #ifndef __EMSCRIPTEN__
-        std::cout << getColor(level);
+        m_messageBuffer.append(getColor(level));
+        positionWithoutColor = m_messageBuffer.size();
 #endif
 
-        logTimestamp();
-        logLevel(level);
+        addTimestampToBuffer();
+        addLevelToBuffer(level);
 
-        std::cout << message << '\n';
+        m_messageBuffer.append(message);
+        m_messageBuffer.push_back('\n');
+
+        std::cout << m_messageBuffer;
+
+        for (LogListener* listener : m_listeners) {
+            listener->onLogMessage(level,
+                                   std::string_view(m_messageBuffer).substr(positionWithoutColor));
+        }
     }
+
+    void Logger::addListener(LogListener* listener) { m_listeners.push_back(listener); }
 
     std::string_view Logger::getColor(Level level) const {
         switch (level) {
@@ -47,23 +64,14 @@ namespace common {
         }
     }
 
-    void Logger::logTimestamp() {
-        using namespace std::chrono;
+    void Logger::addTimestampToBuffer() {
+        const auto now = std::chrono::system_clock::now();
+        const auto nowSec = std::chrono::floor<std::chrono::seconds>(now);
 
-        const auto now = system_clock::to_time_t(system_clock::now());
-
-        std::tm localTime;
-
-#ifdef _WIN32
-        localtime_s(&localTime, &now);
-#else
-        localtime_r(&now, &localTime);
-#endif
-
-        std::cout << '[' << std::put_time(&localTime, "%Y-%m-%d %H:%M:%S") << ']';
+        m_messageBuffer.append(std::format("[{:%Y-%m-%d %H:%M:%S}]", nowSec));
     }
 
-    void Logger::logLevel(Level level) {
+    void Logger::addLevelToBuffer(Level level) {
         const std::string_view levelString = [level]() {
             switch (level) {
                 case Level::DEBUG_LEVEL:
@@ -79,7 +87,9 @@ namespace common {
             }
         }();
 
-        std::cout << ' ' << levelString << ' ';
+        m_messageBuffer.push_back(' ');
+        m_messageBuffer.append(levelString);
+        m_messageBuffer.push_back(' ');
     }
 
     ScopedTimer::~ScopedTimer() {

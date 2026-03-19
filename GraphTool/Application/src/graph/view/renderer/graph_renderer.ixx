@@ -52,8 +52,6 @@ export class GraphRenderer : public IGraphViewModelListener {
     void drawMinMax(ImDrawList* drawList);
     void drawSelectBox(ImDrawList* drawList);
     void drawMousePosition(ImDrawList* drawList);
-    void drawUnfocusedBackground(ImDrawList* drawList);
-    void drawAddNodesText(ImDrawList* drawList);
 
     bool shouldDrawNodes() const;
     bool isFocusOnUI() const;

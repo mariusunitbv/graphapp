@@ -208,8 +208,8 @@ void GraphViewModel::preRenderUpdate() {
     const auto smallerLastQueryRegion =
         visibleWidth < lastWidth * alpha || visibleHeight < lastHeight * alpha;
 
-    if (!m_lastQueryRegionArea.contains(m_visibleRegionArea) || smallerLastQueryRegion ||
-        lastWidth == 0) {
+    if (!m_lastQueryRegionArea.contains(m_visibleRegionArea) || m_lastQueryRegionArea.null() ||
+        smallerLastQueryRegion) {
         common::ScopedTimer timer("Updating visible data");
 
         invalidateVisibleData();

@@ -355,6 +355,8 @@ export namespace common {
         void setLevel(Level level);
         void logUnformatted(Level level, const char* message);
 
+        void addListener(class LogListener* listener);
+
         template <typename... Args>
         void debug(std::format_string<Args...> fmt, Args&&... args) {
             auto formatted = std::format(fmt, std::forward<Args>(args)...);
@@ -380,12 +382,23 @@ export namespace common {
         }
 
        private:
+        Logger();
+
         std::string_view getColor(Level level) const;
 
-        void logTimestamp();
-        void logLevel(Level level);
+        void addTimestampToBuffer();
+        void addLevelToBuffer(Level level);
 
+        std::vector<LogListener*> m_listeners;
+        std::string m_messageBuffer;
         Level m_level{Level::DEBUG_LEVEL};
+    };
+
+    class LogListener {
+       public:
+        virtual ~LogListener() = default;
+
+        virtual void onLogMessage(Logger::Level level, const std::string_view message) = 0;
     };
 }  // namespace common
 

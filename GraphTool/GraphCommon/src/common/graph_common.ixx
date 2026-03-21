@@ -403,6 +403,15 @@ export namespace common {
 }  // namespace common
 
 export namespace common {
+    class FileSystem {
+       public:
+        static FileSystem& get();
+
+        void createFolder(const std::string& path) const;
+    };
+}  // namespace common
+
+export namespace common {
     class ScopedTimer {
        public:
         template <typename... Args>

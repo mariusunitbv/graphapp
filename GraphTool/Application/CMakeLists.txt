@@ -5,7 +5,10 @@ file(GLOB_RECURSE MODULES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.ixx")
 file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 file(GLOB_RECURSE ASSETS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/*")
 
-find_package(glad CONFIG REQUIRED)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    find_package(glad CONFIG REQUIRED)
+endif()
+
 find_package(SDL3 CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(lodepng CONFIG REQUIRED)
@@ -42,12 +45,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     )
 else()
     target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/src/pch/pch.h>")
+    target_link_libraries(${PROJECT_NAME} PRIVATE glad::glad)
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,--no-undefined -Wl,--gc-sections)
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     GraphModel
-    glad::glad
     SDL3::SDL3
     imgui::imgui
     lodepng

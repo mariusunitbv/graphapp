@@ -27,6 +27,7 @@
     <ClCompile Include="src\graph\view\renderer\graph_renderer_impl.cpp" />
     <ClCompile Include="src\graph\document\handler\graph_document_handler.ixx" />
     <ClCompile Include="src\graph\document\handler\graph_document_handler_impl.cpp" />
+    <ClCompile Include="src\graph\document\listener\graph_document_listener.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

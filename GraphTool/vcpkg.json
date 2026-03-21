@@ -7,6 +7,7 @@
     "freetype",
     {
       "name": "glad",
+	  "platform": "!wasm32",
       "features": [
         "gl-api-33"
       ]

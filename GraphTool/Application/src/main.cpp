@@ -2,9 +2,13 @@
 
 import application;
 
+import graph_common;
+
 int main() {
     try {
         Application::get().initialize();
+
+        common::FileSystem::get().createFolder(Constants::userDataPath);
 
 #ifdef __EMSCRIPTEN__
         emscripten_set_main_loop_arg([](void*) { Application::get().run(); }, nullptr, 0, true);

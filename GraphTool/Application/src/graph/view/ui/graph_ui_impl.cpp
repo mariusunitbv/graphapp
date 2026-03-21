@@ -1,5 +1,6 @@
 module;
 #include <pch.h>
+#include <simdjson.h>
 
 module graph_ui;
 
@@ -32,10 +33,15 @@ void GraphUI::preRenderUpdate(const GraphModel* model, GraphViewModel* viewModel
         lastTheme = m_currentTheme;
     }
 
-    static int lastGraphTheme = m_currentGraphTheme;
+    static GraphTheme_t lastGraphTheme = m_currentGraphTheme;
     if (m_currentGraphTheme != lastGraphTheme) {
         onGraphThemeSwitched();
         lastGraphTheme = m_currentGraphTheme;
+    }
+
+    if (!m_settingsHaveBeenLoaded) {
+        loadSettingsFromJson();
+        m_settingsHaveBeenLoaded = true;
     }
 }
 
@@ -111,6 +117,8 @@ void GraphUI::render(const std::vector<GraphDocument>& openDocuments,
     drawAddNodesText(drawList);
     drawVersion(drawList);
     drawWatermark(ImGui::GetForegroundDrawList());
+
+    saveSettingsToJson(openDocuments, currentOpenedDocument);
 }
 
 bool GraphUI::isFocusOnUI() const {
@@ -129,20 +137,23 @@ int GraphUI::getVsyncMode() const {
 void GraphUI::onLogMessage(common::Logger::Level level, const std::string_view message) {
     std::unique_lock lock(m_logMutex);
 
-    auto lineStart = m_logBuffer.size();
+    auto base = m_logBuffer.size();
+
     m_logBuffer.insert(m_logBuffer.end(), message.begin(), message.end());
     m_logBuffer.push_back('\n');
 
+    size_t lineStart = base;
     for (size_t i = 0; i < message.size(); ++i) {
         if (message[i] == '\n') {
             m_logLines.emplace_back(static_cast<uint32_t>(lineStart), static_cast<uint32_t>(level));
-            lineStart = m_logBuffer.size() - message.size() + i + 1;
+
+            lineStart = base + i + 1;
         }
     }
 }
 
 void GraphUI::initializeTextures() {
-    m_unitbvLogoTexture = TextureLoader::loadPNGFile("assets/unitbv.png");
+    m_unitbvLogoTexture = TextureLoader::loadPNGFile(Constants::unitbvLogoPath);
 }
 
 void GraphUI::setupDockSpace() {
@@ -167,13 +178,20 @@ void GraphUI::setupDockSpace() {
         ImGui::DockBuilderDockWindow("Logs", logsViewID);
 
         ImGui::DockBuilderFinish(dockspaceId);
+    }
 
-        ImGuiDockNode* tabNode = ImGui::DockBuilderGetNode(tabViewID);
-        if (tabNode) {
-            tabNode->LocalFlags |= ImGuiDockNodeFlags_NoUndocking;
-            tabNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
-            tabNode->LocalFlags |= ImGuiDockNodeFlags_NoDocking;
-            tabNode->LocalFlags |= ImGuiDockNodeFlags_NoResizeY;
+    static bool dockNodeFlagsSet = false;
+    if (!dockNodeFlagsSet) {
+        ImGuiWindow* window = ImGui::FindWindowByName("Tab Area");
+        if (window && window->DockNode) {
+            ImGuiDockNode* tabNode = window->DockNode;
+            if (tabNode) {
+                tabNode->LocalFlags |= ImGuiDockNodeFlags_NoUndocking;
+                tabNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+                tabNode->LocalFlags |= ImGuiDockNodeFlags_NoDocking;
+                tabNode->LocalFlags |= ImGuiDockNodeFlags_NoResizeY;
+                dockNodeFlagsSet = true;
+            }
         }
     }
 
@@ -263,12 +281,12 @@ void GraphUI::drawMenuBar() {
             }
 
             if (ImGui::BeginMenu("Graph Theme")) {
-                if (ImGui::MenuItem("Dark", nullptr, m_currentGraphTheme == 0)) {
-                    m_currentGraphTheme = 0;
-                }
-
-                if (ImGui::MenuItem("Light", nullptr, m_currentGraphTheme == 1)) {
-                    m_currentGraphTheme = 1;
+                for (auto i = 0u; i < m_graphThemeNames.size(); ++i) {
+                    const auto theme = static_cast<GraphTheme_t>(i);
+                    const bool selected = (theme == m_currentGraphTheme);
+                    if (ImGui::MenuItem(m_graphThemeNames[i].data(), nullptr, selected)) {
+                        m_currentGraphTheme = theme;
+                    }
                 }
 
                 ImGui::EndMenu();
@@ -302,14 +320,28 @@ void GraphUI::drawOpenedTabs(const std::vector<GraphDocument>& openDocuments,
         if (ImGui::BeginTabBar("docstab", ImGuiTabBarFlags_Reorderable |
                                               ImGuiTabBarFlags_DrawSelectedOverline |
                                               ImGuiTabBarFlags_FittingPolicyScroll)) {
+            static auto lastOpenedDocument = currentOpenedDocument;
+            bool shouldSetCurrentDocument = true;
+
+            if (lastOpenedDocument != currentOpenedDocument) {
+                shouldSetCurrentDocument = false;
+                lastOpenedDocument = currentOpenedDocument;
+            }
+
             for (size_t i = 0; i < openDocuments.size(); ++i) {
                 const auto& doc = openDocuments[i];
+                const auto flags = (i == currentOpenedDocument) ? ImGuiTabItemFlags_SetSelected : 0;
 
                 ImGui::PushID(doc.m_path.c_str());
 
                 bool isOpen = true;
-                if (ImGui::BeginTabItem(doc.getName(), &isOpen)) {
-                    currentOpenedDocument = i;
+                if (ImGui::BeginTabItem(doc.getName(), &isOpen, flags)) {
+                    if (shouldSetCurrentDocument) {
+                        if (currentOpenedDocument != i) {
+                            m_documentHandler->scheduleSetOpenedDocument(i);
+                        }
+                        currentOpenedDocument = i;
+                    }
                     ImGui::EndTabItem();
                 }
 
@@ -403,8 +435,13 @@ void GraphUI::drawStatusBar() {
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoFocusOnAppearing |
                      ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs);
 
-    ImGui::Text("Zoom: %d%% %s", (int)std::lround(m_viewModel->getZoomFactor() * 100.f),
-                isFocusOnUI() ? "(UNFOCUSED)" : "");
+    ImGui::Text("Zoom: %d%%", (int)std::lround(m_viewModel->getZoomFactor() * 100.f));
+
+    if (m_viewModel->isRunningUpdate()) {
+        ImGui::SameLine(0, 32.f);
+        ImGui::ProgressBar(-1.0f * (float)ImGui::GetTime(), ImVec2(300.0f, barHeight - 3.f),
+                           "Building visible data..");
+    }
 
     ImGui::End();
     ImGui::PopStyleVar(2);
@@ -642,8 +679,7 @@ void GraphUI::drawInspector() {
 
             ImGui::TableSetColumnIndex(1);
 
-            const auto lastNodeIndex = m_model->getLastNodeIndex();
-            drawTextCentered("%zu", lastNodeIndex == INVALID_NODE ? 0u : lastNodeIndex + 1);
+            drawTextCentered("%zu", m_model->getNodeCount());
 
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
@@ -652,7 +688,7 @@ void GraphUI::drawInspector() {
 
             ImGui::TableSetColumnIndex(1);
 
-            drawTextCentered("%llu", m_viewModel->getVisibleNodes().size());
+            drawTextCentered("%zu", m_viewModel->getVisibleNodes().size());
 
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
@@ -661,7 +697,16 @@ void GraphUI::drawInspector() {
 
             ImGui::TableSetColumnIndex(1);
 
-            drawTextCentered("%llu", m_viewModel->getVisibleEdges().size());
+            drawTextCentered("%zu", m_viewModel->getVisibleEdges().size());
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+
+            const auto selectedNodesCount = m_viewModel->getSelectedNodesCount();
+            drawTextCentered("Selected nodes");
+
+            ImGui::TableSetColumnIndex(1);
+            drawTextCentered("%zu", selectedNodesCount);
 
             ImGui::EndTable();
         }
@@ -676,8 +721,8 @@ void GraphUI::drawSettings() {
 
     const auto& io = ImGui::GetIO();
 
-    ImGui::SetNextWindowPos(io.DisplaySize * 0.5f, ImGuiCond_Once, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(550, 520), ImGuiCond_Once);
+    ImGui::SetNextWindowPos(io.DisplaySize * 0.5f, ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(550, 520), ImGuiCond_FirstUseEver);
 
     constexpr const char* settingsTabs[] = {"Appearance", "Performance", "Display"};
     static int currentTab = 0;
@@ -728,13 +773,14 @@ void GraphUI::drawSettings() {
 
             ImGui::TableSetColumnIndex(1);
             ImGui::SetNextItemWidth(-FLT_MIN);
-            if (ImGui::BeginCombo("##graphtheme", m_currentGraphTheme == 0 ? "Dark" : "Light")) {
-                if (ImGui::Selectable("Dark", m_currentGraphTheme == 0)) {
-                    m_currentGraphTheme = 0;
-                }
-
-                if (ImGui::Selectable("Light", m_currentGraphTheme == 1)) {
-                    m_currentGraphTheme = 1;
+            if (ImGui::BeginCombo("##graphtheme",
+                                  m_graphThemeNames[(size_t)m_currentGraphTheme].data())) {
+                for (auto i = 0u; i < m_graphThemeNames.size(); ++i) {
+                    const auto theme = static_cast<GraphTheme_t>(i);
+                    const bool selected = (theme == m_currentGraphTheme);
+                    if (ImGui::Selectable(m_graphThemeNames[i].data(), selected)) {
+                        m_currentGraphTheme = theme;
+                    }
                 }
 
                 ImGui::EndCombo();
@@ -742,8 +788,6 @@ void GraphUI::drawSettings() {
 
             ImGui::EndTable();
         }
-
-        ImGui::SeparatorText("Graph Appearance");
 
         const auto drawColorPicker = [this](const char* label, uint32_t& color) {
             ImGui::TableNextRow();
@@ -760,6 +804,9 @@ void GraphUI::drawSettings() {
             }
             ImGui::PopID();
         };
+
+        ImGui::BeginDisabled(m_currentGraphTheme != GraphTheme_t::CUSTOM);
+        ImGui::SeparatorText("Graph Appearance");
 
         auto& theme = m_viewSettings->m_theme;
         if (ImGui::BeginTable("GraphAppearanceSettings", 2, ImGuiTableFlags_SizingFixedFit)) {
@@ -792,6 +839,7 @@ void GraphUI::drawSettings() {
         if (ImGui::Button("Force Full Update", {-FLT_MIN, 0})) {
             m_viewSettings->m_shouldFullColorNodes = true;
         }
+        ImGui::EndDisabled();
     } else if (currentTab == 1) {
         ImGui::SeparatorText("Performance");
 
@@ -960,7 +1008,18 @@ void GraphUI::drawSettings() {
 }
 
 void GraphUI::drawUnfocusedBackground(ImDrawList* drawList) {
-    if (!isFocusOnUI()) {
+    if (!isFocusOnUI() || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) ||
+        ImGui::IsAnyItemHovered() || ImGui::IsAnyItemFocused() || ImGui::IsAnyItemActive()) {
+        return;
+    }
+
+    const auto [cursorPosX, cursorPosY] = ImGui::GetMousePos();
+    BoundingBox2D sceneViewBox;
+    sceneViewBox.m_min = {m_sceneViewPos.x, m_sceneViewPos.y};
+    sceneViewBox.m_max = {m_sceneViewPos.x + m_sceneViewSize.x,
+                          m_sceneViewPos.y + m_sceneViewSize.y};
+
+    if (!sceneViewBox.contains({cursorPosX, cursorPosY})) {
         return;
     }
 
@@ -979,7 +1038,7 @@ void GraphUI::drawUnfocusedBackground(ImDrawList* drawList) {
 }
 
 void GraphUI::drawAddNodesText(ImDrawList* drawList) {
-    if (isFocusOnUI() || m_model->getLastNodeIndex() != INVALID_NODE) {
+    if (isFocusOnUI() || m_model->getNodeCount() != 0) {
         return;
     }
 
@@ -1046,6 +1105,165 @@ void GraphUI::drawTextCentered(const char* fmt, ...) {
     va_end(args);
 
     ImGui::TextWrapped("%s", text);
+}
+
+void GraphUI::loadSettingsFromJson() {
+#ifndef __EMSCRIPTEN__
+    using namespace simdjson;
+
+    try {
+        ondemand::parser parser;
+        const auto json = padded_string::load(Constants::uiSettingsFile);
+        auto doc = parser.iterate(json);
+
+        const auto uiThemeIndex = static_cast<UITheme>(doc["ui_theme_index"].get_int64().value());
+        if (uiThemeIndex >= UITheme::IMGUI_WHITE && uiThemeIndex < UITheme::UITHEME_COUNT) {
+            m_currentTheme = uiThemeIndex;
+        }
+
+        const auto graphThemeIndex = static_cast<int>(doc["graph_theme_index"].get_int64().value());
+        if (graphThemeIndex == 0 || graphThemeIndex == 1 || graphThemeIndex == 2) {
+            m_currentGraphTheme = static_cast<GraphTheme_t>(graphThemeIndex);
+        }
+
+        m_isSettingsOpen = doc["settings_open"].get_bool().value();
+        m_appFullScreen = doc["fullscreen"].get_bool().value();
+        m_fileViewOpen = doc["file_view_open"].get_bool().value();
+        m_inspectorOpen = doc["inspector_open"].get_bool().value();
+        m_logsWindowOpen = doc["logs_open"].get_bool().value();
+        m_vsyncMode = static_cast<int>(doc["vsync_mode"].get_int64().value());
+        m_isFpsLimitEnabled = doc["fps_limit_enabled"].get_bool().value();
+        m_maxFps = static_cast<int>(doc["max_fps"].get_int64().value());
+
+        const auto openedDocumentIndex =
+            static_cast<size_t>(doc["opened_document_index"].get_int64().value());
+
+        bool loadedAtLeastOneDocument = false;
+        for (auto graphPath : doc["graphs_paths"]) {
+            const auto pathStr = std::string(graphPath.get_string().value());
+            m_documentHandler->scheduleOpenDocument(pathStr);
+            loadedAtLeastOneDocument = true;
+        }
+
+        if (loadedAtLeastOneDocument) {
+            m_documentHandler->scheduleCloseDocument(0);
+            m_documentHandler->scheduleSetOpenedDocument(openedDocumentIndex);
+        }
+
+        if (graphThemeIndex == 2) {
+            auto& theme = m_viewSettings->m_theme;
+            theme.m_backgroundColor = (ImU32)doc["background_color"].get_uint64().value();
+            theme.m_gridColor = (ImU32)doc["grid_color"].get_uint64().value();
+            theme.m_minMaxColor = (ImU32)doc["min_max_color"].get_uint64().value();
+            theme.m_nodeColor = (ImU32)doc["node_color"].get_uint64().value();
+            theme.m_nodeOutlineColor = (ImU32)doc["node_outline_color"].get_uint64().value();
+            theme.m_selectedNodeOutlineColor =
+                (ImU32)doc["selected_node_outline_color"].get_uint64().value();
+            theme.m_hoveredNodeOutlineColor =
+                (ImU32)doc["hovered_node_outline_color"].get_uint64().value();
+            theme.m_hoveredAndSelectedNodeOutlineColor =
+                (ImU32)doc["hovered_and_selected_node_outline_color"].get_uint64().value();
+            m_viewSettings->m_shouldFullColorNodes = true;
+        }
+    } catch (const std::exception& e) {
+        common::Logger::get().warning("Failed to load UI settings from JSON: {}", e.what());
+    }
+#endif
+}
+
+void GraphUI::saveSettingsToJson(const std::vector<GraphDocument>& openDocuments,
+                                 size_t& currentOpenedDocument) {
+    const auto now = std::chrono::steady_clock::now();
+    const auto duration =
+        std::chrono::duration_cast<std::chrono::seconds>(now - m_lastSettingsSaveTime);
+
+    if (duration.count() <= 4) {
+        return;
+    }
+
+    m_lastSettingsSaveTime = now;
+    saveSettingsToJsonHelper(openDocuments, currentOpenedDocument);
+}
+
+void GraphUI::saveSettingsToJsonHelper(const std::vector<GraphDocument>& openDocuments,
+                                       size_t& currentOpenedDocument) {
+#ifndef __EMSCRIPTEN__
+    using namespace simdjson;
+
+    builder::string_builder sb;
+    sb.start_object();
+    {
+        sb.append_key_value<"ui_theme_index">(static_cast<int>(m_currentTheme));
+        sb.append_comma();
+        sb.append_key_value<"graph_theme_index">(static_cast<int>(m_currentGraphTheme));
+        sb.append_comma();
+        sb.append_key_value<"settings_open">(m_isSettingsOpen);
+        sb.append_comma();
+        sb.append_key_value<"fullscreen">(m_appFullScreen);
+        sb.append_comma();
+        sb.append_key_value<"file_view_open">(m_fileViewOpen);
+        sb.append_comma();
+        sb.append_key_value<"inspector_open">(m_inspectorOpen);
+        sb.append_comma();
+        sb.append_key_value<"logs_open">(m_logsWindowOpen);
+        sb.append_comma();
+        sb.append_key_value<"vsync_mode">(m_vsyncMode);
+        sb.append_comma();
+        sb.append_key_value<"fps_limit_enabled">(m_isFpsLimitEnabled);
+        sb.append_comma();
+        sb.append_key_value<"max_fps">(m_maxFps);
+        sb.append_comma();
+
+        sb.append_key_value<"opened_document_index">(currentOpenedDocument);
+        sb.append_comma();
+
+        sb.escape_and_append_with_quotes<"graphs_paths">();
+        sb.append_colon();
+        sb.start_array();
+        {
+            for (size_t i = 0; i < openDocuments.size(); ++i) {
+                if (!openDocuments[i].m_path.empty()) {
+                    sb.append(openDocuments[i].m_path);
+                    if (i != openDocuments.size() - 1) {
+                        sb.append_comma();
+                    }
+                }
+            }
+        }
+        sb.end_array();
+
+        if (m_currentGraphTheme == GraphTheme_t::CUSTOM) {
+            sb.append_comma();
+
+            const auto& theme = m_viewSettings->m_theme;
+            sb.append_key_value<"background_color">(theme.m_backgroundColor);
+            sb.append_comma();
+            sb.append_key_value<"grid_color">(theme.m_gridColor);
+            sb.append_comma();
+            sb.append_key_value<"min_max_color">(theme.m_minMaxColor);
+            sb.append_comma();
+
+            sb.append_key_value<"node_color">(theme.m_nodeColor);
+            sb.append_comma();
+            sb.append_key_value<"node_outline_color">(theme.m_nodeOutlineColor);
+            sb.append_comma();
+            sb.append_key_value<"selected_node_outline_color">(theme.m_selectedNodeOutlineColor);
+            sb.append_comma();
+            sb.append_key_value<"hovered_node_outline_color">(theme.m_hoveredNodeOutlineColor);
+            sb.append_comma();
+            sb.append_key_value<"hovered_and_selected_node_outline_color">(
+                theme.m_hoveredAndSelectedNodeOutlineColor);
+        }
+    }
+    sb.end_object();
+
+    std::ofstream settingsFile{Constants::uiSettingsFile};
+    if (settingsFile) {
+        settingsFile << sb.view();
+    } else {
+        common::Logger::get().warning("Couldn't open {} for writing.", Constants::uiSettingsFile);
+    }
+#endif
 }
 
 void GraphUI::onThemeSwitched() {
@@ -1412,13 +1630,16 @@ void GraphUI::themeVGUI() {
 }
 
 void GraphUI::onGraphThemeSwitched() {
-    m_viewSettings->m_theme = GraphTheme{};
     switch (m_currentGraphTheme) {
-        case 0:
+        case GraphTheme_t::DARK:
             // GraphTheme{} by default is dark mode.
+            m_viewSettings->m_theme = GraphTheme{};
             break;
-        case 1:
+        case GraphTheme_t::LIGHT:
+            m_viewSettings->m_theme = GraphTheme{};
             graphThemeLight();
+            break;
+        case GraphTheme_t::CUSTOM:
             break;
     }
 

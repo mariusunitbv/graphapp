@@ -3,7 +3,7 @@
 #include <source_location>
 #include <stdexcept>
 
-#define GAPP_VERSION "pre1.3.4"
+#define GAPP_VERSION "pre1.3.5"
 
 #define GAPP_THROW(message)                                                       \
     throw std::runtime_error(                                                     \
@@ -21,3 +21,15 @@ inline uint32_t xorshift32() noexcept {
 
     return state = x;
 }
+
+class Constants {
+   public:
+    static constexpr char userDataPath[] = "userdata/";
+    static constexpr char uiSettingsFile[] = "userdata/ui_settings.json";
+    static constexpr char imguiIniFile[] = "userdata/imgui.ini";
+
+    static constexpr char assetsFolder[] = "assets/";
+    static constexpr char unitbvLogoPath[] = "assets/unitbv.png";
+    static constexpr char defaultFontPath[] = "assets/CozetteVector.otf";
+    static constexpr char appIconPath[] = "assets/icon.png";
+};

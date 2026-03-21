@@ -71,6 +71,8 @@ void GraphModel::endBulkInsert() {
     m_bulkInsertMode = false;
 }
 
+uint32_t GraphModel::getNodeCount() const { return static_cast<uint32_t>(m_nodes.size()); }
+
 NodeIndex_t GraphModel::getLastNodeIndex() const {
     if (m_nodes.empty()) {
         return INVALID_NODE;

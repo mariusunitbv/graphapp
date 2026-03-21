@@ -5,6 +5,7 @@
 
 vcpkg_installed/
 build/
+userdata/
 
 # User-specific files
 *.rsuser

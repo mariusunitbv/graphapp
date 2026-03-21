@@ -178,7 +178,7 @@ void BinaryLoader::loadGraph() const {
 
 void BinaryLoader::saveGraph() const {
     const auto [min, max] = m_model->getGraphBounds();
-    const auto nodeCount = m_model->getLastNodeIndex() + 1;
+    const auto nodeCount = m_model->getNodeCount();
     if (nodeCount == INVALID_NODE + 1) {
         return;
     }

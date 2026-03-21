@@ -24,6 +24,7 @@ export class GraphModel {
     void beginBulkInsert();
     void endBulkInsert();
 
+    uint32_t getNodeCount() const;
     NodeIndex_t getLastNodeIndex() const;
     NodeIndex_t getNodeIndex(const Node* node) const;
 

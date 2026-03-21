@@ -8,6 +8,8 @@
 #include <execution>
 #include <algorithm>
 #include <iostream>
+#include <fstream>
+#include <future>
 #include <vector>
 #include <ranges>
 #include <span>

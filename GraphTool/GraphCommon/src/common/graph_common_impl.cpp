@@ -99,3 +99,15 @@ namespace common {
         common::Logger::get().information("{} took {} ms.", m_name, duration);
     }
 }  // namespace common
+
+namespace common {
+    FileSystem& FileSystem::get() {
+        static FileSystem fileSystem;
+        return fileSystem;
+    }
+
+    void FileSystem::createFolder(const std::string& path) const {
+        Logger::get().debug("Creating folder: {}", path);
+        std::filesystem::create_directories(path);
+    }
+}  // namespace common

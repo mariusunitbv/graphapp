@@ -6,20 +6,25 @@ export module application;
 import graph_ui;
 import graph_renderer;
 import graph_document_handler;
+import graph_document_listener;
 
-export class Application {
+export class Application : public IGraphDocumentListener {
    public:
     static Application& get();
 
     void initialize();
+
     void run();
+    bool isRunning() const;
+
     void quit();
+
+   protected:
+    void onDocumentChanged(GraphDocument& graphDocument) override;
 
    private:
     void setupWindowIcon();
     void setupFonts(float scale);
-
-    void onSwitchedDocument(GraphDocument& graphDocument);
 
     const char* getGlslVersion() const;
 
@@ -38,4 +43,6 @@ export class Application {
 
     std::vector<GraphDocument> m_openDocuments{};
     size_t m_currentDocumentIndex{0};
+
+    bool m_isRunning{false};
 };

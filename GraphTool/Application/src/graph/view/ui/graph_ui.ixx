@@ -29,6 +29,10 @@ export class GraphUI : public common::LogListener {
     int getMaxFps() const { return m_maxFps; }
     int getVsyncMode() const;
 
+    // This is here because it is being called after the application is closed.
+    void saveSettingsToJsonHelper(const std::vector<GraphDocument>& openDocuments,
+                                  size_t& currentOpenedDocument);
+
    protected:
     void onLogMessage(common::Logger::Level level, const std::string_view message) override;
 
@@ -54,6 +58,10 @@ export class GraphUI : public common::LogListener {
 
     void drawTextCentered(const char* fmt, ...);
 
+    void loadSettingsFromJson();
+    void saveSettingsToJson(const std::vector<GraphDocument>& openDocuments,
+                            size_t& currentOpenedDocument);
+
     enum class UITheme : uint8_t {
         IMGUI_WHITE,
         IMGUI_DARK,
@@ -64,6 +72,8 @@ export class GraphUI : public common::LogListener {
         VGUI,
         UITHEME_COUNT,
     };
+
+    enum class GraphTheme_t : uint8_t { DARK, LIGHT, CUSTOM };
 
     void onThemeSwitched();
     void themeCorporateGrey();
@@ -86,6 +96,9 @@ export class GraphUI : public common::LogListener {
     bool m_fileViewOpen{true};
     bool m_inspectorOpen{true};
     bool m_logsWindowOpen{true};
+    bool m_settingsHaveBeenLoaded{false};
+
+    std::chrono::steady_clock::time_point m_lastSettingsSaveTime{std::chrono::steady_clock::now()};
 
     ImGuiStyle m_defaultStyle;
     UITheme m_currentTheme{UITheme::IMGUI_CLASSIC};
@@ -93,7 +106,8 @@ export class GraphUI : public common::LogListener {
         "Light", "Dark", "Classic", "Grey", "Catppuccin", "Cherry", "VGUI",
     };
 
-    int m_currentGraphTheme{0};
+    GraphTheme_t m_currentGraphTheme{GraphTheme_t::DARK};
+    static constexpr std::array<std::string_view, 3> m_graphThemeNames{"Dark", "Light", "Custom"};
 
 #ifndef __EMSCRIPTEN__
     bool m_isFpsLimitEnabled{true};
@@ -134,7 +148,7 @@ export class GraphUI : public common::LogListener {
     void refreshFilesInFolder(const std::string& folder, std::vector<FileEntry>& fileEntry);
     void drawFileViewHelper(const std::string& folder, std::vector<FileEntry>& fileEntry);
 
-    std::string m_openedRootFolder{"assets/"};
+    std::string m_openedRootFolder{Constants::assetsFolder};
     std::vector<FileEntry> m_filesInRootFolder;
     FileEntry* m_selectedFileEntry{nullptr};
 

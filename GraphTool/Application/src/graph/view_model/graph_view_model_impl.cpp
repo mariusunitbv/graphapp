@@ -16,7 +16,9 @@ GraphViewModel::GraphViewModel(GraphViewModel&& rhs) noexcept
       m_maxVisibleNodes(rhs.m_maxVisibleNodes),
       m_nodesRadius(rhs.m_nodesRadius),
       m_shouldCondensateNodesLowZoom(rhs.m_shouldCondensateNodesLowZoom),
-      m_listeners(std::move(rhs.m_listeners)) {}
+      m_listeners(std::move(rhs.m_listeners)) {
+    m_visibleData = m_cachedVisibleData = {};
+}
 
 GraphViewModel& GraphViewModel::operator=(GraphViewModel&& rhs) noexcept {
     if (this != &rhs) {
@@ -30,6 +32,8 @@ GraphViewModel& GraphViewModel::operator=(GraphViewModel&& rhs) noexcept {
         m_nodesRadius = rhs.m_nodesRadius;
         m_shouldCondensateNodesLowZoom = rhs.m_shouldCondensateNodesLowZoom;
         m_listeners = std::move(rhs.m_listeners);
+
+        m_visibleData = m_cachedVisibleData = {};
     }
 
     return *this;
@@ -208,14 +212,22 @@ void GraphViewModel::preRenderUpdate() {
     const auto smallerLastQueryRegion =
         visibleWidth < lastWidth * alpha || visibleHeight < lastHeight * alpha;
 
-    if (!m_lastQueryRegionArea.contains(m_visibleRegionArea) || m_lastQueryRegionArea.null() ||
-        smallerLastQueryRegion) {
-        common::ScopedTimer timer("Updating visible data");
-
+    if (!m_isUpdateFutureRunning &&
+        (!m_lastQueryRegionArea.contains(m_visibleRegionArea) || m_lastQueryRegionArea.null() ||
+         smallerLastQueryRegion || m_shouldUseCachedVisibleNodes)) {
         invalidateVisibleData();
         updateVisibleRegion();
 
-        const auto extraMargin = m_displaySize * 1.25f;
+        // On emscripten we want to have a bigger margin to avoid too many updates when the user is
+        // panning/zooming, as the performance is worse because of the single-threaded nature of the
+        // platform.
+#ifdef __EMSCRIPTEN__
+        constexpr auto extraMarginFactor = 1.25f;
+#else
+        constexpr auto extraMarginFactor = 0.25f;
+#endif
+
+        const auto extraMargin = m_displaySize * extraMarginFactor;
         m_lastQueryRegionArea = {
             screenToWorld(-extraMargin),
             screenToWorld(m_displaySize + extraMargin),
@@ -223,15 +235,43 @@ void GraphViewModel::preRenderUpdate() {
 
         m_lastQueryRegionArea.clamp(m_model->getGraphBounds());
 
+#ifdef __EMSCRIPTEN__
+        common::ScopedTimer timer("Updating visible data");
+
         updateVisibleNodes(m_visibleData);
         updateVisibleEdges(m_visibleData);
-
-        m_shouldUseCachedVisibleNodes = false;
 
         for (auto* listener : m_listeners) {
             listener->onFullDataUpdate();
         }
+
+        m_shouldUseCachedVisibleNodes = false;
+#else
+        m_isUpdateFutureRunning = true;
+        m_updateFuture = std::async(std::launch::async, [this]() {
+            common::ScopedTimer timer("Updating visible data");
+
+            VisibleData newVisibleData;
+            updateVisibleNodes(newVisibleData);
+            updateVisibleEdges(newVisibleData);
+            return newVisibleData;
+        });
+#endif
     }
+
+#ifndef __EMSCRIPTEN__
+    if (m_isUpdateFutureRunning && m_updateFuture.valid() &&
+        m_updateFuture.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+        m_visibleData = std::move(m_updateFuture.get());
+
+        for (auto* listener : m_listeners) {
+            listener->onFullDataUpdate();
+        }
+
+        m_shouldUseCachedVisibleNodes = false;
+        m_isUpdateFutureRunning = false;
+    }
+#endif
 }
 
 void GraphViewModel::setModel(GraphModel* model) { m_model = model; }
@@ -377,6 +417,10 @@ Vector2D GraphViewModel::screenToWorld(Vector2D screenPos) const {
 }
 
 void GraphViewModel::removeSelectedNodes() {
+    if (isRunningUpdate()) {
+        return;
+    }
+
     common::ScopedTimer timer("GraphViewModel::removeSelectedNodes()");
 
     m_model->removeSelectedNodes();
@@ -405,6 +449,17 @@ void GraphViewModel::centerOnNode(NodeIndex_t nodeIndex) {
     m_hoveredNodeIndex = nodeIndex;
 
     updateVisibleRegion();
+}
+
+bool GraphViewModel::isRunningUpdate() const { return m_isUpdateFutureRunning; }
+
+void GraphViewModel::cancelRunningUpdate() {
+#ifndef __EMSCRIPTEN__
+    if (m_isUpdateFutureRunning && m_updateFuture.valid()) {
+        m_updateFuture.wait();
+        m_isUpdateFutureRunning = false;
+    }
+#endif
 }
 
 void GraphViewModel::onSceneResize(float displayWidth, float displayHeight) {
@@ -474,6 +529,10 @@ void GraphViewModel::onMouseClick(float cursorX, float cursorY, bool ctrlPressed
     }
 
     if (m_model->getNodeAtPosition(screenToWorld({cursorX, cursorY}), m_nodesRadius * 2.f, true)) {
+        return;
+    }
+
+    if (isRunningUpdate()) {
         return;
     }
 
@@ -657,12 +716,11 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
                     destLookupIt = std::lower_bound(beginIt, beginIt + srcLookupIndex, index);
                 }
 
-                if (destLookupIt == visibleData->m_visibleNodes.end() || *destLookupIt != index) {
+                if (destLookupIt == endIt || *destLookupIt != index) {
                     return true;
                 }
 
-                const auto destLookupIndex = static_cast<uint32_t>(
-                    std::distance(visibleData->m_visibleNodes.begin(), destLookupIt));
+                const auto destLookupIndex = static_cast<uint32_t>(destLookupIt - beginIt);
                 visibleData->m_visibleEdges.emplace_back(visitorData->srcLookupIndex,
                                                          destLookupIndex);
 
@@ -671,7 +729,7 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
             m_edgeDrawPercentage / 100.f, true);
     }
 #else
-    const auto threadCount = std::thread::hardware_concurrency();
+    const auto threadCount = std::max(1u, std::thread::hardware_concurrency());
     const auto totalNodes = static_cast<uint32_t>(visibleData.m_visibleNodes.size());
     if (totalNodes == 0) {
         return;
@@ -715,13 +773,11 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
                         destLookupIt = std::lower_bound(beginIt, beginIt + srcLookupIndex, index);
                     }
 
-                    if (destLookupIt == visibleData->m_visibleNodes.end() ||
-                        *destLookupIt != index) {
+                    if (destLookupIt == endIt || *destLookupIt != index) {
                         return true;
                     }
 
-                    const auto destLookupIndex = static_cast<uint32_t>(
-                        std::distance(visibleData->m_visibleNodes.begin(), destLookupIt));
+                    const auto destLookupIndex = static_cast<uint32_t>(destLookupIt - beginIt);
                     visitorData->edges->emplace_back(visitorData->srcLookupIndex, destLookupIndex);
 
                     return true;

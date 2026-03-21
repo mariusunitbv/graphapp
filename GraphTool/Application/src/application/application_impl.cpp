@@ -3,6 +3,8 @@ module;
 
 module application;
 
+import graph_common;
+
 Application& Application::get() {
     static Application instance;
     return instance;
@@ -68,7 +70,8 @@ void Application::initialize() {
     ImGuiIO& io = ImGui::GetIO();
     ImGuiStyle& style = ImGui::GetStyle();
 
-    io.IniFilename = io.LogFilename = nullptr;
+    io.IniFilename = Constants::imguiIniFile;
+    io.LogFilename = nullptr;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
 
     setupFonts(scale);
@@ -82,15 +85,18 @@ void Application::initialize() {
 
     m_graphUI.initialize(&m_graphViewSettings, &m_documentHandler);
     m_graphRenderer.initialize(&m_graphViewSettings);
+
     m_documentHandler.initialize(&m_graphRenderer);
+    m_documentHandler.addListener(this);
+
+    m_isRunning = true;
 }
 
 void Application::run() {
     auto& io = ImGui::GetIO();
 
 #ifndef __EMSCRIPTEN__
-    bool done = false;
-    while (!done) {
+    while (m_isRunning) {
         const auto frameStart = SDL_GetPerformanceCounter();
 
         static bool fullscreenState = false;
@@ -108,17 +114,9 @@ void Application::run() {
 
         if (m_openDocuments.empty()) {
             m_documentHandler.addEmptyDocument(m_openDocuments);
-            m_currentDocumentIndex = 0;
-            onSwitchedDocument(m_openDocuments[0]);
         }
 
-        static size_t lastOpenedDocument = m_currentDocumentIndex;
         auto& openDocument = m_openDocuments[m_currentDocumentIndex];
-        if (lastOpenedDocument != m_currentDocumentIndex) {
-            onSwitchedDocument(openDocument);
-            lastOpenedDocument = m_currentDocumentIndex;
-        }
-
         GraphModel* currentModel = &openDocument.m_model;
         GraphViewModel* currentViewModel = &openDocument.m_viewModel;
 
@@ -133,7 +131,7 @@ void Application::run() {
             if ((event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
                  event.window.windowID == SDL_GetWindowID(m_window)) ||
                 event.type == SDL_EVENT_QUIT) {
-                done = true;
+                m_isRunning = false;
                 break;
             }
 
@@ -199,7 +197,20 @@ void Application::run() {
 #endif
 }
 
+bool Application::isRunning() const { return m_isRunning; }
+
+void Application::onDocumentChanged(GraphDocument& graphDocument) {
+    int width, height;
+    SDL_GetWindowSize(m_window, &width, &height);
+
+    graphDocument.m_viewModel.updateSceneSize(static_cast<float>(width),
+                                              static_cast<float>(height));
+    graphDocument.m_viewModel.refreshVisibleData();
+}
+
 void Application::quit() {
+    m_graphUI.saveSettingsToJsonHelper(m_openDocuments, m_currentDocumentIndex);
+
     if (ImGui::GetCurrentContext()) {
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplSDL3_Shutdown();
@@ -223,7 +234,7 @@ void Application::setupWindowIcon() {
     std::vector<uint8_t> imageData;
     uint32_t width, height;
 
-    const auto error = lodepng::decode(imageData, width, height, "assets/icon.png");
+    const auto error = lodepng::decode(imageData, width, height, Constants::appIconPath);
     if (error) {
         GAPP_THROW(std::string("Failed to load texture: ") + lodepng_error_text(error));
     }
@@ -248,21 +259,12 @@ void Application::setupFonts(float scale) {
     config.PixelSnapH = true;
     config.OversampleH = config.OversampleV = 1;
 
-    io.Fonts->AddFontFromFileTTF("assets/CozetteVector.otf", 26.f, &config,
+    io.Fonts->AddFontFromFileTTF(Constants::defaultFontPath, 26.f, &config,
                                  io.Fonts->GetGlyphRangesDefault());
-    io.Fonts->AddFontFromFileTTF("assets/CozetteVector.otf", 13.f, &config,
+    io.Fonts->AddFontFromFileTTF(Constants::defaultFontPath, 13.f, &config,
                                  io.Fonts->GetGlyphRangesDefault());
 
     io.Fonts->Build();
-}
-
-void Application::onSwitchedDocument(GraphDocument& graphDocument) {
-    int width, height;
-    SDL_GetWindowSize(m_window, &width, &height);
-
-    graphDocument.m_viewModel.updateSceneSize(static_cast<float>(width),
-                                              static_cast<float>(height));
-    graphDocument.m_viewModel.refreshVisibleData();
 }
 
 const char* Application::getGlslVersion() const {

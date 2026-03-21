@@ -334,13 +334,13 @@ void OSMLoader::addNodesToGraph() {
             if (!m_nodeForWaysNeeded) {
                 common::Logger::get().information(
                     "Added {}/{} ways and {} nodes... ({:.2f}%, ETA: {}m {}s)", processedWays,
-                    m_waysMeta.size(), m_model->getLastNodeIndex() + 1, currentPercentage,
-                    remMinutes, remSeconds);
+                    m_waysMeta.size(), m_model->getNodeCount(), currentPercentage, remMinutes,
+                    remSeconds);
             } else {
                 common::Logger::get().information(
                     "Added {}/{} ways and {}/{} nodes... ({:.2f}%, ETA: {}m {}s)", processedWays,
-                    m_waysMeta.size(), m_model->getLastNodeIndex() + 1, m_totalNodeCount,
-                    currentPercentage, remMinutes, remSeconds);
+                    m_waysMeta.size(), m_model->getNodeCount(), m_totalNodeCount, currentPercentage,
+                    remMinutes, remSeconds);
             }
         }
     }
@@ -350,11 +350,11 @@ void OSMLoader::addNodesToGraph() {
     if (!m_nodeForWaysNeeded) {
         common::Logger::get().information(
             "Finished adding nodes. Added {}/{} ways and {} nodes (ACCURACY = {}).",
-            m_waysMeta.size(), m_waysMeta.size(), m_model->getLastNodeIndex() + 1, ACCURACY);
+            m_waysMeta.size(), m_waysMeta.size(), m_model->getNodeCount(), ACCURACY);
     } else {
         common::Logger::get().information(
             "Finished adding nodes. Added {}/{} ways and {}/{} nodes (ACCURACY = {}).",
-            m_waysMeta.size(), m_waysMeta.size(), m_model->getLastNodeIndex() + 1, m_totalNodeCount,
+            m_waysMeta.size(), m_waysMeta.size(), m_model->getNodeCount(), m_totalNodeCount,
             ACCURACY);
     }
 }

@@ -76,6 +76,9 @@ export class GraphViewModel {
 
     void centerOnNode(NodeIndex_t nodeIndex);
 
+    bool isRunningUpdate() const;
+    void cancelRunningUpdate();
+
    private:
     void onSceneResize(float displayWidth, float displayHeight);
     void onCameraPan(float deltaX, float deltaY);
@@ -124,6 +127,13 @@ export class GraphViewModel {
     bool m_shouldBlockMouseLeftClick{false};
     bool m_shouldCondensateNodesLowZoom{true};
     bool m_shouldUseCachedVisibleNodes{false};
+
+#ifdef __EMSCRIPTEN__
+    static constexpr bool m_isUpdateFutureRunning{false};
+#else
+    bool m_isUpdateFutureRunning{false};
+    std::future<VisibleData> m_updateFuture{};
+#endif
 
     std::chrono::steady_clock::time_point m_lastSelectBoxQueryTime{};
     Vector2D m_selectBoxStartWorldPos{};

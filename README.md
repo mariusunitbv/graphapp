@@ -9,19 +9,33 @@ Graph Tool
 
 > ⚠️ This project is currently a Work in Progress. Features may change. [Old version is here.](https://github.com/mariusunitbv/graphapp/tree/v1)
 
-Tool I’ve built to create, edit, and explore graphs interactively while visualizing classic algorithms like DFS or BFS in real time. It’s designed for performance and clarity, using OpenGL for fast, hardware-accelerated rendering and Dear ImGui for a clean, responsive UI.
+An educational tool to explore and learn graph algorithms. Create and edit graphs, and watch algorithms like DFS and BFS run in real time. Built with OpenGL and Dear ImGui for a fast and interactive experience.
 
 # Preview
 You can run the application directly in your browser. [This](https://mariusunitbv.github.io/graphapp/) version provides the same functionality as the native C++ build, but performance may be lower due to the overhead of running WebAssembly and JavaScript in the browser environment.
 
+<p align="center">
+  <img src="https://github.com/mariusunitbv/graphapp/blob/v2/.github/images/preview.gif" alt="Preview" />
+</p>
+
 # Motivation
 I originally built this because I wasn’t fully satisfied with the graph visualizer used in my algorithms course. I wanted something that showed algorithms step by step, exactly the way I imagine them working internally.
-
 So I decided to make my own.
 
-This is actually the third rewrite of the project, each time I focused more on performance and overall structure of the project. The current version is heavily optimized and can handle up to 1 billion nodes (Under 13GB, without edge storage) while keeping rendering smooth thanks to OpenGL.
+This is the third rewrite of the project, each time improving performance and code structure. The current version is heavily optimized, handling up to 1 billion nodes under 23 GB of RAM, with smooth rendering.
 
 It started as a learning tool, but it slowly turned into a performance challenge I genuinely enjoyed working on.
+
+# Features
+> ⚠️ Work in Progress.
+
+| Feature | Description |
+|---------|-------------|
+| Interactive graph editing | Create and modify nodes and edges easily |
+| OSM parsing | Import maps from [OpenStreetMap](https://en.wikipedia.org/wiki/OpenStreetMap) |
+| Save & Load | Graphs stored in compressed LZ4 format |
+| Large graph support | Handles up to 1 billion nodes under 23 GB RAM |
+| Fast rendering | Hardware-accelerated using OpenGL |
 
 # Unit Tests
 Unit tests use [Google Test](https://github.com/google/googletest) and can be run via the [GraphModelTest](https://github.com/mariusunitbv/graphapp/tree/v2/GraphTool/GraphModelTest) project or Visual Studio Test Explorer on Windows.
@@ -78,3 +92,8 @@ All of the listed dependencies will be automatically installed when following th
 - [GoogleTest](https://github.com/google/googletest) - Used for unit testing in Graph Model.
 - [FreeType](https://github.com/freetype/freetype) - High quality font rasterer used by ImGui.
 - [Emscripten](https://emscripten.org/) - Optional, only if web usage is desired.
+- [libosmium](https://github.com/osmcode/libosmium) - Library for parsing and handling OpenStreetMap data.
+- [parallel-hashmap](https://github.com/greg7mdp/parallel-hashmap) - High-performance hash map used for large-scale map parsing, much faster than `unordered_map`.
+- [simdjson](https://github.com/simdjson/simdjson) - Fast JSON parser, used for saving and loading UI settings.
+- [tinyfiledialogs](https://sourceforge.net/projects/tinyfiledialogs/) - Cross-platform dialogs for selecting files and folders.
+- [lz4](https://github.com/lz4/lz4) - High-speed compression library, used to compress saved graphs efficiently.

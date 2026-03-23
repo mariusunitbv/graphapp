@@ -7,10 +7,10 @@
     "freetype",
     {
       "name": "glad",
-	  "platform": "!wasm32",
       "features": [
         "gl-api-33"
-      ]
+      ],
+      "platform": "!wasm32"
     },
     {
       "name": "imgui",
@@ -26,6 +26,7 @@
       "platform": "!wasm32"
     },
     "lodepng",
+    "lz4",
     {
       "name": "parallel-hashmap",
       "platform": "!wasm32"
@@ -33,12 +34,16 @@
     "sdl3",
     {
       "name": "simdjson",
+      "platform": "!wasm32",
       "version>=": "4.2.4"
     },
     {
       "name": "zlib",
       "platform": "!wasm32"
     },
-    "lz4"
+    {
+		"name": "tinyfiledialogs",
+		"platform": "!wasm32"
+	}
   ]
 }

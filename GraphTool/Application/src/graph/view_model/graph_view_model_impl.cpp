@@ -218,16 +218,7 @@ void GraphViewModel::preRenderUpdate() {
         invalidateVisibleData();
         updateVisibleRegion();
 
-        // On emscripten we want to have a bigger margin to avoid too many updates when the user is
-        // panning/zooming, as the performance is worse because of the single-threaded nature of the
-        // platform.
-#ifdef __EMSCRIPTEN__
-        constexpr auto extraMarginFactor = 1.25f;
-#else
-        constexpr auto extraMarginFactor = 0.25f;
-#endif
-
-        const auto extraMargin = m_displaySize * extraMarginFactor;
+        const auto extraMargin = m_displaySize * m_overscanFactor;
         m_lastQueryRegionArea = {
             screenToWorld(-extraMargin),
             screenToWorld(m_displaySize + extraMargin),
@@ -399,6 +390,13 @@ void GraphViewModel::setShouldCondensateNodesLowZoom(bool shouldCondensate) {
     invalidateVisibleData();
 }
 
+float GraphViewModel::getOverscanFactor() const { return m_overscanFactor; }
+
+void GraphViewModel::setOverscanFactor(float factor) {
+    m_overscanFactor = factor;
+    invalidateVisibleData();
+}
+
 Vector2D GraphViewModel::getCameraPosition() const { return m_camera.m_position; }
 
 BoundingBox2D GraphViewModel::getVisibleRegionWorld(Vector2D additionalPadding) const {
@@ -480,12 +478,9 @@ void GraphViewModel::onCameraZoom(float deltaZoom, float cursorX, float cursorY)
     const auto world = screenToWorld({cursorX, cursorY});
     const auto oldZoom = m_camera.m_zoom;
 
-    if (deltaZoom > 0 && m_camera.m_zoom < 0.1f) {
-        m_camera.m_zoom = 0.1f;
-    } else {
-        m_camera.m_zoom += (deltaZoom > 0) ? 0.1f : -0.1f;
-        m_camera.m_zoom = std::clamp(m_camera.m_zoom, 0.05f, 50.f);
-    }
+    const float step = (m_camera.m_zoom + 1e-6f < 0.1f) ? 0.01f : 0.1f;
+    m_camera.m_zoom += (deltaZoom > 0) ? step : -step;
+    m_camera.m_zoom = std::clamp(m_camera.m_zoom, 0.01f, 50.f);
 
     m_camera.m_position.m_x = world.m_x - (cursorX - m_displaySize.m_x * 0.5f) / m_camera.m_zoom;
     m_camera.m_position.m_y = world.m_y - (cursorY - m_displaySize.m_y * 0.5f) / m_camera.m_zoom;

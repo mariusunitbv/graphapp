@@ -6,76 +6,130 @@ module graph_document_handler;
 import graph_common;
 import graph_loader;
 
-void GraphDocumentHandler::initialize(GraphRenderer* graphRenderer) {
-    m_graphRenderer = graphRenderer;
-}
-
 void GraphDocumentHandler::addListener(IGraphDocumentListener* listener) {
     m_listeners.push_back(listener);
 }
 
+void GraphDocumentHandler::scheduleOpenDocument(const char* data, size_t size) {
+    std::unique_lock lock(m_documentsMutex);
+    m_binaryDocumentsToOpen.emplace_back(std::string(data, size));
+}
+
 void GraphDocumentHandler::scheduleOpenDocument(const std::string& path) {
+    std::unique_lock lock(m_documentsMutex);
     m_documentsToOpen.push_back(path);
 }
 
-void GraphDocumentHandler::scheduleSetOpenedDocument(size_t index) { m_documentToOpen = index; }
+void GraphDocumentHandler::scheduleOpenedDocument(size_t index) { m_documentToOpen = index; }
 
 void GraphDocumentHandler::scheduleCloseDocument(size_t index) { m_documentToClose = index; }
 
-void GraphDocumentHandler::addEmptyDocument(std::vector<GraphDocument>& openDocuments) {
-    openDocuments.emplace_back(0.f, 0.f);
-    openDocuments.back().m_viewModel.addListener(m_graphRenderer);
+bool GraphDocumentHandler::canDirectlySaveCurrentDocument() const {
+    std::shared_lock lock(m_documentsMutex);
 
-    setCurrentDocument(openDocuments, m_documentToOpen, openDocuments.size() - 1);
+    const auto& currentDoc = m_openedDocuments[m_currentOpenedDocument];
+    return !currentDoc.m_path.empty();
 }
 
-void GraphDocumentHandler::processTasks(std::vector<GraphDocument>& openDocuments,
-                                        size_t& currentOpenedDocument) {
-    for (size_t i = 0; i < m_documentsToOpen.size(); ++i) {
-        const auto& documentToOpen = m_documentsToOpen[i];
+void GraphDocumentHandler::saveCurrentDocument(const std::string& path) {
+    auto& currentDoc = getCurrentOpenedDocument();
+
+    GraphLoader::saveBinary(currentDoc.m_viewModel.getModel(), path);
+    currentDoc.m_path = path;
+}
+
+void GraphDocumentHandler::addEmptyDocument() {
+    cancelRunningUpdates();
+    m_openedDocuments.emplace_back(0.f, 0.f);
+
+    for (auto* listener : m_listeners) {
+        listener->onDocumentAdded(m_openedDocuments.back());
+    }
+
+    setCurrentDocument(m_openedDocuments.size() - 1);
+}
+
+void GraphDocumentHandler::processTasks() {
+    std::unique_lock lock(m_documentsMutex);
+    for (const auto& documentToOpen : m_documentsToOpen) {
         if (documentToOpen.empty()) {
+            addEmptyDocument();
             continue;
         }
 
-        size_t openedDocumentIndex;
-        if (!isDocumentAlreadyOpen(documentToOpen, openDocuments, openedDocumentIndex)) {
-            for (auto& doc : openDocuments) {
-                doc.m_viewModel.cancelRunningUpdate();
-            }
-
+        const auto openedDocumentIndexOpt = getDocumentOpenedIndex(documentToOpen);
+        if (!openedDocumentIndexOpt) {
             try {
                 GraphDocument newDoc(0, 0);
-                GraphLoader::loadBinary(newDoc.m_viewModel.getModel(), documentToOpen);
+
+                const auto isOSM = isOSMFile(documentToOpen);
+                if (isOSM) {
+                    GraphLoader::loadOSM(newDoc.m_viewModel.getModel(), documentToOpen,
+                                         m_osmLoadSettings);
+                } else {
+                    GraphLoader::loadBinary(newDoc.m_viewModel.getModel(), documentToOpen);
+                }
 
                 newDoc.m_viewModel.centerOnNode(0);
 
-                openDocuments.push_back(std::move(newDoc));
-                openDocuments.back().m_path = documentToOpen;
-                openDocuments.back().m_viewModel.addListener(m_graphRenderer);
+                cancelRunningUpdates();
+                m_openedDocuments.push_back(std::move(newDoc));
 
-                setCurrentDocument(openDocuments, currentOpenedDocument, openDocuments.size() - 1);
+                if (!isOSM) {
+                    m_openedDocuments.back().m_path = documentToOpen;
+                }
+
+                for (auto* listener : m_listeners) {
+                    listener->onDocumentAdded(m_openedDocuments.back());
+                }
+
+                setCurrentDocument(m_openedDocuments.size() - 1);
             } catch (const std::exception& e) {
                 common::Logger::get().error("Error loading document '{}': {}", documentToOpen,
                                             e.what());
             }
         } else {
-            setCurrentDocument(openDocuments, currentOpenedDocument, openedDocumentIndex);
+            setCurrentDocument(openedDocumentIndexOpt.value());
             common::Logger::get().information("Document '{}' is already open, skipping.",
                                               documentToOpen);
         }
     }
 
-    if (m_documentToClose != std::numeric_limits<size_t>::max()) {
-        for (auto& doc : openDocuments) {
-            doc.m_viewModel.cancelRunningUpdate();
-        }
+    for (const auto& binaryData : m_binaryDocumentsToOpen) {
+        try {
+            GraphDocument newDoc(0, 0);
 
-        if (m_documentToClose < openDocuments.size()) {
-            openDocuments.erase(openDocuments.begin() + m_documentToClose);
-            if (!openDocuments.empty() && currentOpenedDocument >= m_documentToClose) {
-                const auto newCurrentDocument =
-                    (currentOpenedDocument > 0) ? currentOpenedDocument - 1 : 0;
-                setCurrentDocument(openDocuments, currentOpenedDocument, newCurrentDocument);
+            common::Logger::get().information("Loading document from memory (size: {} bytes)...",
+                                              binaryData.size());
+
+            GraphLoader::loadBinaryFromMemory(newDoc.m_viewModel.getModel(), binaryData.data(),
+                                              binaryData.size());
+
+            common::Logger::get().information("Document loaded from memory successfully.");
+
+            newDoc.m_viewModel.centerOnNode(0);
+
+            cancelRunningUpdates();
+            m_openedDocuments.push_back(std::move(newDoc));
+
+            for (auto* listener : m_listeners) {
+                listener->onDocumentAdded(m_openedDocuments.back());
+            }
+
+            setCurrentDocument(m_openedDocuments.size() - 1);
+        } catch (const std::exception& e) {
+            common::Logger::get().error("Error loading document from memory: {}", e.what());
+        }
+    }
+
+    if (m_documentToClose != std::numeric_limits<size_t>::max()) {
+        cancelRunningUpdates();
+
+        if (m_documentToClose < m_openedDocuments.size()) {
+            m_openedDocuments.erase(m_openedDocuments.begin() + m_documentToClose);
+
+            if (!m_openedDocuments.empty() && m_currentOpenedDocument >= m_documentToClose) {
+                setCurrentDocument(m_currentOpenedDocument > 0 ? m_currentOpenedDocument - 1 : 0);
             }
         } else {
             common::Logger::get().warning("Invalid document index to close: {}", m_documentToClose);
@@ -83,42 +137,64 @@ void GraphDocumentHandler::processTasks(std::vector<GraphDocument>& openDocument
     }
 
     if (m_documentToOpen != std::numeric_limits<size_t>::max()) {
-        for (auto& doc : openDocuments) {
-            doc.m_viewModel.cancelRunningUpdate();
-        }
+        cancelRunningUpdates();
 
-        if (m_documentToOpen < openDocuments.size()) {
-            setCurrentDocument(openDocuments, currentOpenedDocument, m_documentToOpen);
+        if (m_documentToOpen < m_openedDocuments.size()) {
+            setCurrentDocument(m_documentToOpen);
         } else {
             common::Logger::get().warning("Invalid document index to open: {}", m_documentToOpen);
         }
     }
 
     m_documentsToOpen.clear();
+    m_binaryDocumentsToOpen.clear();
     m_documentToOpen = std::numeric_limits<size_t>::max();
     m_documentToClose = std::numeric_limits<size_t>::max();
 }
 
-bool GraphDocumentHandler::isDocumentAlreadyOpen(const std::string& path,
-                                                 const std::vector<GraphDocument>& openDocuments,
-                                                 size_t& documentIndex) const {
-    for (size_t i = 0; i < openDocuments.size(); ++i) {
-        const auto& doc = openDocuments[i];
+bool GraphDocumentHandler::isAnyDocumentOpen() const { return !m_openedDocuments.empty(); }
+
+GraphDocument& GraphDocumentHandler::getCurrentOpenedDocument() {
+    std::shared_lock lock(m_documentsMutex);
+    return m_openedDocuments[m_currentOpenedDocument];
+}
+
+size_t GraphDocumentHandler::getCurrentOpenedDocumentIndex() const {
+    std::shared_lock lock(m_documentsMutex);
+    return m_currentOpenedDocument;
+}
+
+const std::vector<GraphDocument>& GraphDocumentHandler::getOpenedDocuments() const {
+    std::shared_lock lock(m_documentsMutex);
+    return m_openedDocuments;
+}
+
+OSMLoadSettings& GraphDocumentHandler::getOSMLoadSettings() { return m_osmLoadSettings; }
+
+void GraphDocumentHandler::cancelRunningUpdates() {
+    for (auto& doc : m_openedDocuments) {
+        doc.m_viewModel.cancelRunningUpdate();
+    }
+}
+
+std::optional<size_t> GraphDocumentHandler::getDocumentOpenedIndex(const std::string& path) const {
+    for (size_t i = 0; i < m_openedDocuments.size(); ++i) {
+        const auto& doc = m_openedDocuments[i];
         if (doc.m_path == path) {
-            documentIndex = i;
-            return true;
+            return i;
         }
     }
 
-    documentIndex = std::numeric_limits<size_t>::max();
-    return false;
+    return std::nullopt;
 }
 
-void GraphDocumentHandler::setCurrentDocument(std::vector<GraphDocument>& openDocuments,
-                                              size_t& currentOpenedDocument,
-                                              size_t documentToOpenIndex) {
-    currentOpenedDocument = documentToOpenIndex;
+bool GraphDocumentHandler::isOSMFile(const std::string& path) const {
+    return path.ends_with(".osm") || path.ends_with(".pbf");
+}
+
+void GraphDocumentHandler::setCurrentDocument(size_t documentToOpenIndex) {
+    m_currentOpenedDocument = documentToOpenIndex;
     for (auto* listener : m_listeners) {
-        listener->onDocumentChanged(openDocuments[currentOpenedDocument]);
+        listener->onDocumentChanged(m_openedDocuments[m_currentOpenedDocument]);
     }
 }

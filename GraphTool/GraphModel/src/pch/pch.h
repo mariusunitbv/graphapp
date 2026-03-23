@@ -2,6 +2,7 @@
 
 // C/C++ standard library headers
 #include <unordered_set>
+#include <filesystem>
 #include <algorithm>
 #include <iostream>
 #include <fstream>

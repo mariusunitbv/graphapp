@@ -8,33 +8,51 @@ export import graph_document;
 import graph_renderer;
 import graph_document_listener;
 
+import osm_load_settings;
+
 export class GraphDocumentHandler {
    public:
-    void initialize(GraphRenderer* graphRenderer);
-
     void addListener(IGraphDocumentListener* listener);
 
+    void scheduleOpenDocument(const char* data, size_t size);
     void scheduleOpenDocument(const std::string& path);
-    void scheduleSetOpenedDocument(size_t index);
+    void scheduleOpenedDocument(size_t index);
     void scheduleCloseDocument(size_t index);
 
-    void addEmptyDocument(std::vector<GraphDocument>& openDocuments);
+    bool canDirectlySaveCurrentDocument() const;
+    void saveCurrentDocument(const std::string& path);
 
-    void processTasks(std::vector<GraphDocument>& openDocuments, size_t& currentOpenedDocument);
+    void addEmptyDocument();
+
+    void processTasks();
+
+    bool isAnyDocumentOpen() const;
+
+    GraphDocument& getCurrentOpenedDocument();
+    size_t getCurrentOpenedDocumentIndex() const;
+
+    const std::vector<GraphDocument>& getOpenedDocuments() const;
+    OSMLoadSettings& getOSMLoadSettings();
 
    private:
-    bool isDocumentAlreadyOpen(const std::string& path,
-                               const std::vector<GraphDocument>& openDocuments,
-                               size_t& documentIndex) const;
+    std::optional<size_t> getDocumentOpenedIndex(const std::string& path) const;
 
-    void setCurrentDocument(std::vector<GraphDocument>& openDocuments,
-                            size_t& currentOpenedDocument, size_t documentToOpenIndex);
+    bool isOSMFile(const std::string& path) const;
 
-    GraphRenderer* m_graphRenderer{nullptr};
+    void cancelRunningUpdates();
+    void setCurrentDocument(size_t documentToOpenIndex);
 
     std::vector<IGraphDocumentListener*> m_listeners{};
 
-    std::vector<std::string> m_documentsToOpen;
+    mutable std::shared_mutex m_documentsMutex{};
+
+    std::vector<std::string> m_binaryDocumentsToOpen{};
+    std::vector<std::string> m_documentsToOpen{};
     size_t m_documentToOpen{std::numeric_limits<size_t>::max()};
     size_t m_documentToClose{std::numeric_limits<size_t>::max()};
+
+    std::vector<GraphDocument> m_openedDocuments{};
+    size_t m_currentOpenedDocument{0};
+
+    OSMLoadSettings m_osmLoadSettings{};
 };

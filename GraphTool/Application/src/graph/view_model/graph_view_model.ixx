@@ -63,6 +63,9 @@ export class GraphViewModel {
     bool shouldCondensateNodesLowZoom() const;
     void setShouldCondensateNodesLowZoom(bool shouldCondensate);
 
+    float getOverscanFactor() const;
+    void setOverscanFactor(float factor);
+
     Vector2D getCameraPosition() const;
     BoundingBox2D getVisibleRegionWorld(Vector2D additionalPadding = {}) const;
 
@@ -121,6 +124,7 @@ export class GraphViewModel {
     int m_edgeDrawPercentage{100};
     int m_maxVisibleNodes{7'500'000};
     float m_nodesRadius{28.f};
+    float m_overscanFactor{0.75f};
 
     NodeIndex_t m_hoveredNodeIndex{INVALID_NODE};
     bool m_isSelectingUsingBox{false};

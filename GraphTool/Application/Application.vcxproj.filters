@@ -28,6 +28,13 @@
     <ClCompile Include="src\graph\document\handler\graph_document_handler.ixx" />
     <ClCompile Include="src\graph\document\handler\graph_document_handler_impl.cpp" />
     <ClCompile Include="src\graph\document\listener\graph_document_listener.ixx" />
+    <ClCompile Include="src\graph\view\ui\log_view\log_view.ixx" />
+    <ClCompile Include="src\graph\view\ui\log_view\log_view_impl.cpp" />
+    <ClCompile Include="src\graph\view\ui\file_view\file_view.ixx" />
+    <ClCompile Include="src\graph\view\ui\file_view\file_view_impl.cpp" />
+    <ClCompile Include="src\graph\settings_manager\settings_manager.ixx" />
+    <ClCompile Include="src\graph\settings_manager\settings_manager_impl.cpp" />
+    <ClCompile Include="..\GraphModel\src\loader\osm\osm_load_settings.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

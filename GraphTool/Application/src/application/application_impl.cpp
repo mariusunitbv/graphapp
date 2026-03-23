@@ -86,8 +86,10 @@ void Application::initialize() {
     m_graphUI.initialize(&m_graphViewSettings, &m_documentHandler);
     m_graphRenderer.initialize(&m_graphViewSettings);
 
-    m_documentHandler.initialize(&m_graphRenderer);
     m_documentHandler.addListener(this);
+
+    m_settingsManager.initialize(&m_graphUI, &m_documentHandler);
+    m_settingsManager.loadSettings();
 
     m_isRunning = true;
 }
@@ -98,11 +100,17 @@ void Application::run() {
 #ifndef __EMSCRIPTEN__
     while (m_isRunning) {
         const auto frameStart = SDL_GetPerformanceCounter();
+        const auto now = std::chrono::steady_clock::now();
 
         static bool fullscreenState = false;
         if (fullscreenState != m_graphUI.isFullScreen()) {
             fullscreenState = !fullscreenState;
             SDL_SetWindowFullscreen(m_window, fullscreenState);
+        }
+
+        if (now - m_lastSettingsSaveTime > std::chrono::seconds(4)) {
+            m_lastSettingsSaveTime = now;
+            m_settingsManager.saveSettings();
         }
 #endif
 
@@ -112,11 +120,11 @@ void Application::run() {
             SDL_GL_SetSwapInterval(m_graphUI.getVsyncMode());
         }
 
-        if (m_openDocuments.empty()) {
-            m_documentHandler.addEmptyDocument(m_openDocuments);
+        if (!m_documentHandler.isAnyDocumentOpen()) {
+            m_documentHandler.addEmptyDocument();
         }
 
-        auto& openDocument = m_openDocuments[m_currentDocumentIndex];
+        auto& openDocument = m_documentHandler.getCurrentOpenedDocument();
         GraphModel* currentModel = &openDocument.m_model;
         GraphViewModel* currentViewModel = &openDocument.m_viewModel;
 
@@ -145,16 +153,7 @@ void Application::run() {
                     case SDLK_F11:
                         m_graphUI.toggleFullScreen();
                         break;
-                    case SDLK_W:
-                        if (SDL_GetModState() & SDL_KMOD_CTRL) {
-                            m_documentHandler.scheduleCloseDocument(m_currentDocumentIndex);
-                        }
-                        break;
                 }
-            }
-
-            if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
-                m_graphUI.refreshRootFolder();
             }
 #endif
 
@@ -169,7 +168,7 @@ void Application::run() {
         ImGui::NewFrame();
 
         m_graphRenderer.render();
-        m_graphUI.render(m_openDocuments, m_currentDocumentIndex);
+        m_graphUI.render();
 
         ImGui::Render();
 
@@ -187,7 +186,7 @@ void Application::run() {
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(m_window);
 
-        m_documentHandler.processTasks(m_openDocuments, m_currentDocumentIndex);
+        m_documentHandler.processTasks();
 
 #ifndef __EMSCRIPTEN__
         limitFps(frameStart);
@@ -199,6 +198,10 @@ void Application::run() {
 
 bool Application::isRunning() const { return m_isRunning; }
 
+void Application::onDocumentAdded(GraphDocument& graphDocument) {
+    graphDocument.m_viewModel.addListener(&m_graphRenderer);
+}
+
 void Application::onDocumentChanged(GraphDocument& graphDocument) {
     int width, height;
     SDL_GetWindowSize(m_window, &width, &height);
@@ -209,7 +212,7 @@ void Application::onDocumentChanged(GraphDocument& graphDocument) {
 }
 
 void Application::quit() {
-    m_graphUI.saveSettingsToJsonHelper(m_openDocuments, m_currentDocumentIndex);
+    m_settingsManager.saveSettings();
 
     if (ImGui::GetCurrentContext()) {
         ImGui_ImplOpenGL3_Shutdown();

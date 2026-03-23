@@ -3,11 +3,13 @@ module;
 
 export module osm_loader;
 
+export import osm_load_settings;
+
 import graph_model;
 
 export class OSMLoader {
    public:
-    OSMLoader(GraphModel* model, const std::string_view osmFile);
+    OSMLoader(GraphModel* model, const std::string_view osmFile, const OSMLoadSettings& settings);
 
     void loadGraph();
 
@@ -18,6 +20,10 @@ export class OSMLoader {
     void getNeededNodes();
     void parseAndComputeBounds();
     void addNodesToGraph();
+
+    bool shouldAcceptWay(const osmium::Way& way) const;
+    bool shouldAcceptHighway(const std::string_view highwayKey) const;
+    bool shouldAcceptRailway(const std::string_view railwayKey) const;
 
     GraphModel* m_model{nullptr};
     std::string m_osmPath;
@@ -54,6 +60,8 @@ export class OSMLoader {
     uint32_t m_totalWayCount{0}, m_totalNodeCount{0};
 
     const osmium::geom::MercatorProjection m_projection{};
+
+    OSMLoadSettings m_loadSettings;
 
     bool m_nodeForWaysNeeded : 1 {true};
 #endif

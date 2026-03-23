@@ -19,6 +19,7 @@
     <ClCompile Include="..\GraphCommon\src\common\graph_common.ixx" />
     <ClCompile Include="src\loader\binary\binary_loader.ixx" />
     <ClCompile Include="src\loader\binary\binary_loader_impl.cpp" />
+    <ClCompile Include="src\loader\osm\osm_load_settings.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

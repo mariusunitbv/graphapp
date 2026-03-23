@@ -1,10 +1,45 @@
 module;
 #include <pch.h>
-#include <simdjson.h>
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
 
 module graph_ui;
 
 import texture_loader;
+
+#ifdef __EMSCRIPTEN__
+EM_JS(void, openFileDialog, (GraphDocumentHandler * docHandler), {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.bin';
+    input.onchange = function(event) {
+        var file = event.target.files[0];
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var arrayBuffer = e.target.result;
+            var data = new Uint8Array(arrayBuffer);
+
+            var ptr = Module._malloc(data.length);
+            Module.HEAPU8.set(data, ptr);
+
+            Module.ccall('processFileBuffer', 'void', [ 'number', 'number', 'number' ],
+                         [ docHandler, ptr, data.length ]);
+
+            Module._free(ptr);
+        };
+        reader.readAsArrayBuffer(file);
+    };
+    input.click();
+});
+
+extern "C" {
+void processFileBuffer(GraphDocumentHandler* docHandler, const char* data, int size) {
+    docHandler->scheduleOpenDocument(data, size);
+}
+}
+#endif
 
 GraphUI::~GraphUI() {
     if (m_unitbvLogoTexture) {
@@ -17,35 +52,57 @@ void GraphUI::initialize(GraphViewSettings* viewSettings, GraphDocumentHandler* 
     m_documentHandler = docHandler;
     m_defaultStyle = ImGui::GetStyle();
 
-    common::Logger::get().addListener(this);
+    common::Logger::get().addListener(&m_logView);
 
     initializeTextures();
-    refreshRootFolder();
+
+    m_fileView.initialize(docHandler);
 }
 
 void GraphUI::preRenderUpdate(const GraphModel* model, GraphViewModel* viewModel) {
     m_model = model;
     m_viewModel = viewModel;
 
-    static UITheme lastTheme = m_currentTheme;
+    static UITheme lastTheme = UITheme::UITHEME_COUNT;
     if (m_currentTheme != lastTheme) {
         onThemeSwitched();
         lastTheme = m_currentTheme;
     }
 
-    static GraphTheme_t lastGraphTheme = m_currentGraphTheme;
+    static GraphTheme_t lastGraphTheme = static_cast<GraphTheme_t>((int)GraphTheme_t::CUSTOM + 1);
     if (m_currentGraphTheme != lastGraphTheme) {
         onGraphThemeSwitched();
         lastGraphTheme = m_currentGraphTheme;
     }
-
-    if (!m_settingsHaveBeenLoaded) {
-        loadSettingsFromJson();
-        m_settingsHaveBeenLoaded = true;
-    }
 }
 
 void GraphUI::onSDLEvent(const SDL_Event& event) {
+    const auto ctrlPressed = (event.key.mod & SDL_KMOD_CTRL) != 0;
+    const auto shiftPressed = (event.key.mod & SDL_KMOD_SHIFT) != 0;
+
+    switch (event.type) {
+        case SDL_EVENT_KEY_DOWN:
+            if (event.key.key == SDLK_S) {
+                if (ctrlPressed && shiftPressed) {
+                    saveDocumentAs();
+                } else if (ctrlPressed) {
+                    saveDocument();
+                }
+            } else if (event.key.key == SDLK_O && ctrlPressed) {
+                openDocument();
+            } else if (event.key.key == SDLK_N && ctrlPressed) {
+                newDocument();
+            } else if (event.key.key == SDLK_W && ctrlPressed) {
+                m_documentHandler->scheduleCloseDocument(
+                    m_documentHandler->getCurrentOpenedDocumentIndex());
+            }
+
+            break;
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            m_fileView.refreshRootFolder();
+            break;
+    }
+
     if (isFocusOnUI()) {
         return;
     }
@@ -66,7 +123,9 @@ void GraphUI::onSDLEvent(const SDL_Event& event) {
                     m_viewSettings->m_drawGrid = !m_viewSettings->m_drawGrid;
                     break;
                 case SDLK_N:
-                    m_viewSettings->m_drawNodes = !m_viewSettings->m_drawNodes;
+                    if (!ctrlPressed) {
+                        m_viewSettings->m_drawNodes = !m_viewSettings->m_drawNodes;
+                    }
                     break;
                 case SDLK_E:
                     m_viewSettings->m_drawEdges = !m_viewSettings->m_drawEdges;
@@ -80,13 +139,7 @@ void GraphUI::onSDLEvent(const SDL_Event& event) {
     }
 }
 
-void GraphUI::refreshRootFolder() {
-    m_filesInRootFolder.clear();
-    refreshFilesInFolder(m_openedRootFolder, m_filesInRootFolder);
-}
-
-void GraphUI::render(const std::vector<GraphDocument>& openDocuments,
-                     size_t& currentOpenedDocument) {
+void GraphUI::render() {
     ImDrawList* drawList = ImGui::GetBackgroundDrawList();
 
     if (!isFocusOnUI() && m_viewModel->getHoveredNodeIndex() != INVALID_NODE) {
@@ -99,10 +152,10 @@ void GraphUI::render(const std::vector<GraphDocument>& openDocuments,
 
     setupDockSpace();
 
-    drawFileView();
+    m_fileView.render();
     drawInspector();
-    drawOpenedTabs(openDocuments, currentOpenedDocument);
-    drawLogsWindow();
+    drawOpenedTabs();
+    m_logView.render();
     drawStatusBar();
     drawSettings();
 
@@ -117,39 +170,10 @@ void GraphUI::render(const std::vector<GraphDocument>& openDocuments,
     drawAddNodesText(drawList);
     drawVersion(drawList);
     drawWatermark(ImGui::GetForegroundDrawList());
-
-    saveSettingsToJson(openDocuments, currentOpenedDocument);
 }
 
 bool GraphUI::isFocusOnUI() const {
     return ImGui::GetIO().WantCaptureMouse || ImGui::GetIO().WantCaptureKeyboard;
-}
-
-int GraphUI::getVsyncMode() const {
-    // https://wiki.libsdl.org/SDL3/SDL_GL_SetSwapInterval
-    if (m_vsyncMode == 2) {
-        return -1;
-    }
-
-    return m_vsyncMode;
-}
-
-void GraphUI::onLogMessage(common::Logger::Level level, const std::string_view message) {
-    std::unique_lock lock(m_logMutex);
-
-    auto base = m_logBuffer.size();
-
-    m_logBuffer.insert(m_logBuffer.end(), message.begin(), message.end());
-    m_logBuffer.push_back('\n');
-
-    size_t lineStart = base;
-    for (size_t i = 0; i < message.size(); ++i) {
-        if (message[i] == '\n') {
-            m_logLines.emplace_back(static_cast<uint32_t>(lineStart), static_cast<uint32_t>(level));
-
-            lineStart = base + i + 1;
-        }
-    }
 }
 
 void GraphUI::initializeTextures() {
@@ -224,6 +248,37 @@ void GraphUI::drawMenuBar() {
     ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, 12);
     if (ImGui::BeginMainMenuBar()) {
         ImGui::PopStyleVar();
+
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("New", "Ctrl+N")) {
+                newDocument();
+            }
+
+            if (ImGui::MenuItem("Open", "Ctrl+O")) {
+                openDocument();
+            }
+
+            if (ImGui::MenuItem("Save", "Ctrl+S")) {
+                saveDocument();
+            }
+
+#ifndef __EMSCRIPTEN__
+            if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {
+                saveDocumentAs();
+            }
+
+            ImGui::Separator();
+
+            if (ImGui::MenuItem("Exit")) {
+                SDL_Event quitEvent{};
+                quitEvent.type = SDL_EVENT_QUIT;
+                SDL_PushEvent(&quitEvent);
+            }
+#endif
+
+            ImGui::EndMenu();
+        }
+
         if (ImGui::BeginMenu("View")) {
             if (ImGui::MenuItem("Center on Node", "C")) {
                 m_isCenterOnNodeDialogOpen = true;
@@ -244,9 +299,9 @@ void GraphUI::drawMenuBar() {
             }
 
             if (ImGui::BeginMenu("UI Elements")) {
-                ImGui::MenuItem("Show File View", nullptr, &m_fileViewOpen);
+                ImGui::MenuItem("Show File View", nullptr, &m_fileView.isOpen());
                 ImGui::MenuItem("Show Inspector", nullptr, &m_inspectorOpen);
-                ImGui::MenuItem("Show Logs", nullptr, &m_logsWindowOpen);
+                ImGui::MenuItem("Show Logs", nullptr, &m_logView.isOpen());
                 ImGui::EndMenu();
             }
 
@@ -312,14 +367,15 @@ void GraphUI::drawMenuBar() {
     }
 }
 
-void GraphUI::drawOpenedTabs(const std::vector<GraphDocument>& openDocuments,
-                             size_t& currentOpenedDocument) {
+void GraphUI::drawOpenedTabs() {
     constexpr auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoScrollWithMouse;
 
     if (ImGui::Begin("Tab Area", nullptr, flags)) {
         if (ImGui::BeginTabBar("docstab", ImGuiTabBarFlags_Reorderable |
                                               ImGuiTabBarFlags_DrawSelectedOverline |
                                               ImGuiTabBarFlags_FittingPolicyScroll)) {
+            const auto currentOpenedDocument = m_documentHandler->getCurrentOpenedDocumentIndex();
+
             static auto lastOpenedDocument = currentOpenedDocument;
             bool shouldSetCurrentDocument = true;
 
@@ -328,19 +384,19 @@ void GraphUI::drawOpenedTabs(const std::vector<GraphDocument>& openDocuments,
                 lastOpenedDocument = currentOpenedDocument;
             }
 
+            const auto& openDocuments = m_documentHandler->getOpenedDocuments();
             for (size_t i = 0; i < openDocuments.size(); ++i) {
                 const auto& doc = openDocuments[i];
                 const auto flags = (i == currentOpenedDocument) ? ImGuiTabItemFlags_SetSelected : 0;
 
-                ImGui::PushID(doc.m_path.c_str());
+                ImGui::PushID(&doc);
 
                 bool isOpen = true;
                 if (ImGui::BeginTabItem(doc.getName(), &isOpen, flags)) {
                     if (shouldSetCurrentDocument) {
                         if (currentOpenedDocument != i) {
-                            m_documentHandler->scheduleSetOpenedDocument(i);
+                            m_documentHandler->scheduleOpenedDocument(i);
                         }
-                        currentOpenedDocument = i;
                     }
                     ImGui::EndTabItem();
                 }
@@ -355,69 +411,6 @@ void GraphUI::drawOpenedTabs(const std::vector<GraphDocument>& openDocuments,
         }
     }
 
-    ImGui::End();
-}
-
-void GraphUI::drawLogsWindow() {
-    if (!m_logsWindowOpen) {
-        return;
-    }
-
-    const auto& style = ImGui::GetStyle();
-    const ImVec4 logLUT[] = {style.Colors[ImGuiCol_TextDisabled],  // DEBUG_LEVEL
-                             style.Colors[ImGuiCol_Text],          // INFORMATION_LEVEL
-                             ImVec4(0.85f, 0.85f, 0.4f, 1.f),      // WARNING_LEVEL
-                             ImVec4(1.f, 0.5f, 0.5f, 1.f),         // ERROR_LEVEL
-                             ImVec4(1.f, 1.f, 1.f, 1.f)};
-
-    if (ImGui::Begin("Logs", &m_logsWindowOpen)) {
-        m_logFilter.Draw();
-
-        if (ImGui::BeginChild("LogsChild", ImVec2(0, 0), false,
-                              ImGuiWindowFlags_HorizontalScrollbar)) {
-            const auto buf = m_logBuffer.data();
-            const auto bufEnd = buf + m_logBuffer.size();
-            if (m_logFilter.IsActive()) {
-                for (size_t lineIndex = 0; lineIndex < m_logLines.size(); ++lineIndex) {
-                    const auto lineStart = m_logLines[lineIndex].m_lineOffset;
-                    const auto level = m_logLines[lineIndex].m_lineLevel;
-                    const auto lineEnd = (lineIndex + 1 < m_logLines.size())
-                                             ? m_logLines[lineIndex + 1].m_lineOffset
-                                             : static_cast<int>(m_logBuffer.size());
-
-                    if (m_logFilter.PassFilter(buf + lineStart, buf + lineEnd - 1)) {
-                        ImGui::PushStyleColor(ImGuiCol_Text, logLUT[level]);
-                        ImGui::TextUnformatted(buf + lineStart, buf + lineEnd - 1);
-                        ImGui::PopStyleColor();
-                    }
-                }
-            } else {
-                ImGuiListClipper clipper;
-                clipper.Begin(static_cast<int>(m_logLines.size()));
-
-                while (clipper.Step()) {
-                    for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
-                        const auto lineStart = m_logLines[i].m_lineOffset;
-                        const auto level = m_logLines[i].m_lineLevel;
-
-                        const auto lineEnd = (i + 1 < static_cast<int>(m_logLines.size()))
-                                                 ? m_logLines[i + 1].m_lineOffset
-                                                 : static_cast<int>(m_logBuffer.size());
-
-                        ImGui::PushStyleColor(ImGuiCol_Text, logLUT[level]);
-                        ImGui::TextUnformatted(m_logBuffer.data() + lineStart,
-                                               m_logBuffer.data() + lineEnd - 1);
-                        ImGui::PopStyleColor();
-                    }
-                }
-
-                if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
-                    ImGui::SetScrollHereY(1.0f);
-                }
-            }
-        }
-        ImGui::EndChild();
-    }
     ImGui::End();
 }
 
@@ -489,6 +482,11 @@ void GraphUI::drawCenterOnNodeDialog() {
         return;
     }
 
+    if (m_model->getNodeCount() == 0) {
+        m_isCenterOnNodeDialogOpen = false;
+        return;
+    }
+
     ImGui::OpenPopup("Enter Node");
 
     static int nodeId = 0;
@@ -524,20 +522,6 @@ void GraphUI::drawCenterOnNodeDialog() {
     }
 }
 
-void GraphUI::drawFileView() {
-    if (!m_fileViewOpen) {
-        return;
-    }
-
-    if (ImGui::Begin("File View", &m_fileViewOpen)) {
-        ImGui::TextWrapped("Root Folder: %s", m_openedRootFolder.c_str());
-        ImGui::BeginChild("FilesContainer", ImVec2(0, 0), true);
-        drawFileViewHelper(m_openedRootFolder, m_filesInRootFolder);
-        ImGui::EndChild();
-    }
-    ImGui::End();
-}
-
 void GraphUI::drawInspector() {
     if (!m_inspectorOpen) {
         return;
@@ -558,8 +542,8 @@ void GraphUI::drawInspector() {
             ImGui::TableSetColumnIndex(1);
             ImGui::SetNextItemWidth(-FLT_MIN);
             auto graphZoom = m_viewModel->getZoomFactor();
-            if (ImGui::SliderFloat("##graphZoom", &graphZoom, 0.05f, 50.f, "%.2fx")) {
-                graphZoom = std::clamp(graphZoom, 0.05f, 50.f);
+            if (ImGui::SliderFloat("##graphZoom", &graphZoom, 0.01f, 50.f, "%.2fx")) {
+                graphZoom = std::clamp(graphZoom, 0.01f, 50.f);
                 m_viewModel->setZoomFactor(graphZoom);
             }
 
@@ -592,6 +576,28 @@ void GraphUI::drawInspector() {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
 
+            drawTextCentered("Overscan factor");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(
+                    "Determines how much extra area around the viewport should be rendered.\nA "
+                    "higher "
+                    "value means that more nodes outside of the viewport will be rendered, which "
+                    "can\n"
+                    "improve the appearance when moving the viewport around, but may decrease "
+                    "performance.");
+            }
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            auto overscanFactor = m_viewModel->getOverscanFactor();
+            if (ImGui::SliderFloat("##osf", &overscanFactor, 0.f, 2.f, "%.2fx")) {
+                overscanFactor = std::clamp(overscanFactor, 0.f, 2.f);
+                m_viewModel->setOverscanFactor(overscanFactor);
+            }
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+
             drawTextCentered("Skip nodes on low zoom");
 
             ImGui::TableSetColumnIndex(1);
@@ -616,8 +622,8 @@ void GraphUI::drawInspector() {
             ImGui::TableSetColumnIndex(1);
             ImGui::SetNextItemWidth(-FLT_MIN);
             auto nodeCondensationFactor = m_viewModel->getNodeCondensationPercentage();
-            if (ImGui::SliderFloat("##ndcf", &nodeCondensationFactor, 0.05f, 0.7f, "%.2fx")) {
-                nodeCondensationFactor = std::clamp(nodeCondensationFactor, 0.05f, 0.7f);
+            if (ImGui::SliderFloat("##ndcf", &nodeCondensationFactor, 0.01f, 0.7f, "%.2fx")) {
+                nodeCondensationFactor = std::clamp(nodeCondensationFactor, 0.01f, 0.7f);
                 m_viewModel->setNodeCondensationPercentage(nodeCondensationFactor);
             }
 
@@ -885,10 +891,17 @@ void GraphUI::drawSettings() {
 
             constexpr const char* vsyncOptions[] = {"Off", "On", "Adaptive"};
             ImGui::SetNextItemWidth(-FLT_MIN);
-            if (ImGui::BeginCombo("##vsync", vsyncOptions[m_vsyncMode])) {
+
+            const auto labelIndex = (m_vsyncMode == -1) ? 2 : m_vsyncMode;
+            if (ImGui::BeginCombo("##vsync", vsyncOptions[labelIndex])) {
                 for (int i = 0; i < std::size(vsyncOptions); ++i) {
-                    if (ImGui::Selectable(vsyncOptions[i], m_vsyncMode == i)) {
-                        m_vsyncMode = i;
+                    if (ImGui::Selectable(vsyncOptions[i], labelIndex == i)) {
+                        if (i == 2) {
+                            // https://wiki.libsdl.org/SDL3/SDL_GL_SetSwapInterval
+                            m_vsyncMode = -1;
+                        } else {
+                            m_vsyncMode = i;
+                        }
                     }
                 }
                 ImGui::EndCombo();
@@ -1105,165 +1118,6 @@ void GraphUI::drawTextCentered(const char* fmt, ...) {
     va_end(args);
 
     ImGui::TextWrapped("%s", text);
-}
-
-void GraphUI::loadSettingsFromJson() {
-#ifndef __EMSCRIPTEN__
-    using namespace simdjson;
-
-    try {
-        ondemand::parser parser;
-        const auto json = padded_string::load(Constants::uiSettingsFile);
-        auto doc = parser.iterate(json);
-
-        const auto uiThemeIndex = static_cast<UITheme>(doc["ui_theme_index"].get_int64().value());
-        if (uiThemeIndex >= UITheme::IMGUI_WHITE && uiThemeIndex < UITheme::UITHEME_COUNT) {
-            m_currentTheme = uiThemeIndex;
-        }
-
-        const auto graphThemeIndex = static_cast<int>(doc["graph_theme_index"].get_int64().value());
-        if (graphThemeIndex == 0 || graphThemeIndex == 1 || graphThemeIndex == 2) {
-            m_currentGraphTheme = static_cast<GraphTheme_t>(graphThemeIndex);
-        }
-
-        m_isSettingsOpen = doc["settings_open"].get_bool().value();
-        m_appFullScreen = doc["fullscreen"].get_bool().value();
-        m_fileViewOpen = doc["file_view_open"].get_bool().value();
-        m_inspectorOpen = doc["inspector_open"].get_bool().value();
-        m_logsWindowOpen = doc["logs_open"].get_bool().value();
-        m_vsyncMode = static_cast<int>(doc["vsync_mode"].get_int64().value());
-        m_isFpsLimitEnabled = doc["fps_limit_enabled"].get_bool().value();
-        m_maxFps = static_cast<int>(doc["max_fps"].get_int64().value());
-
-        const auto openedDocumentIndex =
-            static_cast<size_t>(doc["opened_document_index"].get_int64().value());
-
-        bool loadedAtLeastOneDocument = false;
-        for (auto graphPath : doc["graphs_paths"]) {
-            const auto pathStr = std::string(graphPath.get_string().value());
-            m_documentHandler->scheduleOpenDocument(pathStr);
-            loadedAtLeastOneDocument = true;
-        }
-
-        if (loadedAtLeastOneDocument) {
-            m_documentHandler->scheduleCloseDocument(0);
-            m_documentHandler->scheduleSetOpenedDocument(openedDocumentIndex);
-        }
-
-        if (graphThemeIndex == 2) {
-            auto& theme = m_viewSettings->m_theme;
-            theme.m_backgroundColor = (ImU32)doc["background_color"].get_uint64().value();
-            theme.m_gridColor = (ImU32)doc["grid_color"].get_uint64().value();
-            theme.m_minMaxColor = (ImU32)doc["min_max_color"].get_uint64().value();
-            theme.m_nodeColor = (ImU32)doc["node_color"].get_uint64().value();
-            theme.m_nodeOutlineColor = (ImU32)doc["node_outline_color"].get_uint64().value();
-            theme.m_selectedNodeOutlineColor =
-                (ImU32)doc["selected_node_outline_color"].get_uint64().value();
-            theme.m_hoveredNodeOutlineColor =
-                (ImU32)doc["hovered_node_outline_color"].get_uint64().value();
-            theme.m_hoveredAndSelectedNodeOutlineColor =
-                (ImU32)doc["hovered_and_selected_node_outline_color"].get_uint64().value();
-            m_viewSettings->m_shouldFullColorNodes = true;
-        }
-    } catch (const std::exception& e) {
-        common::Logger::get().warning("Failed to load UI settings from JSON: {}", e.what());
-    }
-#endif
-}
-
-void GraphUI::saveSettingsToJson(const std::vector<GraphDocument>& openDocuments,
-                                 size_t& currentOpenedDocument) {
-    const auto now = std::chrono::steady_clock::now();
-    const auto duration =
-        std::chrono::duration_cast<std::chrono::seconds>(now - m_lastSettingsSaveTime);
-
-    if (duration.count() <= 4) {
-        return;
-    }
-
-    m_lastSettingsSaveTime = now;
-    saveSettingsToJsonHelper(openDocuments, currentOpenedDocument);
-}
-
-void GraphUI::saveSettingsToJsonHelper(const std::vector<GraphDocument>& openDocuments,
-                                       size_t& currentOpenedDocument) {
-#ifndef __EMSCRIPTEN__
-    using namespace simdjson;
-
-    builder::string_builder sb;
-    sb.start_object();
-    {
-        sb.append_key_value<"ui_theme_index">(static_cast<int>(m_currentTheme));
-        sb.append_comma();
-        sb.append_key_value<"graph_theme_index">(static_cast<int>(m_currentGraphTheme));
-        sb.append_comma();
-        sb.append_key_value<"settings_open">(m_isSettingsOpen);
-        sb.append_comma();
-        sb.append_key_value<"fullscreen">(m_appFullScreen);
-        sb.append_comma();
-        sb.append_key_value<"file_view_open">(m_fileViewOpen);
-        sb.append_comma();
-        sb.append_key_value<"inspector_open">(m_inspectorOpen);
-        sb.append_comma();
-        sb.append_key_value<"logs_open">(m_logsWindowOpen);
-        sb.append_comma();
-        sb.append_key_value<"vsync_mode">(m_vsyncMode);
-        sb.append_comma();
-        sb.append_key_value<"fps_limit_enabled">(m_isFpsLimitEnabled);
-        sb.append_comma();
-        sb.append_key_value<"max_fps">(m_maxFps);
-        sb.append_comma();
-
-        sb.append_key_value<"opened_document_index">(currentOpenedDocument);
-        sb.append_comma();
-
-        sb.escape_and_append_with_quotes<"graphs_paths">();
-        sb.append_colon();
-        sb.start_array();
-        {
-            for (size_t i = 0; i < openDocuments.size(); ++i) {
-                if (!openDocuments[i].m_path.empty()) {
-                    sb.append(openDocuments[i].m_path);
-                    if (i != openDocuments.size() - 1) {
-                        sb.append_comma();
-                    }
-                }
-            }
-        }
-        sb.end_array();
-
-        if (m_currentGraphTheme == GraphTheme_t::CUSTOM) {
-            sb.append_comma();
-
-            const auto& theme = m_viewSettings->m_theme;
-            sb.append_key_value<"background_color">(theme.m_backgroundColor);
-            sb.append_comma();
-            sb.append_key_value<"grid_color">(theme.m_gridColor);
-            sb.append_comma();
-            sb.append_key_value<"min_max_color">(theme.m_minMaxColor);
-            sb.append_comma();
-
-            sb.append_key_value<"node_color">(theme.m_nodeColor);
-            sb.append_comma();
-            sb.append_key_value<"node_outline_color">(theme.m_nodeOutlineColor);
-            sb.append_comma();
-            sb.append_key_value<"selected_node_outline_color">(theme.m_selectedNodeOutlineColor);
-            sb.append_comma();
-            sb.append_key_value<"hovered_node_outline_color">(theme.m_hoveredNodeOutlineColor);
-            sb.append_comma();
-            sb.append_key_value<"hovered_and_selected_node_outline_color">(
-                theme.m_hoveredAndSelectedNodeOutlineColor);
-        }
-    }
-    sb.end_object();
-
-    std::ofstream settingsFile{Constants::uiSettingsFile};
-    if (settingsFile) {
-        settingsFile << sb.view();
-    } else {
-        common::Logger::get().warning("Couldn't open {} for writing.", Constants::uiSettingsFile);
-    }
-#endif
 }
 
 void GraphUI::onThemeSwitched() {
@@ -1656,38 +1510,43 @@ void GraphUI::graphThemeLight() {
     theme.m_nodeOutlineColor = IM_COL32(50, 50, 50, 255);
 }
 
-void GraphUI::refreshFilesInFolder(const std::string& folder, std::vector<FileEntry>& fileEntry) {
-    std::filesystem::path rootPath{folder};
-    for (const auto& entry : std::filesystem::directory_iterator(rootPath)) {
-        const auto& path = entry.path();
-        if (entry.is_regular_file() && path.extension() == ".bin") {
-            fileEntry.emplace_back(path.string(), FileEntry::Type::FILE);
-        } else if (entry.is_directory()) {
-            fileEntry.emplace_back(path.string(), FileEntry::Type::FOLDER);
-        }
+void GraphUI::newDocument() { m_documentHandler->scheduleOpenDocument(""); }
+
+void GraphUI::openDocument() {
+#ifdef __EMSCRIPTEN__
+    openFileDialog(m_documentHandler);
+#else
+    constexpr const char* filterPatterns[] = {"*.osm", "*.pbf", "*.bin"};
+    const auto path = tinyfd_openFileDialog("Open Graph", getOpenedRootFolder().c_str(), 3,
+                                            filterPatterns, "Graph Files", false);
+    if (path) {
+        m_documentHandler->scheduleOpenDocument(path);
     }
+#endif
 }
 
-void GraphUI::drawFileViewHelper(const std::string& folder, std::vector<FileEntry>& fileEntry) {
-    for (auto& entry : fileEntry) {
-        if (entry.m_type == FileEntry::Type::FOLDER) {
-            if (ImGui::TreeNode(entry.getName())) {
-                if (!entry.m_isExpanded) {
-                    refreshFilesInFolder(entry.m_path, entry.m_children);
-                    entry.m_isExpanded = true;
-                }
-
-                drawFileViewHelper(entry.m_path, entry.m_children);
-                ImGui::TreePop();
-            } else {
-                entry.m_isExpanded = false;
-                entry.m_children.clear();
-            }
-        } else {
-            if (ImGui::Selectable(entry.getName(), m_selectedFileEntry == &entry)) {
-                m_selectedFileEntry = &entry;
-                m_documentHandler->scheduleOpenDocument(entry.m_path);
-            }
-        }
+void GraphUI::saveDocument() {
+#ifdef __EMSCRIPTEN__
+    saveDocumentAs();
+#else
+    const auto& currentDoc = m_documentHandler->getCurrentOpenedDocument();
+    if (m_documentHandler->canDirectlySaveCurrentDocument()) {
+        m_documentHandler->saveCurrentDocument(currentDoc.m_path);
+    } else {
+        saveDocumentAs();
     }
+#endif
+}
+
+void GraphUI::saveDocumentAs() {
+#ifdef __EMSCRIPTEN__
+    m_documentHandler->saveCurrentDocument("graph.bin");
+#else
+    constexpr const char* filterPatterns[] = {"*.bin"};
+    const auto path = tinyfd_saveFileDialog("Save Graph", getOpenedRootFolder().c_str(), 1,
+                                            filterPatterns, "Binary Graph File");
+    if (path) {
+        m_documentHandler->saveCurrentDocument(path);
+    }
+#endif
 }

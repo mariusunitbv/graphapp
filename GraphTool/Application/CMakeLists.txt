@@ -7,6 +7,7 @@ file(GLOB_RECURSE ASSETS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/*
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     find_package(glad CONFIG REQUIRED)
+    find_package(simdjson CONFIG REQUIRED)
 endif()
 
 find_package(SDL3 CONFIG REQUIRED)
@@ -42,10 +43,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
         -sMAX_WEBGL_VERSION=2
         -sFULL_ES3=1
         -sALLOW_MEMORY_GROWTH=1
+		
+		-sEXPORTED_FUNCTIONS=["_malloc","_free","_main","_processFileBuffer"]
+        -sEXPORTED_RUNTIME_METHODS=["HEAPU8","UTF8ToString","ccall"]
     )
 else()
     target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/src/pch/pch.h>")
-    target_link_libraries(${PROJECT_NAME} PRIVATE glad::glad)
+    target_link_libraries(${PROJECT_NAME} PRIVATE glad::glad simdjson::simdjson)
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,--no-undefined -Wl,--gc-sections)
 endif()
 

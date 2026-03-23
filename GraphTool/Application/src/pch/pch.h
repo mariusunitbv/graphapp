@@ -20,6 +20,8 @@
 // External library headers
 #ifndef __EMSCRIPTEN__
 #include <glad/glad.h>
+
+#include <tinyfiledialogs/tinyfiledialogs.h>
 #endif
 
 #include <SDL3/SDL.h>

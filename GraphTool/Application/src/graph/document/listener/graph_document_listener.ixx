@@ -9,5 +9,6 @@ export class IGraphDocumentListener {
    public:
     virtual ~IGraphDocumentListener() = default;
 
+    virtual void onDocumentAdded(GraphDocument& document) = 0;
     virtual void onDocumentChanged(GraphDocument& document) = 0;
 };

@@ -210,6 +210,7 @@
   <ItemGroup>
     <ClCompile Include="..\GraphCommon\src\common\graph_common.ixx" />
     <ClCompile Include="..\GraphModel\src\loader\graph_loader.ixx" />
+    <ClCompile Include="..\GraphModel\src\loader\osm\osm_load_settings.ixx" />
     <ClCompile Include="..\GraphModel\src\math\graph_math.ixx" />
     <ClCompile Include="..\GraphModel\src\model\defines\graph_model_defines.ixx" />
     <ClCompile Include="..\GraphModel\src\model\edge_storage\edge_storage.ixx" />
@@ -222,13 +223,19 @@
     <ClCompile Include="src\graph\document\handler\graph_document_handler.ixx" />
     <ClCompile Include="src\graph\document\handler\graph_document_handler_impl.cpp" />
     <ClCompile Include="src\graph\document\listener\graph_document_listener.ixx" />
+    <ClCompile Include="src\graph\settings_manager\settings_manager.ixx" />
+    <ClCompile Include="src\graph\settings_manager\settings_manager_impl.cpp" />
     <ClCompile Include="src\graph\view\renderer\graph_renderer.ixx" />
     <ClCompile Include="src\graph\view\renderer\graph_renderer_impl.cpp" />
+    <ClCompile Include="src\graph\view\ui\file_view\file_view.ixx" />
+    <ClCompile Include="src\graph\view\ui\file_view\file_view_impl.cpp" />
     <ClCompile Include="src\graph\view\ui\graph_ui.ixx" />
     <ClCompile Include="src\graph\view\ui\graph_ui_impl.cpp" />
     <ClCompile Include="src\graph\view\settings\graph_view_settings.ixx" />
     <ClCompile Include="src\graph\view\texture_loader\texture_loader.ixx" />
     <ClCompile Include="src\graph\view\texture_loader\texture_loader_impl.cpp" />
+    <ClCompile Include="src\graph\view\ui\log_view\log_view.ixx" />
+    <ClCompile Include="src\graph\view\ui\log_view\log_view_impl.cpp" />
     <ClCompile Include="src\graph\view_model\defines\graph_view_model_defines.ixx" />
     <ClCompile Include="src\graph\view_model\graph_view_model.ixx" />
     <ClCompile Include="src\graph\view_model\graph_view_model_impl.cpp" />

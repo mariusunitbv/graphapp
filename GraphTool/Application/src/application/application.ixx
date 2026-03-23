@@ -7,6 +7,7 @@ import graph_ui;
 import graph_renderer;
 import graph_document_handler;
 import graph_document_listener;
+import settings_manager;
 
 export class Application : public IGraphDocumentListener {
    public:
@@ -20,6 +21,7 @@ export class Application : public IGraphDocumentListener {
     void quit();
 
    protected:
+    void onDocumentAdded(GraphDocument& graphDocument) override;
     void onDocumentChanged(GraphDocument& graphDocument) override;
 
    private:
@@ -40,9 +42,9 @@ export class Application : public IGraphDocumentListener {
     GraphRenderer m_graphRenderer{};
     GraphViewSettings m_graphViewSettings{};
     GraphDocumentHandler m_documentHandler{};
+    SettingsManager m_settingsManager{};
 
-    std::vector<GraphDocument> m_openDocuments{};
-    size_t m_currentDocumentIndex{0};
+    std::chrono::steady_clock::time_point m_lastSettingsSaveTime{std::chrono::steady_clock::now()};
 
     bool m_isRunning{false};
 };

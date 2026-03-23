@@ -7,7 +7,7 @@ import graph_common;
 import graph_model_defines;
 
 #if defined(__EMSCRIPTEN__) || (defined(_WIN32) && !defined(_WIN64)) || defined(__i386__)
-OSMLoader::OSMLoader(GraphModel*, const std::string_view) {
+OSMLoader::OSMLoader(GraphModel*, const std::string_view, const OSMLoadSettings&) {
     common::Logger::get().error("OSM loading is not supported for current build.");
 }
 
@@ -15,16 +15,19 @@ void OSMLoader::loadGraph() {
     common::Logger::get().error("OSM loading is not supported for current build.");
 }
 #else
-static constexpr auto BOUND_LIMIT = 500'000;
-static constexpr auto ACCURACY = 0.05f;
+static constexpr auto NO_MERGE_ACCURACY = 0.05f;
 
-OSMLoader::OSMLoader(GraphModel* model, const std::string_view osmFile)
+OSMLoader::OSMLoader(GraphModel* model, const std::string_view osmFile,
+                     const OSMLoadSettings& settings)
     : m_model(model), m_osmPath(osmFile), m_nodeForWaysNeeded(true) {
     if (osmFile.empty()) {
         GAPP_THROW("OSM file path cannot be empty");
     }
 
-    m_mapBounds = {-BOUND_LIMIT, -BOUND_LIMIT, BOUND_LIMIT, BOUND_LIMIT};
+    m_loadSettings = settings;
+
+    m_mapBounds = {-settings.m_worldBounds, -settings.m_worldBounds, settings.m_worldBounds,
+                   settings.m_worldBounds};
 }
 
 void OSMLoader::loadGraph() {
@@ -39,8 +42,8 @@ Vector2D OSMLoader::mercatorToWorld(const Vector2D& mercatorPos) const {
     const auto nx = (mercatorPos.m_x - static_cast<float>(m_minX)) / m_dataWidth;
     const auto ny = (mercatorPos.m_y - static_cast<float>(m_minY)) / m_dataHeight;
 
-    const auto x = -BOUND_LIMIT + m_scaledPaddingX + nx * m_scaledWidth;
-    const auto y = -BOUND_LIMIT + m_scaledPaddingY + (1.f - ny) * m_scaledHeight;
+    const auto x = -m_loadSettings.m_worldBounds + m_scaledPaddingX + nx * m_scaledWidth;
+    const auto y = -m_loadSettings.m_worldBounds + m_scaledPaddingY + (1.f - ny) * m_scaledHeight;
 
     return {x, y};
 }
@@ -55,34 +58,9 @@ void OSMLoader::getNeededNodes() {
     io::Reader reader(m_osmPath, osm_entity_bits::way, io::read_meta::no);
     while (auto buffer = reader.read()) {
         for (const auto& way : buffer.select<Way>()) {
-            const auto highwayKey = way.tags().get_value_by_key("highway");
-            const auto boundaryKey = way.tags().get_value_by_key("boundary");
-
-            if (!highwayKey /*&& !boundaryKey*/) {
+            if (!shouldAcceptWay(way)) {
                 continue;
             }
-
-            const auto isRoad = [](const char* h) {
-                return strcmp(h, "motorway") == 0 || strcmp(h, "trunk") == 0 ||
-                       strcmp(h, "primary") == 0 || strcmp(h, "secondary") == 0 ||
-                       strcmp(h, "tertiary") == 0 || strcmp(h, "unclassified") == 0 ||
-                       strcmp(h, "residential") == 0 || strcmp(h, "motorway_link") == 0 ||
-                       strcmp(h, "trunk_link") == 0 || strcmp(h, "primary_link") == 0 ||
-                       strcmp(h, "secondary_link") == 0 || strcmp(h, "tertiary_link") == 0 ||
-                       strcmp(h, "living_street") == 0 || strcmp(h, "service") == 0;
-            };
-
-            if (!isRoad(highwayKey)) {
-                continue;
-            }
-
-            /*if (boundaryKey && !m_shouldParseBoundaries) {
-                continue;
-            }
-
-            if (highwayKey && shouldSkipHighway(highwayKey)) {
-                continue;
-            }*/
 
             const auto& nodes = way.nodes();
             if (nodes.size() < 2) {
@@ -160,34 +138,9 @@ void OSMLoader::parseAndComputeBounds() {
         }
 
         for (const auto& way : buffer.select<Way>()) {
-            const auto highwayKey = way.tags().get_value_by_key("highway");
-            const auto boundaryKey = way.tags().get_value_by_key("boundary");
-
-            if (!highwayKey /* && !boundaryKey*/) {
+            if (!shouldAcceptWay(way)) {
                 continue;
             }
-
-            const auto isRoad = [](const char* h) {
-                return strcmp(h, "motorway") == 0 || strcmp(h, "trunk") == 0 ||
-                       strcmp(h, "primary") == 0 || strcmp(h, "secondary") == 0 ||
-                       strcmp(h, "tertiary") == 0 || strcmp(h, "unclassified") == 0 ||
-                       strcmp(h, "residential") == 0 || strcmp(h, "motorway_link") == 0 ||
-                       strcmp(h, "trunk_link") == 0 || strcmp(h, "primary_link") == 0 ||
-                       strcmp(h, "secondary_link") == 0 || strcmp(h, "tertiary_link") == 0 ||
-                       strcmp(h, "living_street") == 0 || strcmp(h, "service") == 0;
-            };
-
-            if (!isRoad(highwayKey)) {
-                continue;
-            }
-
-            /*if (boundaryKey && !m_shouldParseBoundaries) {
-                continue;
-            }
-
-            if (highwayKey && shouldSkipHighway(highwayKey)) {
-                continue;
-            }*/
 
             const auto& nodes = way.nodes();
             if (nodes.size() < 2) {
@@ -262,6 +215,10 @@ void OSMLoader::addNodesToGraph() {
     std::chrono::steady_clock::time_point lastSampleTime = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point lastUpdate = lastSampleTime;
 
+    const auto mergeAccuracy = m_loadSettings.m_mergeCloseNodes
+                                   ? m_loadSettings.m_mergeCloseNodesDistance
+                                   : NO_MERGE_ACCURACY;
+
     for (size_t metaIndex = 0; metaIndex < m_waysMeta.size(); ++metaIndex) {
         const auto currentMeta = m_waysMeta[metaIndex];
         const auto metaLastNodeIndex = metaIndex + 1 == m_waysMeta.size()
@@ -278,7 +235,7 @@ void OSMLoader::addNodesToGraph() {
                                        static_cast<float>(mercatorPosCoord.y)};
 
             const auto worldPos = Vector2D::trunc(mercatorToWorld(mercatorPos));
-            const auto nearNode = m_model->getNodeAtPosition(worldPos, ACCURACY);
+            const auto nearNode = m_model->getNodeAtPosition(worldPos, mergeAccuracy);
             if (nearNode) {
                 const auto nearNodeIndex = m_model->getNodeIndex(nearNode);
 
@@ -350,12 +307,109 @@ void OSMLoader::addNodesToGraph() {
     if (!m_nodeForWaysNeeded) {
         common::Logger::get().information(
             "Finished adding nodes. Added {}/{} ways and {} nodes (ACCURACY = {}).",
-            m_waysMeta.size(), m_waysMeta.size(), m_model->getNodeCount(), ACCURACY);
+            m_waysMeta.size(), m_waysMeta.size(), m_model->getNodeCount(), mergeAccuracy);
     } else {
         common::Logger::get().information(
             "Finished adding nodes. Added {}/{} ways and {}/{} nodes (ACCURACY = {}).",
             m_waysMeta.size(), m_waysMeta.size(), m_model->getNodeCount(), m_totalNodeCount,
-            ACCURACY);
+            mergeAccuracy);
     }
+}
+
+bool OSMLoader::shouldAcceptWay(const osmium::Way& way) const {
+    const auto highwayKey = way.tags().get_value_by_key("highway");
+    const auto boundaryKey = way.tags().get_value_by_key("boundary");
+    const auto railwayKey = way.tags().get_value_by_key("railway");
+
+    if (!highwayKey && !boundaryKey && !railwayKey) {
+        return false;
+    }
+
+    if (boundaryKey && !m_loadSettings.m_shouldParseBoundaries) {
+        return false;
+    }
+
+    if (highwayKey) {
+        if (!m_loadSettings.m_shouldParseHighways || !shouldAcceptHighway(highwayKey)) {
+            return false;
+        }
+    }
+
+    if (railwayKey) {
+        if (!m_loadSettings.m_shouldParseRailways || !shouldAcceptRailway(railwayKey)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool OSMLoader::shouldAcceptHighway(const std::string_view highwayKey) const {
+    const auto& ls = m_loadSettings;
+    const auto isLink = highwayKey.ends_with("ink");
+
+    if (highwayKey.starts_with("mo")) {
+        return isLink ? ls.m_parseMotorwayLinks : ls.m_parseMotorways;
+    }
+
+    if (highwayKey.starts_with("tru")) {
+        return isLink ? ls.m_parseTrunkLinks : ls.m_parseTrunks;
+    }
+
+    if (highwayKey.starts_with("pri")) {
+        return isLink ? ls.m_parsePrimaryLinks : ls.m_parsePrimarys;
+    }
+
+    if (highwayKey.starts_with("sec")) {
+        return isLink ? ls.m_parseSecondaryLinks : ls.m_parseSecondarys;
+    }
+
+    if (highwayKey.starts_with("ter")) {
+        return isLink ? ls.m_parseTertiaryLinks : ls.m_parseTertiarys;
+    }
+
+    if (highwayKey.starts_with("unc")) {
+        return ls.m_parseUnclassifieds;
+    }
+
+    if (highwayKey.starts_with("res")) {
+        return ls.m_parseResidentials;
+    }
+
+    if (highwayKey.starts_with("liv")) {
+        return ls.m_parseLivingStreets;
+    }
+
+    if (highwayKey.starts_with("ser")) {
+        return ls.m_parseServices;
+    }
+
+    if (highwayKey.starts_with("ped")) {
+        return ls.m_parsePedestrians;
+    }
+
+    return false;
+}
+
+bool OSMLoader::shouldAcceptRailway(const std::string_view railwayKey) const {
+    const auto& ls = m_loadSettings;
+
+    if (railwayKey.starts_with("rai")) {
+        return ls.m_parseRails;
+    }
+
+    if (railwayKey.starts_with("lig")) {
+        return ls.m_parseLightRails;
+    }
+
+    if (railwayKey.starts_with("sub")) {
+        return ls.m_parseSubways;
+    }
+
+    if (railwayKey.starts_with("tra")) {
+        return ls.m_parseTrams;
+    }
+
+    return false;
 }
 #endif

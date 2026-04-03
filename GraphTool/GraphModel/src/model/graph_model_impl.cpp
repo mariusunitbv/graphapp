@@ -135,6 +135,15 @@ void GraphModel::removeEdge(NodeIndex_t src, NodeIndex_t dest) {
     m_edgeStorage->removeEdge(src, dest);
 }
 
+int GraphModel::getEdgeWeight(NodeIndex_t src, NodeIndex_t dest, int defaultValue) const {
+    int weight;
+    if (m_edgeStorage->hasEdge(src, dest, &weight)) {
+        return weight;
+    }
+
+    return defaultValue;
+}
+
 void GraphModel::reserveDegree(NodeIndex_t nodeIndex, uint32_t degree) {
     m_edgeStorage->reserveDegree(nodeIndex, degree);
 }
@@ -145,10 +154,21 @@ uint32_t GraphModel::getNodeDegree(NodeIndex_t index) const {
     return m_edgeStorage->getNeighbourCount(index);
 }
 
+std::span<const EdgeStorage::Edge_t> GraphModel::getNodeEdges(NodeIndex_t index) const {
+    return m_edgeStorage->getNeighbours(index);
+}
+
 void GraphModel::visitNeighbours(NodeIndex_t src, void* userData,
                                  bool (*callback)(void* userData, NodeIndex_t dest, int weight),
                                  float percentage, bool distinct) const {
     m_edgeStorage->visitNeighbours(src, userData, callback, percentage, distinct);
+}
+
+void GraphModel::visitDistinctNeighbours(NodeIndex_t src, void* userData,
+                                         bool (*callback)(void* userData, NodeIndex_t dest,
+                                                          int weight, bool bothWays),
+                                         float percentage) const {
+    m_edgeStorage->visitDistinctNeighbours(src, userData, callback, percentage);
 }
 
 void GraphModel::resizeEdgeStorage(uint32_t nodeCount) { m_edgeStorage->resize(nodeCount); }

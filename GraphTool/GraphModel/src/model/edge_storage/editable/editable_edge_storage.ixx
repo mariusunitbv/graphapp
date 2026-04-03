@@ -22,9 +22,15 @@ export class EditableEdgeStorage : public EdgeStorage {
     void sortEdges() override;
 
     uint32_t getNeighbourCount(NodeIndex_t src) const override;
+    std::span<const Edge_t> getNeighbours(NodeIndex_t src) const override;
+
     void visitNeighbours(NodeIndex_t src, void* userData,
                          bool (*callback)(void* userData, NodeIndex_t dest, int weight),
                          float percentage, bool distinct) const override;
+    void visitDistinctNeighbours(NodeIndex_t src, void* userData,
+                                 bool (*callback)(void* userData, NodeIndex_t dest, int weight,
+                                                  bool bothWays),
+                                 float percentage) const override;
 
    private:
     common::MediumVector<common::TinyVector<Edge_t>> m_edges;

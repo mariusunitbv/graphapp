@@ -27,7 +27,13 @@ export class EdgeStorage {
     virtual void sortEdges() = 0;
 
     virtual uint32_t getNeighbourCount(NodeIndex_t src) const = 0;
+    virtual std::span<const Edge_t> getNeighbours(NodeIndex_t src) const = 0;
+
     virtual void visitNeighbours(NodeIndex_t src, void* userData,
                                  bool (*callback)(void* userData, NodeIndex_t dest, int weight),
                                  float percentage, bool distinct) const = 0;
+    virtual void visitDistinctNeighbours(NodeIndex_t src, void* userData,
+                                         bool (*callback)(void* userData, NodeIndex_t dest,
+                                                          int weight, bool bothWays),
+                                         float percentage) const = 0;
 };

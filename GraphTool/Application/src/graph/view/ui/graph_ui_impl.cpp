@@ -128,7 +128,12 @@ void GraphUI::onSDLEvent(const SDL_Event& event) {
                     }
                     break;
                 case SDLK_E:
-                    m_viewSettings->m_drawEdges = !m_viewSettings->m_drawEdges;
+                    if (!ctrlPressed) {
+                        m_viewSettings->m_drawEdges = !m_viewSettings->m_drawEdges;
+                    } else {
+                        m_nodeViewer.openAddEdgePopup();
+                    }
+
                     break;
                 case SDLK_F12:
                     m_isSettingsOpen = !m_isSettingsOpen;
@@ -154,6 +159,7 @@ void GraphUI::render() {
 
     m_fileView.render();
     drawInspector();
+    m_nodeViewer.render(m_model, m_viewModel);
     drawOpenedTabs();
     m_logView.render();
     drawStatusBar();
@@ -189,15 +195,18 @@ void GraphUI::setupDockSpace() {
         ImGui::DockBuilderSetNodeSize(dockspaceId, viewport->Size);
 
         ImGuiID mainDockID = dockspaceId;
-        ImGuiID fileViewID{}, inspectorViewID{}, tabViewID{}, logsViewID{};
+        ImGuiID fileViewID{}, inspectorViewID{}, tabViewID{}, logsViewID{}, nodeViewerID{};
         ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Left, 0.2f, &fileViewID, &mainDockID);
         ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Right, 0.45f, &inspectorViewID,
                                     &mainDockID);
+        ImGui::DockBuilderSplitNode(inspectorViewID, ImGuiDir_Up, 0.60f, &inspectorViewID,
+                                    &nodeViewerID);
         ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Up, 0.06f, &tabViewID, nullptr);
         ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Down, 0.35f, &logsViewID, nullptr);
 
         ImGui::DockBuilderDockWindow("File View", fileViewID);
         ImGui::DockBuilderDockWindow("Inspector", inspectorViewID);
+        ImGui::DockBuilderDockWindow("Node Viewer", nodeViewerID);
         ImGui::DockBuilderDockWindow("Tab Area", tabViewID);
         ImGui::DockBuilderDockWindow("Logs", logsViewID);
 
@@ -280,8 +289,15 @@ void GraphUI::drawMenuBar() {
         }
 
         if (ImGui::BeginMenu("View")) {
+            ImGui::BeginDisabled(m_model->getNodeCount() == 0);
             if (ImGui::MenuItem("Center on Node", "C")) {
                 m_isCenterOnNodeDialogOpen = true;
+            }
+            ImGui::EndDisabled();
+
+            if (m_model->getNodeCount() == 0 &&
+                ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+                ImGui::SetTooltip("No nodes have been added.");
             }
 
             if (ImGui::MenuItem("Refresh Graph", "F5")) {
@@ -301,6 +317,7 @@ void GraphUI::drawMenuBar() {
             if (ImGui::BeginMenu("UI Elements")) {
                 ImGui::MenuItem("Show File View", nullptr, &m_fileView.isOpen());
                 ImGui::MenuItem("Show Inspector", nullptr, &m_inspectorOpen);
+                ImGui::MenuItem("Show Node Viewer", nullptr, &m_nodeViewer.isOpen());
                 ImGui::MenuItem("Show Logs", nullptr, &m_logView.isOpen());
                 ImGui::EndMenu();
             }
@@ -670,7 +687,7 @@ void GraphUI::drawInspector() {
             ImGui::EndTable();
         }
 
-        ImGui::SeparatorText("Graph statistics");
+        ImGui::SeparatorText("Graph Statistics");
 
         if (ImGui::BeginTable(
                 "StatsTable", 2,

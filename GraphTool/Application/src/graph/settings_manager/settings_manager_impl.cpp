@@ -7,6 +7,8 @@ module;
 
 module settings_manager;
 
+import graph_common;
+
 void SettingsManager::initialize(GraphUI* graphUI, GraphDocumentHandler* documentHandler) {
     m_graphUI = graphUI;
     m_documentHandler = documentHandler;
@@ -15,6 +17,12 @@ void SettingsManager::initialize(GraphUI* graphUI, GraphDocumentHandler* documen
 void SettingsManager::saveSettings() {
 #ifndef __EMSCRIPTEN__
     using namespace simdjson;
+
+    if (!m_graphUI || !m_documentHandler) {
+        common::Logger::get().warning(
+            "SettingsManager not properly initialized, skipping saving settings.");
+        return;
+    }
 
     builder::string_builder sb;
     sb.start_object();
@@ -30,6 +38,8 @@ void SettingsManager::saveSettings() {
         sb.append_key_value<"file_view_open">(m_graphUI->fileViewOpen());
         sb.append_comma();
         sb.append_key_value<"inspector_open">(m_graphUI->inspectorOpen());
+        sb.append_comma();
+        sb.append_key_value<"node_viewer_open">(m_graphUI->nodeViewerOpen());
         sb.append_comma();
         sb.append_key_value<"logs_open">(m_graphUI->logsOpen());
         sb.append_comma();
@@ -101,6 +111,12 @@ void SettingsManager::loadSettings() {
 #ifndef __EMSCRIPTEN__
     using namespace simdjson;
 
+    if (!m_graphUI || !m_documentHandler) {
+        common::Logger::get().warning(
+            "SettingsManager not properly initialized, skipping loading settings.");
+        return;
+    }
+
     try {
         ondemand::parser parser;
         const auto json = padded_string::load(Constants::uiSettingsFile);
@@ -122,6 +138,7 @@ void SettingsManager::loadSettings() {
         m_graphUI->isFullScreen() = doc["fullscreen"].get_bool().value();
         m_graphUI->fileViewOpen() = doc["file_view_open"].get_bool().value();
         m_graphUI->inspectorOpen() = doc["inspector_open"].get_bool().value();
+        m_graphUI->nodeViewerOpen() = doc["node_viewer_open"].get_bool().value();
         m_graphUI->logsOpen() = doc["logs_open"].get_bool().value();
         m_graphUI->getVsyncMode() = static_cast<int>(doc["vsync_mode"].get_int64().value());
         m_graphUI->isFpsLimitEnabled() = doc["fps_limit_enabled"].get_bool().value();

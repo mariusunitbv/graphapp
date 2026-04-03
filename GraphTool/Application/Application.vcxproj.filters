@@ -35,6 +35,8 @@
     <ClCompile Include="src\graph\settings_manager\settings_manager.ixx" />
     <ClCompile Include="src\graph\settings_manager\settings_manager_impl.cpp" />
     <ClCompile Include="..\GraphModel\src\loader\osm\osm_load_settings.ixx" />
+    <ClCompile Include="src\graph\view\ui\node_viewer\node_viewer_impl.cpp" />
+    <ClCompile Include="src\graph\view\ui\node_viewer\node_viewer.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

@@ -143,6 +143,14 @@ uint32_t EditableEdgeStorage::getNeighbourCount(NodeIndex_t src) const {
     return m_edges[src].size();
 }
 
+std::span<const EdgeStorage::Edge_t> EditableEdgeStorage::getNeighbours(NodeIndex_t src) const {
+    if (src >= m_edges.size()) {
+        GAPP_THROW("Forgotten to call onNodeAdded(), size mismatch.");
+    }
+
+    return m_edges[src].span();
+}
+
 void EditableEdgeStorage::visitNeighbours(NodeIndex_t src, void* userData,
                                           bool (*callback)(void* userData, NodeIndex_t dest,
                                                            int weight),
@@ -156,11 +164,36 @@ void EditableEdgeStorage::visitNeighbours(NodeIndex_t src, void* userData,
 
     for (auto i = 0u; i < limit; ++i) {
         const auto& [dest, weight] = entry[i];
-        if (distinct && src >= dest && hasEdge(dest, src)) {
+        if (distinct && src > dest && hasEdge(dest, src)) {
             continue;
         }
 
         if (!callback(userData, dest, weight)) {
+            return;
+        }
+    }
+}
+
+void EditableEdgeStorage::visitDistinctNeighbours(NodeIndex_t src, void* userData,
+                                                  bool (*callback)(void* userData, NodeIndex_t dest,
+                                                                   int weight, bool bothWays),
+                                                  float percentage) const {
+    if (src >= m_edges.size()) {
+        GAPP_THROW("Forgotten to call onNodeAdded(), size mismatch.");
+    }
+
+    const auto& entry = m_edges[src];
+    const auto limit = static_cast<uint32_t>(entry.size() * percentage);
+
+    for (auto i = 0u; i < limit; ++i) {
+        const auto& [dest, weight] = entry[i];
+
+        const auto bothWays = hasEdge(dest, src);
+        if (src > dest && bothWays) {
+            continue;
+        }
+
+        if (!callback(userData, dest, weight, bothWays)) {
             return;
         }
     }

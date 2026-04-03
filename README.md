@@ -93,7 +93,7 @@ All of the listed dependencies will be automatically installed when following th
 - [FreeType](https://github.com/freetype/freetype) - High quality font rasterer used by ImGui.
 - [Emscripten](https://emscripten.org/) - Optional, only if web usage is desired.
 - [libosmium](https://github.com/osmcode/libosmium) - Library for parsing and handling OpenStreetMap data.
-- [parallel-hashmap](https://github.com/greg7mdp/parallel-hashmap) - High-performance hash map used for large-scale map parsing, much faster than `unordered_map`.
+- [parallel-hashmap](https://github.com/greg7mdp/parallel-hashmap) - High-performance hash map used for large-scale map parsing, much faster than `std::unordered_map`.
 - [simdjson](https://github.com/simdjson/simdjson) - Fast JSON parser, used for saving and loading UI settings.
 - [tinyfiledialogs](https://sourceforge.net/projects/tinyfiledialogs/) - Cross-platform dialogs for selecting files and folders.
 - [lz4](https://github.com/lz4/lz4) - High-speed compression library, used to compress saved graphs efficiently.

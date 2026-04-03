@@ -64,6 +64,7 @@ void GraphRenderer::preRenderUpdate(const GraphModel* model, GraphViewModel* vie
 void GraphRenderer::render() {
     ImDrawList* drawList = ImGui::GetBackgroundDrawList();
 
+    drawCosts(drawList);
     drawNodesIndexes(drawList);
     drawMinMax(drawList);
     drawSelectBox(drawList);
@@ -80,7 +81,7 @@ void GraphRenderer::renderNative() {
 }
 
 void GraphRenderer::onFullDataUpdate() {
-    m_edgesBufferDirty = m_nodesColorDirty = m_nodesPositionDirty = true;
+    m_edgesBufferDirty = m_nodesColorDirty = m_nodesPositionDirty = m_selfLoopsDirty = true;
 }
 
 void GraphRenderer::onNodeSelected(NodeIndex_t nodeIndex) { colorNode(nodeIndex); }
@@ -121,6 +122,14 @@ void GraphRenderer::initializeNodesBuffersGL() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glGenTextures(1, &m_selfLoopsTex);
+    glBindTexture(GL_TEXTURE_2D, m_selfLoopsTex);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 #else
     glGenBuffers(1, &m_nodePositionTBO);
     glGenTextures(1, &m_nodePositionTex);
@@ -137,13 +146,21 @@ void GraphRenderer::initializeNodesBuffersGL() {
     glBufferData(GL_TEXTURE_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
     glBindTexture(GL_TEXTURE_BUFFER, m_nodeColorTex);
     glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32UI, m_nodeColorTBO);
+
+    glGenBuffers(1, &m_selfLoopsTBO);
+    glGenTextures(1, &m_selfLoopsTex);
+
+    glBindBuffer(GL_TEXTURE_BUFFER, m_selfLoopsTBO);
+    glBufferData(GL_TEXTURE_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+    glBindTexture(GL_TEXTURE_BUFFER, m_selfLoopsTex);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_R8UI, m_selfLoopsTBO);
 #endif
 }
 
 void GraphRenderer::initializeEdgeGL() {
     constexpr auto vertexShaderSource = GLSL_VERSION R"(
         layout(location = 0) in uint aSrcLookupIndex;
-        layout(location = 1) in uint aDestLookupIndex;
+        layout(location = 1) in uint aDestLookupIndexAndFlags;
 
 #ifdef WEBGL
         uniform sampler2D uNodePositions;
@@ -177,6 +194,7 @@ void GraphRenderer::initializeEdgeGL() {
         uniform vec2 uScreenSize;
         uniform vec2 uCameraPos;
         uniform float uCameraZoom;
+        uniform float uNodeRadius;
 
         out vec4 vColor;
 
@@ -190,20 +208,80 @@ void GraphRenderer::initializeEdgeGL() {
         }
 
         void main() {
+            float arrowHeadSize = clamp(uNodeRadius * 0.5, 0.5, 20.0);
+
+            uint aDestLookupIndex = aDestLookupIndexAndFlags & 0x7FFFFFFFu;
+            uint isBothWay = (aDestLookupIndexAndFlags >> 31) & 1u;
+
+            uvec4 srcColors = fetchNodeColors(int(aSrcLookupIndex));
+            uvec4 destColors = fetchNodeColors(int(aDestLookupIndex));
+
+            vec4 srcColor = unpackColor(srcColors.y);
+            vec4 destColor = unpackColor(destColors.y);
+
+            vec2 src = fetchNodePosition(int(aSrcLookupIndex));
+            vec2 dest = fetchNodePosition(int(aDestLookupIndex));
+
+            vec2 dir = normalize(dest - src);
+
+            if (uNodeRadius > 0.2) {
+                src = src + dir * uNodeRadius;
+                dest = dest - dir * uNodeRadius;
+            }
+
+            vec2 perp = vec2(-dir.y, dir.x);   
+            
+            uint isDegenerate = 0u;
             vec2 worldPos;
             if (gl_VertexID == 0) {
-                worldPos = fetchNodePosition(int(aSrcLookupIndex));
-                uvec4 colorsPacked = fetchNodeColors(int(aSrcLookupIndex));
-                vColor = unpackColor(colorsPacked.y);
+                worldPos = src;
+                vColor = srcColor;
+            } else if (gl_VertexID == 1) {
+                worldPos = dest;
+                vColor = destColor;
+            } else if (gl_VertexID == 2) {
+                worldPos = dest;
+                vColor = destColor;
+            } else if (gl_VertexID == 3) {
+                vec2 left = dest - dir * arrowHeadSize + perp * arrowHeadSize * 0.5;
+                worldPos = left;
+                vColor = destColor;
+            } else if (gl_VertexID == 4) {
+                vec2 right = dest - dir * arrowHeadSize - perp * arrowHeadSize * 0.5;
+                worldPos = right;
+                vColor = destColor;
+            } else if (gl_VertexID == 5) {
+                if (isBothWay == 1u) {
+                    worldPos = src;
+                    vColor = srcColor;
+                } else {
+                    isDegenerate = 1u;
+                }
+            } else if (gl_VertexID == 6) {
+                if (isBothWay == 1u) {
+                    vec2 left = src + dir * arrowHeadSize - perp * arrowHeadSize * 0.5;
+                    worldPos = left;
+                    vColor = srcColor;
+                } else {
+                    isDegenerate = 1u;
+                }
             } else {
-                worldPos = fetchNodePosition(int(aDestLookupIndex));
-                uvec4 colorsPacked = fetchNodeColors(int(aDestLookupIndex));
-                vColor = unpackColor(colorsPacked.y);
+                if (isBothWay == 1u) {
+                    vec2 right = src + dir * arrowHeadSize + perp * arrowHeadSize * 0.5;
+                    worldPos = right;
+                    vColor = srcColor;
+                } else {
+                    isDegenerate = 1u;
+                }
             }
 
             vec2 screenPos = (worldPos - uCameraPos) * uCameraZoom + uScreenSize * 0.5;
             vec2 ndc = (screenPos / uScreenSize) * 2.0 - 1.0;
             ndc.y = -ndc.y;
+
+            if (isDegenerate == 1u) {
+                ndc = vec2(-2.0, -2.0);
+            }
 
             gl_Position = vec4(ndc, 0.0, 1.0);
         }
@@ -247,7 +325,7 @@ void GraphRenderer::initializeEdgeGL() {
 
     glEnableVertexAttribArray(1);
     glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(VisibleEdge),
-                           (void*)offsetof(VisibleEdge, m_endNodeIndexLookup));
+                           (void*)offsetof(VisibleEdge, m_endNodeIndexLookupAndBothWayFlag));
     glVertexAttribDivisor(1, 1);
 
     glBindVertexArray(0);
@@ -257,6 +335,7 @@ void GraphRenderer::initializeEdgeGL() {
     m_edgeUniforms.m_screenSize = glGetUniformLocation(edgeGL.m_shaderProgram, "uScreenSize");
     m_edgeUniforms.m_cameraPos = glGetUniformLocation(edgeGL.m_shaderProgram, "uCameraPos");
     m_edgeUniforms.m_cameraZoom = glGetUniformLocation(edgeGL.m_shaderProgram, "uCameraZoom");
+    m_edgeUniforms.m_nodeRadius = glGetUniformLocation(edgeGL.m_shaderProgram, "uNodeRadius");
 
 #ifdef __EMSCRIPTEN__
     m_edgeUniforms.m_textureWidth = glGetUniformLocation(edgeGL.m_shaderProgram, "uTextureWidth");
@@ -275,6 +354,7 @@ void GraphRenderer::initializeNodeGL() {
 #ifdef WEBGL
         uniform sampler2D uNodePositions;
         uniform usampler2D uNodeColors;
+        uniform usampler2D uSelfLoops;
         uniform int uTextureWidth;
 
         vec2 fetchNodePosition(int lookupIndex) {
@@ -288,9 +368,20 @@ void GraphRenderer::initializeNodeGL() {
             int y = lookupIndex / uTextureWidth;
             return texelFetch(uNodeColors, ivec2(x, y), 0);
         }
+
+        uint fetchSelfLoop(int lookupIndex) {
+            int indexInVector = lookupIndex / 8;
+            int bitOffset = lookupIndex % 8;
+
+            int x = indexInVector % uTextureWidth;
+            int y = indexInVector / uTextureWidth;
+
+            return (texelFetch(uSelfLoops, ivec2(x, y), 0).r >> uint(bitOffset)) & 1u;
+        }
 #else
         uniform samplerBuffer uNodePositions;
         uniform usamplerBuffer uNodeColors;
+        uniform usamplerBuffer uSelfLoops;
 
         vec2 fetchNodePosition(int lookupIndex) {
             return texelFetch(uNodePositions, lookupIndex).xy;
@@ -298,6 +389,13 @@ void GraphRenderer::initializeNodeGL() {
 
         uvec4 fetchNodeColors(int lookupIndex) {
             return texelFetch(uNodeColors, lookupIndex);
+        }
+
+        uint fetchSelfLoop(int lookupIndex) {
+            int indexInVector = lookupIndex / 8;
+            int bitOffset = lookupIndex % 8;
+
+            return (texelFetch(uSelfLoops, indexInVector).r >> uint(bitOffset)) & 1u;
         }
 #endif
 
@@ -313,6 +411,7 @@ void GraphRenderer::initializeNodeGL() {
         out vec4 vColor;
         out vec4 vOutlineColor;
         out vec2 vTexCoord;
+        flat out uint vHasSelfLoop;
         
         void main() {
             vec2 worldPos = fetchNodePosition(int(gl_InstanceID));
@@ -333,6 +432,7 @@ void GraphRenderer::initializeNodeGL() {
             vOutlineColor = unpackColor(outlineColor);
 
             vTexCoord = aPos * 0.5 + 0.5;
+            vHasSelfLoop = fetchSelfLoop(int(gl_InstanceID));
         }
 )";
 
@@ -340,6 +440,7 @@ void GraphRenderer::initializeNodeGL() {
         in vec4 vColor;
         in vec4 vOutlineColor;
         in vec2 vTexCoord;
+        flat in uint vHasSelfLoop;
 
         out vec4 FragColor;
 
@@ -353,6 +454,16 @@ void GraphRenderer::initializeNodeGL() {
             const float r = 0.5;
             if (dist2 > r * r) {
                 discard;
+            }
+
+            if (vHasSelfLoop == 1u) {
+                const float innerR = 0.38;
+                const float outerR = 0.4;
+                
+                if (dist2 > innerR * innerR && dist2 < outerR * outerR) {
+                    FragColor = vOutlineColor;
+                    return;
+                }  
             }
 
             if (uOutlineThickness > 0.0) {
@@ -406,6 +517,7 @@ void GraphRenderer::initializeNodeGL() {
     m_nodeUniforms.m_cameraZoom = glGetUniformLocation(nodeGL.m_shaderProgram, "uCameraZoom");
     m_nodeUniforms.m_nodeThickness =
         glGetUniformLocation(nodeGL.m_shaderProgram, "uOutlineThickness");
+    m_nodeUniforms.m_selfLoops = glGetUniformLocation(nodeGL.m_shaderProgram, "uSelfLoops");
 
 #ifdef __EMSCRIPTEN__
     m_nodeUniforms.m_textureWidth = glGetUniformLocation(nodeGL.m_shaderProgram, "uTextureWidth");
@@ -417,6 +529,7 @@ void GraphRenderer::initializeNodeFastGL() {
     constexpr auto vertexShaderSource = GLSL_VERSION R"(
         uniform samplerBuffer uNodePositions;
         uniform usamplerBuffer uNodeColors;
+        uniform usamplerBuffer uSelfLoops;
 
         uniform float uNodeRadius;
         uniform vec2 uScreenSize;
@@ -425,6 +538,7 @@ void GraphRenderer::initializeNodeFastGL() {
 
         out vec4 vColor;
         out vec4 vOutlineColor;
+        flat out uint vHasSelfLoop;
 
         vec4 unpackColor(uint packedColor) {
             return vec4(
@@ -433,6 +547,13 @@ void GraphRenderer::initializeNodeFastGL() {
                 float((packedColor >> 16) & 0xFFu) / 255.0,
                 float((packedColor >> 24) & 0xFFu) / 255.0
             );
+        }
+
+        uint hasSelfLoop(int lookupIndex) {
+            uint indexInVector = uint(lookupIndex) / 8u;
+            uint bitOffset = uint(lookupIndex) % 8u;
+
+            return (texelFetch(uSelfLoops, int(indexInVector)).r >> bitOffset) & 1u;
         }
 
         void main() {
@@ -451,12 +572,14 @@ void GraphRenderer::initializeNodeFastGL() {
 
             vColor = unpackColor(color);
             vOutlineColor = unpackColor(outlineColor);
+            vHasSelfLoop = hasSelfLoop(int(gl_InstanceID));
         }
 )";
 
     constexpr auto fragmentShaderSource = GLSL_VERSION R"(
         in vec4 vColor;
         in vec4 vOutlineColor;
+        flat in uint vHasSelfLoop;
 
         out vec4 FragColor;
 
@@ -469,6 +592,16 @@ void GraphRenderer::initializeNodeFastGL() {
             const float r = 0.5;
             if (dist2 > r * r) {
                 discard;
+            }
+
+            if (vHasSelfLoop == 1u) {
+                const float innerR = 0.38;
+                const float outerR = 0.4;
+                
+                if (dist2 > innerR * innerR && dist2 < outerR * outerR) {
+                    FragColor = vOutlineColor;
+                    return;
+                }  
             }
 
             if (uOutlineThickness > 0.0) {
@@ -510,6 +643,7 @@ void GraphRenderer::initializeNodeFastGL() {
     m_fastNodeUniforms.m_cameraZoom = glGetUniformLocation(nodeGL.m_shaderProgram, "uCameraZoom");
     m_fastNodeUniforms.m_nodeThickness =
         glGetUniformLocation(nodeGL.m_shaderProgram, "uOutlineThickness");
+    m_fastNodeUniforms.m_selfLoops = glGetUniformLocation(nodeGL.m_shaderProgram, "uSelfLoops");
 #endif
 }
 
@@ -640,6 +774,7 @@ GLuint GraphRenderer::compileShader(GLenum type, const char* source) {
 void GraphRenderer::setupNodeBuffers() {
     const auto& nodePositions = m_viewModel->getVisibleNodesPositions();
     const auto& nodeColors = m_viewModel->getVisibleNodesColors();
+    const auto& selfLoops = m_viewModel->getVisibleLoops();
 
 #ifdef __EMSCRIPTEN__
     const int numNodes = static_cast<int>(nodePositions.size());
@@ -672,6 +807,20 @@ void GraphRenderer::setupNodeBuffers() {
 #endif
 
         m_nodesColorDirty = false;
+    }
+
+    if (m_selfLoopsDirty) {
+#ifdef __EMSCRIPTEN__
+        glBindTexture(GL_TEXTURE_2D, m_selfLoopsTex);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, m_maxTextureSize, textureHeight, 0, GL_RED_INTEGER,
+                     GL_UNSIGNED_BYTE, selfLoops.data());
+#else
+        glBindBuffer(GL_TEXTURE_BUFFER, m_selfLoopsTBO);
+        glBufferData(GL_TEXTURE_BUFFER, selfLoops.size() * sizeof(uint8_t), selfLoops.data(),
+                     GL_DYNAMIC_DRAW);
+#endif
+
+        m_selfLoopsDirty = false;
     }
 }
 
@@ -745,6 +894,7 @@ void GraphRenderer::drawEdges() {
     const auto [width, height] = ImGui::GetIO().DisplaySize;
     const auto zoom = m_viewModel->getZoomFactor();
     const auto [cameraX, cameraY] = m_viewModel->getCameraPosition();
+    const auto shouldDrawArrowHeads = shouldDrawNodes();
 
     const auto& visibleEdges = m_viewModel->getVisibleEdges();
 
@@ -774,6 +924,12 @@ void GraphRenderer::drawEdges() {
     glUniform2f(m_edgeUniforms.m_cameraPos, cameraX, cameraY);
     glUniform1f(m_edgeUniforms.m_cameraZoom, zoom);
 
+    if (shouldDrawArrowHeads) {
+        glUniform1f(m_edgeUniforms.m_nodeRadius, m_viewModel->getNodesRadius());
+    } else {
+        glUniform1f(m_edgeUniforms.m_nodeRadius, 0.1f);
+    }
+
 #ifdef __EMSCRIPTEN__
     glUniform1i(m_edgeUniforms.m_textureWidth, m_maxTextureSize);
 
@@ -791,6 +947,11 @@ void GraphRenderer::drawEdges() {
 #endif
 
     glDrawArraysInstanced(GL_LINES, 0, 2, m_lastVisibleEdgesCount);
+
+    if (shouldDrawArrowHeads) {
+        glDrawArraysInstanced(GL_TRIANGLES, 2, 3, m_lastVisibleEdgesCount);
+        glDrawArraysInstanced(GL_TRIANGLES, 5, 3, m_lastVisibleEdgesCount);
+    }
 
     glBindVertexArray(0);
 }
@@ -810,7 +971,7 @@ void GraphRenderer::drawNodes() {
 #ifdef __EMSCRIPTEN__
     constexpr auto shouldDrawFast = false;
 #else
-    const auto shouldDrawFast = 2.f * radius < m_pointSizeRange[1];
+    const auto shouldDrawFast = 2.f * radius < m_pointSizeRange[1] && false;
 #endif
 
     const auto& nodeGL = shouldDrawFast ? m_nodeFastGLObject : m_nodeGLObject;
@@ -821,6 +982,7 @@ void GraphRenderer::drawNodes() {
     glUseProgram(nodeGL.m_shaderProgram);
     glUniform1i(uniforms.m_nodePosition, 0);
     glUniform1i(uniforms.m_nodeColor, 1);
+    glUniform1i(uniforms.m_selfLoops, 2);
 
     glUniform1f(uniforms.m_nodeRadius, radius);
     glUniform2f(uniforms.m_screenSize, width, height);
@@ -838,12 +1000,18 @@ void GraphRenderer::drawNodes() {
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, m_nodeColorTex);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, m_selfLoopsTex);
 #else
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_BUFFER, m_nodePositionTex);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_BUFFER, m_nodeColorTex);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_BUFFER, m_selfLoopsTex);
 #endif
 
     const auto visibleNodesCount = static_cast<int>(visibleNodes.size());
@@ -854,6 +1022,77 @@ void GraphRenderer::drawNodes() {
     }
 
     glBindVertexArray(0);
+}
+
+void GraphRenderer::drawCosts(ImDrawList* drawList) {
+    if (!shouldDrawNodes()) {
+        return;
+    }
+
+    const auto zoom = m_viewModel->getZoomFactor();
+    if (zoom < 0.72f) {
+        return;
+    }
+
+    const auto& visibleEdges = m_viewModel->getVisibleEdges();
+    const auto& nodeColors = m_viewModel->getVisibleNodesColors();
+    const auto& visibleNodesIndexes = m_viewModel->getVisibleNodes();
+
+    const auto drawEdgeWeight = [this, drawList, &nodeColors](NodeIndex_t src, NodeIndex_t dest,
+                                                              uint32_t outlineColor) {
+        const auto font = ImGui::GetIO().Fonts->Fonts[m_viewSettings->m_graphTextFontIndex];
+
+        auto weight = m_model->getEdgeWeight(src, dest);
+        if (weight == 0) {
+            return;
+        }
+
+        const auto negative = weight < 0;
+
+        char weightLabel[12];
+        int len = 0;
+        do {
+            weightLabel[len++] = '0' + (weight % 10);
+            weight /= 10;
+        } while (weight > 0 && len < static_cast<int>(sizeof(weightLabel) - 1));
+
+        if (negative) {
+            weightLabel[len++] = '-';
+        }
+
+        weightLabel[len] = '\0';
+        std::reverse(weightLabel, weightLabel + len);
+
+        const auto srcNode = m_model->getNode(src);
+        const auto destNode = m_model->getNode(dest);
+        const auto srcScreenPos = m_viewModel->worldToScreen(srcNode->getWorldPos());
+        const auto destScreenPos = m_viewModel->worldToScreen(destNode->getWorldPos());
+
+        auto dir = destScreenPos - srcScreenPos;
+        const auto lineLen = std::sqrt(dir.m_x * dir.m_x + dir.m_y * dir.m_y);
+        if (lineLen > 0.01f) {
+            dir = dir * (1.f / lineLen);
+        }
+
+        const auto perp = ImVec2{-dir.m_y, dir.m_x};
+        const auto offset = perp * 15.f;
+        const auto midPoint = toImVec((srcScreenPos + destScreenPos) * 0.5f) + offset;
+
+        drawList->AddText(font, font->FontSize, midPoint, outlineColor, weightLabel);
+    };
+
+    for (auto [srcLookup, destLookupAndBothWays] : visibleEdges) {
+        const auto isBothWays = (destLookupAndBothWays >> 31) & 1u;
+        const auto destLookup = destLookupAndBothWays & 0x7FFFFFFF;
+
+        const auto srcNodeIndex = visibleNodesIndexes[srcLookup];
+        const auto destNodeIndex = visibleNodesIndexes[destLookup];
+
+        drawEdgeWeight(srcNodeIndex, destNodeIndex, nodeColors[destLookup].m_outlineColor);
+        if (isBothWays) {
+            drawEdgeWeight(destNodeIndex, srcNodeIndex, nodeColors[srcLookup].m_outlineColor);
+        }
+    }
 }
 
 void GraphRenderer::drawNodesIndexes(ImDrawList* drawList) {
@@ -902,9 +1141,9 @@ void GraphRenderer::drawNodesIndexes(ImDrawList* drawList) {
 }
 
 void GraphRenderer::drawMinMax(ImDrawList* drawList) {
-    // The HARD limit of the world coordinates, we can draw it to visualize the limits of the graph.
-    // This gets drawn regardless of the visible region, because it's useful to see it as a
-    // reference when zooming out.
+    // The HARD limit of the world coordinates, we can draw it to visualize the limits of the
+    // graph. This gets drawn regardless of the visible region, because it's useful to see it as
+    // a reference when zooming out.
     const auto topLeftBoundsScreen = toImVec(m_viewModel->worldToScreen(WORLD_BOUNDS.m_min));
     const auto bottomRightBoundsScreen = toImVec(m_viewModel->worldToScreen(WORLD_BOUNDS.m_max));
 

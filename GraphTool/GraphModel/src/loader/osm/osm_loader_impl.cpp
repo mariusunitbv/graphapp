@@ -149,6 +149,9 @@ void OSMLoader::parseAndComputeBounds() {
 
             ++parsedWayCount;
 
+            const auto junction = way.tags().get_value_by_key("junction");
+            const auto isRoundabout = junction && std::string_view{junction}.starts_with("round");
+
             const auto oneWay = way.tags().get_value_by_key("oneway");
             const auto isOneWay = oneWay && (*oneWay == 'y' || *oneWay == 't' || *oneWay == '1');
             const auto startIndex = m_nodesForWays.size();
@@ -166,7 +169,7 @@ void OSMLoader::parseAndComputeBounds() {
                 m_maxY = std::max(m_maxY, mercatorPos.y);
             }
 
-            m_waysMeta.emplace_back(static_cast<uint32_t>(startIndex), isOneWay);
+            m_waysMeta.emplace_back(static_cast<uint32_t>(startIndex), isOneWay || isRoundabout);
         }
 
         const auto now = std::chrono::steady_clock::now();
@@ -225,6 +228,7 @@ void OSMLoader::addNodesToGraph() {
                                            ? static_cast<uint32_t>(m_nodesForWays.size())
                                            : m_waysMeta[metaIndex + 1].m_startIndex;
 
+        osmium::Location prevLoc{};
         NodeIndex_t prevNodeIndex = INVALID_NODE;
         for (size_t currentNode = currentMeta.m_startIndex; currentNode < metaLastNodeIndex;
              ++currentNode) {
@@ -240,24 +244,32 @@ void OSMLoader::addNodesToGraph() {
                 const auto nearNodeIndex = m_model->getNodeIndex(nearNode);
 
                 if (prevNodeIndex != INVALID_NODE && prevNodeIndex != nearNodeIndex) {
-                    m_model->addEdgeFast(prevNodeIndex, nearNodeIndex, (int)0);
+                    const auto distance = osmium::geom::haversine::distance(loc, prevLoc);
+                    const auto distanceMeters = static_cast<int>(distance);
+
+                    m_model->addEdgeFast(prevNodeIndex, nearNodeIndex, distanceMeters);
                     if (!currentMeta.m_isOneWay) {
-                        m_model->addEdgeFast(nearNodeIndex, prevNodeIndex, (int)0);
+                        m_model->addEdgeFast(nearNodeIndex, prevNodeIndex, distanceMeters);
                     }
                 }
 
+                prevLoc = loc;
                 prevNodeIndex = nearNodeIndex;
             } else {
                 m_model->addNode(worldPos);
                 const auto lastNodeIndex = m_model->getLastNodeIndex();
 
                 if (prevNodeIndex != INVALID_NODE) {
-                    m_model->addEdgeFast(prevNodeIndex, lastNodeIndex, (int)0);
+                    const auto distance = osmium::geom::haversine::distance(loc, prevLoc);
+                    const auto distanceMeters = static_cast<int>(distance);
+
+                    m_model->addEdgeFast(prevNodeIndex, lastNodeIndex, distanceMeters);
                     if (!currentMeta.m_isOneWay) {
-                        m_model->addEdgeFast(lastNodeIndex, prevNodeIndex, (int)0);
+                        m_model->addEdgeFast(lastNodeIndex, prevNodeIndex, distanceMeters);
                     }
                 }
 
+                prevLoc = loc;
                 prevNodeIndex = lastNodeIndex;
             }
         }

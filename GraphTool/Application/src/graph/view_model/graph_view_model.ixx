@@ -33,6 +33,7 @@ export class GraphViewModel {
 
     const std::vector<NodeIndex_t>& getVisibleNodes() const;
     const std::vector<VisibleEdge>& getVisibleEdges() const;
+    const std::vector<uint8_t>& getVisibleLoops() const;
 
     void refreshVisibleData();
 
@@ -81,6 +82,9 @@ export class GraphViewModel {
 
     bool isRunningUpdate() const;
     void cancelRunningUpdate();
+
+    void addEdge(NodeIndex_t from, NodeIndex_t to, int weight);
+    void removeEdge(NodeIndex_t from, NodeIndex_t to);
 
    private:
     void onSceneResize(float displayWidth, float displayHeight);

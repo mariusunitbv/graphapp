@@ -200,6 +200,7 @@ bool Application::isRunning() const { return m_isRunning; }
 
 void Application::onDocumentAdded(GraphDocument& graphDocument) {
     graphDocument.m_viewModel.addListener(&m_graphRenderer);
+    graphDocument.m_viewModel.addListener(&m_graphUI.getNodeViewer());
 }
 
 void Application::onDocumentChanged(GraphDocument& graphDocument) {

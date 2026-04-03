@@ -16,8 +16,12 @@ export struct NodeColorInfo {
 };
 
 export struct VisibleEdge {
+    explicit VisibleEdge(uint32_t startNodeLookup, uint32_t endNodeLookup, bool bothWay)
+        : m_startNodeIndexLookup(startNodeLookup),
+          m_endNodeIndexLookupAndBothWayFlag(endNodeLookup | (bothWay ? (1u << 31) : 0u)) {}
+
     uint32_t m_startNodeIndexLookup;
-    uint32_t m_endNodeIndexLookup;
+    uint32_t m_endNodeIndexLookupAndBothWayFlag;
 };
 
 export struct VisibleData {
@@ -26,4 +30,7 @@ export struct VisibleData {
 
     std::vector<NodeIndex_t> m_visibleNodes;
     std::vector<VisibleEdge> m_visibleEdges;
+
+    // Bits indicating self-loops visibility for each node in m_visibleNodes.
+    std::vector<uint8_t> m_visibleLoops;
 };

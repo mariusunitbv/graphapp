@@ -47,14 +47,21 @@ export class GraphModel {
     void addEdge(NodeIndex_t src, NodeIndex_t dest, int weight);
     void addEdgeFast(NodeIndex_t src, NodeIndex_t dest, int weight);
     void removeEdge(NodeIndex_t src, NodeIndex_t dest);
+    int getEdgeWeight(NodeIndex_t src, NodeIndex_t dest, int defaultValue = -1) const;
 
     void reserveDegree(NodeIndex_t nodeIndex, uint32_t degree);
     void sortEdges();
 
     uint32_t getNodeDegree(NodeIndex_t index) const;
+    std::span<const EdgeStorage::Edge_t> getNodeEdges(NodeIndex_t index) const;
+
     void visitNeighbours(NodeIndex_t src, void* userData,
                          bool (*callback)(void* userData, NodeIndex_t dest, int weight),
                          float percentage = 1.f, bool distinct = false) const;
+    void visitDistinctNeighbours(NodeIndex_t src, void* userData,
+                                 bool (*callback)(void* userData, NodeIndex_t dest, int weight,
+                                                  bool bothWays),
+                                 float percentage = 1.f) const;
 
     void resizeEdgeStorage(uint32_t nodeCount);
 

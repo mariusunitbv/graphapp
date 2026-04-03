@@ -48,6 +48,7 @@ export class GraphRenderer : public IGraphViewModelListener {
     void drawEdges();
     void drawNodes();
 
+    void drawCosts(ImDrawList* drawList);
     void drawNodesIndexes(ImDrawList* drawList);
     void drawMinMax(ImDrawList* drawList);
     void drawSelectBox(ImDrawList* drawList);
@@ -70,9 +71,11 @@ export class GraphRenderer : public IGraphViewModelListener {
 
     GLuint m_nodePositionTBO{};
     GLuint m_nodeColorTBO{};
+    GLuint m_selfLoopsTBO{};
 
     GLuint m_nodePositionTex{};
     GLuint m_nodeColorTex{};
+    GLuint m_selfLoopsTex{};
 
     struct GLObject {
         ~GLObject() {
@@ -117,6 +120,7 @@ export class GraphRenderer : public IGraphViewModelListener {
         GLint m_cameraPos{-1};
         GLint m_cameraZoom{-1};
         GLint m_nodeThickness{-1};
+        GLint m_selfLoops{-1};
 
 #ifdef __EMSCRIPTEN__
         GLint m_textureWidth{-1};
@@ -132,6 +136,7 @@ export class GraphRenderer : public IGraphViewModelListener {
         GLint m_screenSize{-1};
         GLint m_cameraPos{-1};
         GLint m_cameraZoom{-1};
+        GLint m_nodeRadius{-1};
 
 #ifdef __EMSCRIPTEN__
         GLint m_textureWidth{-1};
@@ -155,4 +160,5 @@ export class GraphRenderer : public IGraphViewModelListener {
     bool m_edgesBufferDirty{false};
     bool m_nodesColorDirty{false};
     bool m_nodesPositionDirty{false};
+    bool m_selfLoopsDirty{false};
 };

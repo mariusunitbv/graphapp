@@ -7,6 +7,7 @@ export import graph_view_settings;
 
 import log_view;
 import file_view;
+import node_viewer;
 
 import graph_model;
 import graph_view_model;
@@ -46,6 +47,7 @@ export class GraphUI {
     auto& fileViewOpen() { return m_fileView.isOpen(); }
     auto& logsOpen() { return m_logView.isOpen(); }
     auto& inspectorOpen() { return m_inspectorOpen; }
+    auto& nodeViewerOpen() { return m_nodeViewer.isOpen(); }
 
     auto& currentTheme() { return m_currentTheme; }
     auto& currentGraphTheme() { return m_currentGraphTheme; }
@@ -56,6 +58,8 @@ export class GraphUI {
 
     void setOpenedRootFolder(const std::string& folder) { m_fileView.setOpenedRootFolder(folder); }
     const auto& getOpenedRootFolder() const { return m_fileView.getOpenedRootFolder(); }
+
+    NodeViewer& getNodeViewer() { return m_nodeViewer; }
 
    private:
     void initializeTextures();
@@ -126,4 +130,5 @@ export class GraphUI {
 
     FileView m_fileView;
     LogView m_logView;
+    NodeViewer m_nodeViewer;
 };

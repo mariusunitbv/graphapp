@@ -236,6 +236,8 @@
     <ClCompile Include="src\graph\view\texture_loader\texture_loader_impl.cpp" />
     <ClCompile Include="src\graph\view\ui\log_view\log_view.ixx" />
     <ClCompile Include="src\graph\view\ui\log_view\log_view_impl.cpp" />
+    <ClCompile Include="src\graph\view\ui\node_viewer\node_viewer.ixx" />
+    <ClCompile Include="src\graph\view\ui\node_viewer\node_viewer_impl.cpp" />
     <ClCompile Include="src\graph\view_model\defines\graph_view_model_defines.ixx" />
     <ClCompile Include="src\graph\view_model\graph_view_model.ixx" />
     <ClCompile Include="src\graph\view_model\graph_view_model_impl.cpp" />

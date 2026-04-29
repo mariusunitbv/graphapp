@@ -60,7 +60,7 @@ void NodeViewer::drawNodeViewer() {
                               ImGuiTableFlags_Hideable | ImGuiTableFlags_RowBg |
                               ImGuiTableFlags_Borders)) {
         ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 60.0f);
-        ImGui::TableSetupColumn("Degree", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+        ImGui::TableSetupColumn("Out Degree", ImGuiTableColumnFlags_WidthFixed, 80.0f);
         ImGui::TableSetupColumn("Position", ImGuiTableColumnFlags_WidthStretch);
 
         ImGui::TableHeadersRow();
@@ -254,7 +254,7 @@ void NodeViewer::drawAddEdgePopup() {
     ImGui::SetNextWindowPos(centerPos, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Confirmation", &m_addEdgePopupOpen)) {
         static int targetNodeId = 0;
-        static int edgeWeight = 1;
+        static int edgeWeight = 0;
 
         if (ImGui::IsWindowAppearing()) {
             targetNodeId =

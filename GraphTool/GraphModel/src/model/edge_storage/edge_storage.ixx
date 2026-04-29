@@ -31,7 +31,7 @@ export class EdgeStorage {
 
     virtual void visitNeighbours(NodeIndex_t src, void* userData,
                                  bool (*callback)(void* userData, NodeIndex_t dest, int weight),
-                                 float percentage, bool distinct) const = 0;
+                                 float percentage) const = 0;
     virtual void visitDistinctNeighbours(NodeIndex_t src, void* userData,
                                          bool (*callback)(void* userData, NodeIndex_t dest,
                                                           int weight, bool bothWays),

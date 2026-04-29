@@ -26,7 +26,7 @@ export class EditableEdgeStorage : public EdgeStorage {
 
     void visitNeighbours(NodeIndex_t src, void* userData,
                          bool (*callback)(void* userData, NodeIndex_t dest, int weight),
-                         float percentage, bool distinct) const override;
+                         float percentage) const override;
     void visitDistinctNeighbours(NodeIndex_t src, void* userData,
                                  bool (*callback)(void* userData, NodeIndex_t dest, int weight,
                                                   bool bothWays),

@@ -154,7 +154,7 @@ std::span<const EdgeStorage::Edge_t> EditableEdgeStorage::getNeighbours(NodeInde
 void EditableEdgeStorage::visitNeighbours(NodeIndex_t src, void* userData,
                                           bool (*callback)(void* userData, NodeIndex_t dest,
                                                            int weight),
-                                          float percentage, bool distinct) const {
+                                          float percentage) const {
     if (src >= m_edges.size()) {
         GAPP_THROW("Forgotten to call onNodeAdded(), size mismatch.");
     }
@@ -164,9 +164,6 @@ void EditableEdgeStorage::visitNeighbours(NodeIndex_t src, void* userData,
 
     for (auto i = 0u; i < limit; ++i) {
         const auto& [dest, weight] = entry[i];
-        if (distinct && src > dest && hasEdge(dest, src)) {
-            continue;
-        }
 
         if (!callback(userData, dest, weight)) {
             return;

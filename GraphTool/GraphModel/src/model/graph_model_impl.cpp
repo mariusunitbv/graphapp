@@ -160,8 +160,8 @@ std::span<const EdgeStorage::Edge_t> GraphModel::getNodeEdges(NodeIndex_t index)
 
 void GraphModel::visitNeighbours(NodeIndex_t src, void* userData,
                                  bool (*callback)(void* userData, NodeIndex_t dest, int weight),
-                                 float percentage, bool distinct) const {
-    m_edgeStorage->visitNeighbours(src, userData, callback, percentage, distinct);
+                                 float percentage) const {
+    m_edgeStorage->visitNeighbours(src, userData, callback, percentage);
 }
 
 void GraphModel::visitDistinctNeighbours(NodeIndex_t src, void* userData,

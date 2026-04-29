@@ -57,7 +57,7 @@ export class GraphModel {
 
     void visitNeighbours(NodeIndex_t src, void* userData,
                          bool (*callback)(void* userData, NodeIndex_t dest, int weight),
-                         float percentage = 1.f, bool distinct = false) const;
+                         float percentage = 1.f) const;
     void visitDistinctNeighbours(NodeIndex_t src, void* userData,
                                  bool (*callback)(void* userData, NodeIndex_t dest, int weight,
                                                   bool bothWays),

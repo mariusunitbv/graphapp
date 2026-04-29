@@ -1035,6 +1035,7 @@ void GraphRenderer::drawCosts(ImDrawList* drawList) {
     }
 
     const auto& visibleEdges = m_viewModel->getVisibleEdges();
+    const auto& selfLoops = m_viewModel->getVisibleLoops();
     const auto& nodeColors = m_viewModel->getVisibleNodesColors();
     const auto& visibleNodesIndexes = m_viewModel->getVisibleNodes();
 
@@ -1048,6 +1049,9 @@ void GraphRenderer::drawCosts(ImDrawList* drawList) {
         }
 
         const auto negative = weight < 0;
+        if (negative) {
+            weight = -weight;
+        }
 
         char weightLabel[12];
         int len = 0;
@@ -1064,21 +1068,29 @@ void GraphRenderer::drawCosts(ImDrawList* drawList) {
         std::reverse(weightLabel, weightLabel + len);
 
         const auto srcNode = m_model->getNode(src);
-        const auto destNode = m_model->getNode(dest);
         const auto srcScreenPos = m_viewModel->worldToScreen(srcNode->getWorldPos());
-        const auto destScreenPos = m_viewModel->worldToScreen(destNode->getWorldPos());
 
-        auto dir = destScreenPos - srcScreenPos;
-        const auto lineLen = std::sqrt(dir.m_x * dir.m_x + dir.m_y * dir.m_y);
-        if (lineLen > 0.01f) {
-            dir = dir * (1.f / lineLen);
+        if (src == dest) {
+            const auto textSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, weightLabel);
+            const auto pos = toImVec(srcScreenPos) - ImVec2{textSize.x * 0.5f, textSize.y - 18.f};
+
+            drawList->AddText(font, font->FontSize, pos, outlineColor, weightLabel);
+        } else {
+            const auto destNode = m_model->getNode(dest);
+            const auto destScreenPos = m_viewModel->worldToScreen(destNode->getWorldPos());
+
+            auto dir = destScreenPos - srcScreenPos;
+            const auto lineLen = std::sqrt(dir.m_x * dir.m_x + dir.m_y * dir.m_y);
+            if (lineLen > 0.01f) {
+                dir = dir * (1.f / lineLen);
+            }
+
+            const auto perp = ImVec2{-dir.m_y, dir.m_x};
+            const auto offset = perp * 15.f;
+            const auto midPoint = toImVec((srcScreenPos + destScreenPos) * 0.5f) + offset;
+
+            drawList->AddText(font, font->FontSize, midPoint, outlineColor, weightLabel);
         }
-
-        const auto perp = ImVec2{-dir.m_y, dir.m_x};
-        const auto offset = perp * 15.f;
-        const auto midPoint = toImVec((srcScreenPos + destScreenPos) * 0.5f) + offset;
-
-        drawList->AddText(font, font->FontSize, midPoint, outlineColor, weightLabel);
     };
 
     for (auto [srcLookup, destLookupAndBothWays] : visibleEdges) {
@@ -1091,6 +1103,16 @@ void GraphRenderer::drawCosts(ImDrawList* drawList) {
         drawEdgeWeight(srcNodeIndex, destNodeIndex, nodeColors[destLookup].m_outlineColor);
         if (isBothWays) {
             drawEdgeWeight(destNodeIndex, srcNodeIndex, nodeColors[srcLookup].m_outlineColor);
+        }
+    }
+
+    for (size_t i = 0; i < selfLoops.size(); ++i) {
+        for (int j = 0; j < 8; ++j) {
+            if ((selfLoops[i] >> j) & 1u) {
+                const auto nodeLookup = static_cast<uint32_t>(i) * 8 + j;
+                const auto nodeIndex = visibleNodesIndexes[nodeLookup];
+                drawEdgeWeight(nodeIndex, nodeIndex, nodeColors[nodeLookup].m_outlineColor);
+            }
         }
     }
 }

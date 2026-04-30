@@ -1,0 +1,16 @@
+PROGRAM PBF
+  BEGIN
+    U := N − {s};  V := {s};  W := ∅; #init
+    FOR toți y ∈ N DO p(y) := 0; #init
+    l(s) := 0; #init
+    FOR toți y ∈ U DO l(y) := ∞; #init
+    WHILE V ≠ ∅ DO
+    BEGIN
+      se selectează cel mai vechi nod x introdus în V; #analyzing
+        FOR (x, y) ∈ A DO #visit
+          IF y ∈ U #visit
+            THEN U := U − {y};  V := V ∪ {y};  p(y) := x; #visit
+			  l(y) := l(x) + 1; #visit
+        V := V − {x};  W := W ∪ {x}; #analyzed
+    END;
+END.

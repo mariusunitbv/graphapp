@@ -41,6 +41,8 @@ void SettingsManager::saveSettings() {
         sb.append_comma();
         sb.append_key_value<"node_viewer_open">(m_graphUI->nodeViewerOpen());
         sb.append_comma();
+        sb.append_key_value<"algorithms_picker_open">(m_graphUI->algorithmPickerOpen());
+        sb.append_comma();
         sb.append_key_value<"logs_open">(m_graphUI->logsOpen());
         sb.append_comma();
         sb.append_key_value<"vsync_mode">(m_graphUI->getVsyncMode());
@@ -49,6 +51,27 @@ void SettingsManager::saveSettings() {
         sb.append_comma();
         sb.append_key_value<"max_fps">(m_graphUI->getMaxFps());
         sb.append_comma();
+        sb.append_key_value<"min_zoom_nodes">(m_graphUI->viewSettings()->m_nodeCutoffZoom);
+        sb.append_comma();
+
+        sb.append_key_value<"draw_grid">(m_graphUI->viewSettings()->m_drawGrid);
+        sb.append_comma();
+        sb.append_key_value<"draw_min_max">(m_graphUI->viewSettings()->m_drawMinMax);
+        sb.append_comma();
+        sb.append_key_value<"draw_nodes">(m_graphUI->viewSettings()->m_drawNodes);
+        sb.append_comma();
+        sb.append_key_value<"draw_nodes_outline">(m_graphUI->viewSettings()->m_drawNodesOutline);
+        sb.append_comma();
+        sb.append_key_value<"draw_edges">(m_graphUI->viewSettings()->m_drawEdges);
+        sb.append_comma();
+        sb.append_key_value<"node_outline_thickness">(
+            m_graphUI->viewSettings()->m_outlineThickness);
+        sb.append_comma();
+        sb.append_key_value<"graph_font">(m_graphUI->viewSettings()->m_graphTextFontIndex);
+        sb.append_comma();
+        sb.append_key_value<"grid_spacing">(m_graphUI->viewSettings()->m_gridCellSize);
+        sb.append_comma();
+
         sb.append_key_value<"opened_root_folder">(m_graphUI->getOpenedRootFolder());
         sb.append_comma();
 
@@ -77,6 +100,8 @@ void SettingsManager::saveSettings() {
             sb.append_comma();
 
             const auto& theme = m_graphUI->viewSettings()->m_theme;
+            const auto& algColors = m_graphUI->viewSettings()->m_algorithmColors;
+
             sb.append_key_value<"background_color">(theme.m_backgroundColor);
             sb.append_comma();
             sb.append_key_value<"grid_color">(theme.m_gridColor);
@@ -94,6 +119,15 @@ void SettingsManager::saveSettings() {
             sb.append_comma();
             sb.append_key_value<"hovered_and_selected_node_outline_color">(
                 theme.m_hoveredAndSelectedNodeOutlineColor);
+
+            sb.append_comma();
+            sb.append_key_value<"traversal_default">(algColors.m_defaultNodeColor);
+            sb.append_comma();
+            sb.append_key_value<"traversal_visited">(algColors.m_visitedNodeColor);
+            sb.append_comma();
+            sb.append_key_value<"traversal_analyzing">(algColors.m_analyzingNodeColor);
+            sb.append_comma();
+            sb.append_key_value<"traversal_analyzed">(algColors.m_analyzedNodeColor);
         }
     }
     sb.end_object();
@@ -139,10 +173,26 @@ void SettingsManager::loadSettings() {
         m_graphUI->fileViewOpen() = doc["file_view_open"].get_bool().value();
         m_graphUI->inspectorOpen() = doc["inspector_open"].get_bool().value();
         m_graphUI->nodeViewerOpen() = doc["node_viewer_open"].get_bool().value();
+        m_graphUI->algorithmPickerOpen() = doc["algorithms_picker_open"].get_bool().value();
         m_graphUI->logsOpen() = doc["logs_open"].get_bool().value();
         m_graphUI->getVsyncMode() = static_cast<int>(doc["vsync_mode"].get_int64().value());
         m_graphUI->isFpsLimitEnabled() = doc["fps_limit_enabled"].get_bool().value();
         m_graphUI->getMaxFps() = static_cast<int>(doc["max_fps"].get_int64().value());
+        m_graphUI->viewSettings()->m_nodeCutoffZoom =
+            static_cast<int>(doc["min_zoom_nodes"].get_int64().value());
+
+        m_graphUI->viewSettings()->m_drawGrid = doc["draw_grid"].get_bool().value();
+        m_graphUI->viewSettings()->m_drawMinMax = doc["draw_min_max"].get_bool().value();
+        m_graphUI->viewSettings()->m_drawNodes = doc["draw_nodes"].get_bool().value();
+        m_graphUI->viewSettings()->m_drawNodesOutline =
+            doc["draw_nodes_outline"].get_bool().value();
+        m_graphUI->viewSettings()->m_drawEdges = doc["draw_edges"].get_bool().value();
+        m_graphUI->viewSettings()->m_outlineThickness =
+            static_cast<int>(doc["node_outline_thickness"].get_int64().value());
+        m_graphUI->viewSettings()->m_graphTextFontIndex =
+            static_cast<int>(doc["graph_font"].get_int64().value());
+        m_graphUI->viewSettings()->m_gridCellSize =
+            static_cast<float>(doc["grid_spacing"].get_double().value());
 
         const auto openedRootFolder = doc["opened_root_folder"].get_string().value();
         m_graphUI->setOpenedRootFolder(std::string(openedRootFolder));
@@ -164,6 +214,8 @@ void SettingsManager::loadSettings() {
 
         if (graphThemeIndex == 2) {
             auto& theme = m_graphUI->viewSettings()->m_theme;
+            auto& algColors = m_graphUI->viewSettings()->m_algorithmColors;
+
             theme.m_backgroundColor = (ImU32)doc["background_color"].get_uint64().value();
             theme.m_gridColor = (ImU32)doc["grid_color"].get_uint64().value();
             theme.m_minMaxColor = (ImU32)doc["min_max_color"].get_uint64().value();
@@ -175,6 +227,12 @@ void SettingsManager::loadSettings() {
                 (ImU32)doc["hovered_node_outline_color"].get_uint64().value();
             theme.m_hoveredAndSelectedNodeOutlineColor =
                 (ImU32)doc["hovered_and_selected_node_outline_color"].get_uint64().value();
+
+            algColors.m_defaultNodeColor = (ImU32)doc["traversal_default"].get_uint64().value();
+            algColors.m_visitedNodeColor = (ImU32)doc["traversal_visited"].get_uint64().value();
+            algColors.m_analyzingNodeColor = (ImU32)doc["traversal_analyzing"].get_uint64().value();
+            algColors.m_analyzedNodeColor = (ImU32)doc["traversal_analyzed"].get_uint64().value();
+
             m_graphUI->viewSettings()->m_shouldFullColorNodes = true;
         }
     } catch (const std::exception& e) {

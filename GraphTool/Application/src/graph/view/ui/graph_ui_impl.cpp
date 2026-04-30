@@ -8,6 +8,7 @@ module;
 module graph_ui;
 
 import texture_loader;
+import algorithm;
 
 #ifdef __EMSCRIPTEN__
 EM_JS(void, openFileDialog, (GraphDocumentHandler * docHandler), {
@@ -164,6 +165,8 @@ void GraphUI::render() {
     m_logView.render();
     drawStatusBar();
     drawSettings();
+    drawAlgorithmsPicker();
+    m_pseudocodeView.render(m_model, m_viewModel);
 
     // We don't need focus the first time the window appears.
     static bool initialized = false;
@@ -196,7 +199,11 @@ void GraphUI::setupDockSpace() {
 
         ImGuiID mainDockID = dockspaceId;
         ImGuiID fileViewID{}, inspectorViewID{}, tabViewID{}, logsViewID{}, nodeViewerID{};
+        ImGuiID algorithmPickerID{};
+
         ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Left, 0.2f, &fileViewID, &mainDockID);
+        ImGui::DockBuilderSplitNode(fileViewID, ImGuiDir_Down, 0.4f, &algorithmPickerID,
+                                    &fileViewID);
         ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Right, 0.45f, &inspectorViewID,
                                     &mainDockID);
         ImGui::DockBuilderSplitNode(inspectorViewID, ImGuiDir_Up, 0.60f, &inspectorViewID,
@@ -209,6 +216,7 @@ void GraphUI::setupDockSpace() {
         ImGui::DockBuilderDockWindow("Node Viewer", nodeViewerID);
         ImGui::DockBuilderDockWindow("Tab Area", tabViewID);
         ImGui::DockBuilderDockWindow("Logs", logsViewID);
+        ImGui::DockBuilderDockWindow("Algorithms", algorithmPickerID);
 
         ImGui::DockBuilderFinish(dockspaceId);
     }
@@ -319,6 +327,7 @@ void GraphUI::drawMenuBar() {
                 ImGui::MenuItem("Show Inspector", nullptr, &m_inspectorOpen);
                 ImGui::MenuItem("Show Node Viewer", nullptr, &m_nodeViewer.isOpen());
                 ImGui::MenuItem("Show Logs", nullptr, &m_logView.isOpen());
+                ImGui::MenuItem("Show Algorithms", nullptr, &m_algorithmsPickerOpen);
                 ImGui::EndMenu();
             }
 
@@ -859,6 +868,22 @@ void GraphUI::drawSettings() {
             ImGui::EndTable();
         }
 
+        ImGui::SeparatorText("Algorithm Visualization");
+
+        auto& algColors = m_viewSettings->m_algorithmColors;
+        if (ImGui::BeginTable("AlgorithmVisualizationSettings", 2,
+                              ImGuiTableFlags_SizingFixedFit)) {
+            ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+
+            drawColorPicker("Default traversal color", algColors.m_defaultNodeColor);
+            drawColorPicker("Visited color", algColors.m_visitedNodeColor);
+            drawColorPicker("Currently analyzed color", algColors.m_analyzingNodeColor);
+            drawColorPicker("Analyzed color", algColors.m_analyzedNodeColor);
+
+            ImGui::EndTable();
+        }
+
         if (ImGui::Button("Force Full Update", {-FLT_MIN, 0})) {
             m_viewSettings->m_shouldFullColorNodes = true;
         }
@@ -1035,6 +1060,307 @@ void GraphUI::drawSettings() {
     ImGui::EndChild();
 
     ImGui::End();
+}
+
+void GraphUI::drawAlgorithmsPicker() {
+    if (!m_algorithmsPickerOpen) {
+        return;
+    }
+
+    static IAlgorithm::ExecutionInfo_t algState;
+
+    ImGui::Begin("Algorithms", &m_algorithmsPickerOpen);
+
+    if (m_viewModel->isAlgorithmCreated()) {
+        ImGui::TextUnformatted("Playback controls");
+        ImGui::Separator();
+
+        drawPlaybackControls([&](int pressedButton) {
+            switch (pressedButton) {
+                case 0:
+                    m_viewModel->restartAlgorithm();
+                    break;
+                case 1:
+                    m_viewModel->stepBackwardAlgorithm();
+                    break;
+                case 2:
+                    m_viewModel->stopAlgorithm();
+                    break;
+                case 3:
+                    m_viewModel->toggleAlgorithmPause();
+                    break;
+                case 4:
+                    m_viewModel->stepForwardAlgorithm();
+                    break;
+                case 5:
+                    m_viewModel->finishAlgorithm();
+                    break;
+            }
+        });
+
+        if (ImGui::BeginTable("InspectorTable", 2, ImGuiTableFlags_SizingFixedFit)) {
+            ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+
+            drawTextCentered("Step delay (ms)");
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+
+            auto stepDelayMs = m_viewModel->getAlgorithmStepDelayMs();
+            if (ImGui::InputInt("##stepDelay", &stepDelayMs, 50)) {
+                stepDelayMs = std::clamp(stepDelayMs, 50, 5000);
+                m_viewModel->setAlgorithmStepDelayMs(stepDelayMs);
+            }
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+
+            drawTextCentered("Iterations per step");
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+
+            auto iterationsPerStep = m_viewModel->getAlgorithmIterationsPerStep();
+            if (ImGui::InputInt("##iterationsPerStep", &iterationsPerStep, 1)) {
+                iterationsPerStep = std::clamp(iterationsPerStep, 1, 50'000);
+                m_viewModel->setAlgorithmIterationsPerStep(iterationsPerStep);
+            }
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+
+            drawTextCentered("Show pseudocode");
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Checkbox("##showPseudocode", &m_pseudocodeView.isOpen());
+
+            ImGui::EndTable();
+        }
+
+        if (m_model->getNodeCount() < 5'000) {
+            algState = m_viewModel->getRunningAlgorithmExecutionInfo();
+        } else {
+            if (ImGui::Button("Update algorithm state", ImVec2(-FLT_MIN, 0))) {
+                algState = m_viewModel->getRunningAlgorithmExecutionInfo();
+            }
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(
+                    "Updating the algorithm state can be an expensive operation, so it is not\n"
+                    "done automatically for large graphs. Click the button to update the state\n"
+                    "manually.");
+            }
+        }
+
+        ImGui::BeginChild("##algs", ImVec2(0, 0), ImGuiChildFlags_Borders);
+        for (auto& [key, value] : algState) {
+            if (ImGui::CollapsingHeader(key.c_str())) {
+                ImGui::PushID(key.c_str());
+                ImGui::InputTextMultiline("##value", &value, ImVec2(-FLT_MIN, 120),
+                                          ImGuiInputTextFlags_ReadOnly);
+                ImGui::PopID();
+            }
+        }
+        ImGui::EndChild();
+    } else {
+        algState.clear();
+
+        auto alToInt = [](AlgorithmType type) { return static_cast<int>(type); };
+        static auto selectedAlgorithm = alToInt(AlgorithmType::ALGORITHM_TYPE_MAX);
+
+        if (ImGui::CollapsingHeader("Traversals")) {
+            if (ImGui::TreeNode("What are traversals?")) {
+                ImGui::TextWrapped(
+                    "Traversal algorithms are used to visit all nodes in a graph "
+                    "in a specific order.");
+
+                ImGui::Spacing();
+
+                ImGui::Bullet();
+                ImGui::TextLinkOpenURL("Breadth-First Search (BFS)",
+                                       "https://en.wikipedia.org/wiki/Breadth-first_search");
+                ImGui::SameLine();
+
+                ImGui::TextUnformatted("explores nodes level by level.");
+
+                ImGui::Bullet();
+                ImGui::TextLinkOpenURL("Depth-First Search (DFS)",
+                                       "https://en.wikipedia.org/wiki/Depth-first_search");
+                ImGui::SameLine();
+                ImGui::TextUnformatted("explores nodes by going as deep as possible.");
+
+                ImGui::TreePop();
+            }
+
+            ImGui::Separator();
+            ImGui::RadioButton("Breadth-First Search", &selectedAlgorithm,
+                               alToInt(AlgorithmType::BREADTH_FIRST_SEARCH));
+            ImGui::RadioButton("Depth-First Search", &selectedAlgorithm,
+                               alToInt(AlgorithmType::DEPTH_FIRST_SEARCH));
+        }
+
+        ImGui::BeginChild("##algs", ImVec2(0, 0),
+                          ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+
+        const auto [src, dest] = m_viewModel->getSelectedNodesPair();
+        if (src != INVALID_NODE) {
+            ImGui::Text("Source Node: %u", src);
+        }
+
+        if (dest != INVALID_NODE) {
+            ImGui::Text("Destination Node: %u", dest);
+        }
+
+        const auto isTraversal =
+            (selectedAlgorithm == alToInt(AlgorithmType::BREADTH_FIRST_SEARCH) ||
+             selectedAlgorithm == alToInt(AlgorithmType::DEPTH_FIRST_SEARCH));
+
+        const char* reasonForDisabling = "";
+        bool shouldDisable = [&]() {
+            if (selectedAlgorithm == alToInt(AlgorithmType::ALGORITHM_TYPE_MAX)) {
+                reasonForDisabling = "No algorithm selected";
+                return true;
+            }
+
+            if (isTraversal && src == INVALID_NODE) {
+                reasonForDisabling = "Select a source node for the traversal";
+                return true;
+            }
+
+            return false;
+        }();
+
+        ImGui::BeginDisabled(shouldDisable);
+        if (ImGui::Button("Run", ImVec2(-FLT_MIN, 0))) {
+            m_pseudocodeView.loadPseudocode(static_cast<AlgorithmType>(selectedAlgorithm));
+            m_viewModel->startAlgorithm(static_cast<AlgorithmType>(selectedAlgorithm), src, dest);
+        }
+
+        if (shouldDisable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            ImGui::SetTooltip("%s", reasonForDisabling);
+        }
+
+        if (dest != INVALID_NODE && ImGui::Button("Run (Swap sources)", ImVec2(-FLT_MIN, 0))) {
+            m_pseudocodeView.loadPseudocode(static_cast<AlgorithmType>(selectedAlgorithm));
+            m_viewModel->startAlgorithm(static_cast<AlgorithmType>(selectedAlgorithm), dest, src);
+        }
+
+        ImGui::EndDisabled();
+
+        ImGui::EndChild();
+    }
+
+    ImGui::End();
+}
+
+void GraphUI::drawPlaybackControls(std::function<void(int)> on_click) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+
+    ImGui::BeginChild("##playback_controls", ImVec2(0, 45));
+
+    ImVec2 start = ImGui::GetCursorScreenPos();
+    float avail_w = ImGui::GetContentRegionAvail().x;
+
+    const int COUNT = 6;
+    const float PADDING_X = 6.0f;
+    const float HEIGHT = 32.0f;
+    const float spacing = 6.0f;
+    const float ROUNDING = 5.0f;
+
+    float BTN_W = (avail_w - PADDING_X * 2.0f - spacing * (COUNT - 1)) / COUNT;
+    if (BTN_W < 20.0f) BTN_W = 20.0f;
+
+    float stride = BTN_W + spacing;
+
+    const ImU32 COL_BG = IM_COL32(45, 45, 48, 255);
+    const ImU32 COL_BG_HOV = IM_COL32(65, 65, 70, 255);
+    const ImU32 COL_BG_ACT = IM_COL32(30, 30, 32, 255);
+    const ImU32 COL_ICON = IM_COL32(210, 210, 215, 255);
+    const ImU32 COL_ABORT = IM_COL32(200, 70, 70, 255);
+    const ImU32 COL_PAUSE_ACT = IM_COL32(90, 180, 255, 255);
+
+    struct Btn {
+        const char* id;
+    };
+
+    static constexpr Btn btns[6] = {{"##rewind_all"}, {"##step_back"}, {"##abort"},
+                                    {"##pause"},      {"##step_fwd"},  {"##skip_end"}};
+
+    for (int i = 0; i < COUNT; i++) {
+        ImVec2 p = ImVec2(start.x + PADDING_X + i * stride, start.y);
+        ImVec2 p2 = ImVec2(p.x + BTN_W, p.y + HEIGHT);
+
+        ImGui::SetCursorScreenPos(p);
+        ImGui::InvisibleButton(btns[i].id, ImVec2(BTN_W, HEIGHT));
+
+        bool hovered = ImGui::IsItemHovered();
+        bool active = ImGui::IsItemActive();
+        bool clicked = ImGui::IsItemClicked();
+
+        if (clicked) on_click(i);
+
+        ImU32 bg = active ? COL_BG_ACT : hovered ? COL_BG_HOV : COL_BG;
+
+        dl->AddRectFilled(p, p2, bg, ROUNDING);
+        dl->AddRect(p, p2, IM_COL32(80, 80, 85, 255), ROUNDING, 0, 1.0f);
+
+        float cx = p.x + BTN_W * 0.5f;
+        float cy = p.y + HEIGHT * 0.5f;
+        float s = HEIGHT * 0.22f;
+
+        switch (i) {
+            case 0:
+                dl->AddRectFilled(ImVec2(cx - s, cy - s), ImVec2(cx - s + 2.5f, cy + s), COL_ICON);
+                dl->AddTriangleFilled(ImVec2(cx + s, cy - s), ImVec2(cx + s, cy + s),
+                                      ImVec2(cx - s + 3.5f, cy), COL_ICON);
+                break;
+
+            case 1:
+                dl->AddTriangleFilled(ImVec2(cx + 1.f, cy - s), ImVec2(cx + 1.f, cy + s),
+                                      ImVec2(cx - s + 1.f, cy), COL_ICON);
+                dl->AddTriangleFilled(ImVec2(cx + s, cy - s), ImVec2(cx + s, cy + s),
+                                      ImVec2(cx, cy), COL_ICON);
+                break;
+
+            case 2:
+                dl->AddRectFilled(ImVec2(cx - s, cy - s), ImVec2(cx + s, cy + s), COL_ABORT, 2.0f);
+                break;
+
+            case 3:
+                if (m_viewModel->isAlgorithmRunning()) {
+                    float bar_w = HEIGHT * 0.08f;
+                    float gap = HEIGHT * 0.12f;
+
+                    dl->AddRectFilled(ImVec2(cx - gap - bar_w, cy - s), ImVec2(cx - gap, cy + s),
+                                      COL_PAUSE_ACT);
+                    dl->AddRectFilled(ImVec2(cx + gap, cy - s), ImVec2(cx + gap + bar_w, cy + s),
+                                      COL_PAUSE_ACT);
+                } else {
+                    dl->AddTriangleFilled(ImVec2(cx - s, cy - s), ImVec2(cx - s, cy + s),
+                                          ImVec2(cx + s, cy), COL_ICON);
+                }
+                break;
+
+            case 4:
+                dl->AddTriangleFilled(ImVec2(cx - s, cy - s), ImVec2(cx - s, cy + s),
+                                      ImVec2(cx, cy), COL_ICON);
+                dl->AddTriangleFilled(ImVec2(cx, cy - s), ImVec2(cx, cy + s), ImVec2(cx + s, cy),
+                                      COL_ICON);
+                break;
+
+            case 5:
+                dl->AddTriangleFilled(ImVec2(cx - s, cy - s), ImVec2(cx - s, cy + s),
+                                      ImVec2(cx + s - 3.5f, cy), COL_ICON);
+                dl->AddRectFilled(ImVec2(cx + s - 2.5f, cy - s), ImVec2(cx + s, cy + s), COL_ICON);
+                break;
+        }
+    }
+
+    ImGui::EndChild();
 }
 
 void GraphUI::drawUnfocusedBackground(ImDrawList* drawList) {
@@ -1505,9 +1831,11 @@ void GraphUI::onGraphThemeSwitched() {
         case GraphTheme_t::DARK:
             // GraphTheme{} by default is dark mode.
             m_viewSettings->m_theme = GraphTheme{};
+            m_viewSettings->m_algorithmColors = AlgorithmColors{};
             break;
         case GraphTheme_t::LIGHT:
             m_viewSettings->m_theme = GraphTheme{};
+            m_viewSettings->m_algorithmColors = AlgorithmColors{};
             graphThemeLight();
             break;
         case GraphTheme_t::CUSTOM:

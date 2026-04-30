@@ -15,8 +15,16 @@ export struct GraphTheme {
     ImU32 m_hoveredAndSelectedNodeOutlineColor{IM_COL32(18, 222, 130, 255)};
 };
 
+export struct AlgorithmColors {
+    ImU32 m_defaultNodeColor{IM_COL32(80, 80, 80, 255)};
+    ImU32 m_visitedNodeColor{IM_COL32(70, 130, 180, 255)};
+    ImU32 m_analyzingNodeColor{IM_COL32(255, 165, 0, 255)};
+    ImU32 m_analyzedNodeColor{IM_COL32(60, 179, 113, 255)};
+};
+
 export struct GraphViewSettings {
     GraphTheme m_theme{};
+    AlgorithmColors m_algorithmColors{};
 
     bool m_drawGrid{true};
     bool m_drawMinMax{false};

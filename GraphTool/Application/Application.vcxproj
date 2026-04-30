@@ -209,6 +209,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\GraphCommon\src\common\graph_common.ixx" />
+    <ClCompile Include="..\GraphModel\src\algorithms\algorithm.ixx" />
+    <ClCompile Include="..\GraphModel\src\algorithms\factory\algorithm_factory.ixx" />
+    <ClCompile Include="..\GraphModel\src\algorithms\listener\algorithm_listener.ixx" />
+    <ClCompile Include="..\GraphModel\src\algorithms\node_states.ixx" />
     <ClCompile Include="..\GraphModel\src\loader\graph_loader.ixx" />
     <ClCompile Include="..\GraphModel\src\loader\osm\osm_load_settings.ixx" />
     <ClCompile Include="..\GraphModel\src\math\graph_math.ixx" />
@@ -238,6 +242,12 @@
     <ClCompile Include="src\graph\view\ui\log_view\log_view_impl.cpp" />
     <ClCompile Include="src\graph\view\ui\node_viewer\node_viewer.ixx" />
     <ClCompile Include="src\graph\view\ui\node_viewer\node_viewer_impl.cpp" />
+    <ClCompile Include="src\graph\view\ui\pseudocode_view\pseudocode_view.ixx">
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="src\graph\view\ui\pseudocode_view\pseudocode_view_impl.cpp">
+      <SubType>Code</SubType>
+    </ClCompile>
     <ClCompile Include="src\graph\view_model\defines\graph_view_model_defines.ixx" />
     <ClCompile Include="src\graph\view_model\graph_view_model.ixx" />
     <ClCompile Include="src\graph\view_model\graph_view_model_impl.cpp" />

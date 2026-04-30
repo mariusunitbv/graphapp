@@ -6,6 +6,9 @@ export module node_viewer;
 import graph_model;
 import graph_view_model;
 
+import node_states;
+import algorithm;
+
 export class NodeViewer : public IGraphViewModelListener {
    public:
     void render(const GraphModel* model, GraphViewModel* viewModel);
@@ -26,6 +29,14 @@ export class NodeViewer : public IGraphViewModelListener {
     void onNodeAdded(NodeIndex_t nodeIndex) override;
     void onNodeAddedToVisibleData(NodeIndex_t nodeIndex, uint32_t lookupIndex,
                                   VisibleData& visibleData) override {}
+
+    void onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState,
+                           AlgorithmType algorithmType) override {}
+
+    void onAlgorithmStarted() override {}
+    void onAlgorithmAborted() override {}
+
+    void onAlgorithmPseudocodeEvent(const std::string_view event) override {}
 
    private:
     void drawNodeViewer();

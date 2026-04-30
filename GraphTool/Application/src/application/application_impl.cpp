@@ -201,6 +201,7 @@ bool Application::isRunning() const { return m_isRunning; }
 void Application::onDocumentAdded(GraphDocument& graphDocument) {
     graphDocument.m_viewModel.addListener(&m_graphRenderer);
     graphDocument.m_viewModel.addListener(&m_graphUI.getNodeViewer());
+    graphDocument.m_viewModel.addListener(&m_graphUI.getPseudocodeView());
 }
 
 void Application::onDocumentChanged(GraphDocument& graphDocument) {
@@ -263,10 +264,15 @@ void Application::setupFonts(float scale) {
     config.PixelSnapH = true;
     config.OversampleH = config.OversampleV = 1;
 
-    io.Fonts->AddFontFromFileTTF(Constants::defaultFontPath, 26.f, &config,
-                                 io.Fonts->GetGlyphRangesDefault());
-    io.Fonts->AddFontFromFileTTF(Constants::defaultFontPath, 13.f, &config,
-                                 io.Fonts->GetGlyphRangesDefault());
+    ImVector<ImWchar> ranges;
+    ImFontGlyphRangesBuilder builder;
+    builder.AddText("ăîșțâĂÎȘȚÂ");
+    builder.AddText("∈∉∪∩∅←→≤≥≠∞−");
+    builder.AddRanges(ImGui::GetIO().Fonts->GetGlyphRangesDefault());
+    builder.BuildRanges(&ranges);
+
+    io.Fonts->AddFontFromFileTTF(Constants::defaultFontPath, 26.f, &config, ranges.Data);
+    io.Fonts->AddFontFromFileTTF(Constants::defaultFontPath, 13.f, &config, ranges.Data);
 
     io.Fonts->Build();
 }

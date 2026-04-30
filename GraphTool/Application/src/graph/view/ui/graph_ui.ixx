@@ -8,6 +8,7 @@ export import graph_view_settings;
 import log_view;
 import file_view;
 import node_viewer;
+import pseudocode_view;
 
 import graph_model;
 import graph_view_model;
@@ -48,6 +49,7 @@ export class GraphUI {
     auto& logsOpen() { return m_logView.isOpen(); }
     auto& inspectorOpen() { return m_inspectorOpen; }
     auto& nodeViewerOpen() { return m_nodeViewer.isOpen(); }
+    auto& algorithmPickerOpen() { return m_algorithmsPickerOpen; }
 
     auto& currentTheme() { return m_currentTheme; }
     auto& currentGraphTheme() { return m_currentGraphTheme; }
@@ -60,6 +62,7 @@ export class GraphUI {
     const auto& getOpenedRootFolder() const { return m_fileView.getOpenedRootFolder(); }
 
     NodeViewer& getNodeViewer() { return m_nodeViewer; }
+    PseudocodeView& getPseudocodeView() { return m_pseudocodeView; }
 
    private:
     void initializeTextures();
@@ -72,6 +75,9 @@ export class GraphUI {
     void drawCenterOnNodeDialog();
     void drawInspector();
     void drawSettings();
+
+    void drawAlgorithmsPicker();
+    void drawPlaybackControls(std::function<void(int)> on_click);
 
     void drawUnfocusedBackground(ImDrawList* drawList);
     void drawAddNodesText(ImDrawList* drawList);
@@ -104,6 +110,7 @@ export class GraphUI {
     bool m_isSettingsOpen{false};
     bool m_appFullScreen{false};
     bool m_inspectorOpen{true};
+    bool m_algorithmsPickerOpen{true};
 
     ImGuiStyle m_defaultStyle;
     UITheme m_currentTheme{UITheme::IMGUI_CLASSIC};
@@ -131,4 +138,5 @@ export class GraphUI {
     FileView m_fileView;
     LogView m_logView;
     NodeViewer m_nodeViewer;
+    PseudocodeView m_pseudocodeView;
 };

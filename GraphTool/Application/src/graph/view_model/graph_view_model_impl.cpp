@@ -6,6 +6,8 @@ module graph_view_model;
 import graph_loader;
 import graph_common;
 
+import algorithm_factory;
+
 GraphViewModel::GraphViewModel(GraphViewModel&& rhs) noexcept
     : m_camera(rhs.m_camera),
       m_displaySize(rhs.m_displaySize),
@@ -201,6 +203,7 @@ void GraphViewModel::onSDLEvent(const SDL_Event& event, bool focusOnUI) {
 
 void GraphViewModel::preRenderUpdate() {
     selectNodesInBox();
+    tickAlgorithmExecution();
 
     const auto lastWidth = m_lastQueryRegionArea.width();
     const auto lastHeight = m_lastQueryRegionArea.height();
@@ -322,6 +325,21 @@ const std::vector<uint8_t>& GraphViewModel::getVisibleLoops() const {
 void GraphViewModel::refreshVisibleData() { invalidateVisibleData(); }
 
 NodeIndex_t GraphViewModel::getHoveredNodeIndex() const { return m_hoveredNodeIndex; }
+
+std::pair<NodeIndex_t, NodeIndex_t> GraphViewModel::getSelectedNodesPair() const {
+    NodeIndex_t first = INVALID_NODE, second = INVALID_NODE;
+
+    if (!m_selectedNodes.empty()) {
+        auto it = m_selectedNodes.begin();
+        first = *it;
+        it = std::next(it);
+        if (it != m_selectedNodes.end()) {
+            second = *it;
+        }
+    }
+
+    return std::make_pair(first, second);
+}
 
 size_t GraphViewModel::getSelectedNodesCount() const { return m_selectedNodes.size(); }
 
@@ -486,6 +504,95 @@ void GraphViewModel::addEdge(NodeIndex_t from, NodeIndex_t to, int weight) {
 void GraphViewModel::removeEdge(NodeIndex_t from, NodeIndex_t to) {
     m_model->removeEdge(from, to);
     invalidateVisibleData();
+}
+
+int GraphViewModel::getAlgorithmStepDelayMs() const { return m_algorithmStepDelayMs; }
+
+void GraphViewModel::setAlgorithmStepDelayMs(int delayMs) { m_algorithmStepDelayMs = delayMs; }
+
+int GraphViewModel::getAlgorithmIterationsPerStep() const { return m_iterationsPerStep; }
+
+void GraphViewModel::setAlgorithmIterationsPerStep(int iterations) {
+    m_iterationsPerStep = static_cast<uint16_t>(iterations);
+}
+
+bool GraphViewModel::isAlgorithmCreated() const { return m_runningAlgorithm != nullptr; }
+
+bool GraphViewModel::isAlgorithmRunning() const {
+    return m_runningAlgorithm && !m_runningAlgorithm->isFinished() && !m_isAlgorithmPaused;
+}
+
+AlgorithmType GraphViewModel::getRunningAlgorithmType() const {
+    return m_runningAlgorithm->getType();
+}
+
+IAlgorithm::ExecutionInfo_t GraphViewModel::getRunningAlgorithmExecutionInfo() const {
+    return m_runningAlgorithm ? m_runningAlgorithm->getExecutionInfo()
+                              : IAlgorithm::ExecutionInfo_t{};
+}
+
+void GraphViewModel::startAlgorithm(AlgorithmType algorithmType, NodeIndex_t sourceNode,
+                                    NodeIndex_t targetNode) {
+    m_isAlgorithmPaused = true;
+
+    m_runningAlgorithm = AlgorithmFactory::createAlgorithm(algorithmType);
+
+    m_runningAlgorithm->addListener(this);
+    m_runningAlgorithm->setSourceNode(sourceNode);
+    m_runningAlgorithm->setTargetNode(targetNode);
+    m_runningAlgorithm->setModel(m_model);
+
+    m_runningAlgorithm->initialize();
+
+    for (auto* listener : m_listeners) {
+        listener->onAlgorithmStarted();
+    }
+}
+
+void GraphViewModel::stopAlgorithm() {
+    m_runningAlgorithm.reset();
+
+    for (auto* listener : m_listeners) {
+        listener->onAlgorithmAborted();
+    }
+}
+
+void GraphViewModel::toggleAlgorithmPause() { m_isAlgorithmPaused = !m_isAlgorithmPaused; }
+
+void GraphViewModel::stepForwardAlgorithm() {
+    for (uint16_t i = 0; i < m_iterationsPerStep; ++i) {
+        if (m_runningAlgorithm->isFinished()) {
+            break;
+        }
+
+        m_runningAlgorithm->step();
+    }
+}
+
+void GraphViewModel::stepBackwardAlgorithm() { m_runningAlgorithm->undo(m_iterationsPerStep); }
+
+void GraphViewModel::finishAlgorithm() {
+    while (!m_runningAlgorithm->isFinished()) {
+        m_runningAlgorithm->step();
+    }
+}
+
+void GraphViewModel::restartAlgorithm() { m_runningAlgorithm->restart(); }
+
+void GraphViewModel::onAlgorithmFinish() {
+    common::Logger::get().information("Algorithm {} finished.", m_runningAlgorithm->getName());
+}
+
+void GraphViewModel::onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState) {
+    for (auto* listener : m_listeners) {
+        listener->onNodeStateChange(nodeIndex, newState, m_runningAlgorithm->getType());
+    }
+}
+
+void GraphViewModel::onAlgorithmPseudocodeEvent(const std::string_view event) {
+    for (auto* listener : m_listeners) {
+        listener->onAlgorithmPseudocodeEvent(event);
+    }
 }
 
 void GraphViewModel::onSceneResize(float displayWidth, float displayHeight) {
@@ -928,4 +1035,28 @@ void GraphViewModel::invalidateVisibleData() {
     m_cachedVisibleData = std::move(m_visibleData);
 
     m_lastQueryRegionArea = {};
+}
+
+void GraphViewModel::tickAlgorithmExecution() {
+    if (!isAlgorithmRunning()) {
+        return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    const auto duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastAlgorithmStepTime);
+
+    if (duration.count() < m_algorithmStepDelayMs) {
+        return;
+    }
+
+    for (uint16_t i = 0; i < m_iterationsPerStep; ++i) {
+        if (m_runningAlgorithm->isFinished()) {
+            break;
+        }
+
+        m_runningAlgorithm->step();
+    }
+
+    m_lastAlgorithmStepTime = now;
 }

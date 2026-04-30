@@ -7,6 +7,9 @@ export import graph_model;
 export import graph_view_model;
 export import graph_view_settings;
 
+import node_states;
+import algorithm;
+
 export class GraphRenderer : public IGraphViewModelListener {
    public:
     ~GraphRenderer();
@@ -32,6 +35,14 @@ export class GraphRenderer : public IGraphViewModelListener {
     void onNodeAdded(NodeIndex_t nodeIndex) override;
     void onNodeAddedToVisibleData(NodeIndex_t nodeIndex, uint32_t lookupIndex,
                                   VisibleData& visibleData) override;
+
+    void onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState,
+                           AlgorithmType algorithmType) override;
+
+    void onAlgorithmStarted() override;
+    void onAlgorithmAborted() override;
+
+    void onAlgorithmPseudocodeEvent(const std::string_view event) override {}
 
    private:
     void initializeNodesBuffersGL();
@@ -60,6 +71,8 @@ export class GraphRenderer : public IGraphViewModelListener {
     void colorNodes();
     void colorNode(NodeIndex_t nodeIndex);
     ImU32 getNodeColor(NodeIndex_t nodeIndex) const;
+    ImU32 getNodeColorAlgorithm(NodeIndex_t nodeIndex, AlgorithmType algorithmType,
+                                int nodeAlpha) const;
     ImU32 getOutlineColor(NodeIndex_t nodeIndex) const;
 
     const GraphModel* m_model{nullptr};
@@ -137,6 +150,7 @@ export class GraphRenderer : public IGraphViewModelListener {
         GLint m_cameraPos{-1};
         GLint m_cameraZoom{-1};
         GLint m_nodeRadius{-1};
+        GLint m_algorithmCreated{-1};
 
 #ifdef __EMSCRIPTEN__
         GLint m_textureWidth{-1};

@@ -4,6 +4,7 @@ module;
 export module graph_view_model_defines;
 
 import graph_model_defines;
+import algorithm;
 
 export struct GraphCamera {
     Vector2D m_position{};
@@ -33,4 +34,10 @@ export struct VisibleData {
 
     // Bits indicating self-loops visibility for each node in m_visibleNodes.
     std::vector<uint8_t> m_visibleLoops;
+};
+
+export constexpr std::array<std::string_view, (size_t)AlgorithmType::ALGORITHM_TYPE_MAX>
+    g_algorithmPseudocodes = {
+        "assets/pseudocode/bfs.txt",
+        "assets/pseudocode/dfs.txt",
 };

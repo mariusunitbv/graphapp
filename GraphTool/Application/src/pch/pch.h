@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <shared_mutex>
 #include <filesystem>
+#include <functional>
 #include <execution>
 #include <algorithm>
 #include <iostream>
@@ -31,6 +32,7 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 #include <imgui.h>
+#include <imgui_stdlib.h>
 #include <imgui_freetype.h>
 #include <imgui_internal.h>
 #include <imgui_impl_sdl3.h>

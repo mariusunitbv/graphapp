@@ -10,6 +10,8 @@ export using NodeIndex_t = uint32_t;
 export constexpr auto INVALID_NODE = std::numeric_limits<NodeIndex_t>::max();
 export constexpr auto NODE_LIMIT = 1'500'000'000;
 
+export constexpr auto NODE_STATE_BITS = 2;
+
 export constexpr auto WORLD_BOUNDS_FIXED_SIZE = 500000.f;
 export constexpr BoundingBox2D WORLD_BOUNDS{-WORLD_BOUNDS_FIXED_SIZE, -WORLD_BOUNDS_FIXED_SIZE,
                                             WORLD_BOUNDS_FIXED_SIZE, WORLD_BOUNDS_FIXED_SIZE};
@@ -41,6 +43,9 @@ export struct Node {
     uint32_t getABGR(int alpha = 255) const;
     void setColor(uint8_t red, uint8_t green, uint8_t blue);
 
+    void setState(uint8_t state);
+    uint8_t getState() const;
+
     void markSelected();
     void unmarkSelected();
     bool isSelected() const;
@@ -54,9 +59,10 @@ export struct Node {
     // contains() on a set of selected nodes.
     uint64_t m_selected : 1 {0};
 
-    // This will be used for algorithms that need to mark nodes as visited without needing extra
-    // memory, it can be used as a bitfield for different purposes, but currently it's reserved.
-    uint64_t m_reserved : 2 {0};
+    // Used by algorithms to store temporary state (e.g., visited, analyzed). The specific meaning
+    // of the state bits is defined by the algorithm and should be reset before running a new
+    // algorithm.
+    uint64_t m_state : NODE_STATE_BITS{0};
 };
 
 static_assert(sizeof(Node) == 8, "Node struct must be 8 bytes.");

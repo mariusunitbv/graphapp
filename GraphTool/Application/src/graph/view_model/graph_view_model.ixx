@@ -7,7 +7,10 @@ export import graph_view_model_listener;
 
 import graph_model;
 
-export class GraphViewModel {
+import algorithm;
+import algorithm_listener;
+
+export class GraphViewModel : public IAlgorithmListener {
    public:
     GraphViewModel() = default;
 
@@ -38,6 +41,7 @@ export class GraphViewModel {
     void refreshVisibleData();
 
     NodeIndex_t getHoveredNodeIndex() const;
+    std::pair<NodeIndex_t, NodeIndex_t> getSelectedNodesPair() const;
     size_t getSelectedNodesCount() const;
     bool isNodeSelected(NodeIndex_t nodeIndex) const;
 
@@ -86,6 +90,34 @@ export class GraphViewModel {
     void addEdge(NodeIndex_t from, NodeIndex_t to, int weight);
     void removeEdge(NodeIndex_t from, NodeIndex_t to);
 
+    int getAlgorithmStepDelayMs() const;
+    void setAlgorithmStepDelayMs(int delayMs);
+
+    int getAlgorithmIterationsPerStep() const;
+    void setAlgorithmIterationsPerStep(int iterations);
+
+    bool isAlgorithmCreated() const;
+    bool isAlgorithmRunning() const;
+    AlgorithmType getRunningAlgorithmType() const;
+    IAlgorithm::ExecutionInfo_t getRunningAlgorithmExecutionInfo() const;
+
+    void startAlgorithm(AlgorithmType algorithmType, NodeIndex_t sourceNode,
+                        NodeIndex_t targetNode);
+    void toggleAlgorithmPause();
+
+    void stepForwardAlgorithm();
+    void stepBackwardAlgorithm();
+    void finishAlgorithm();
+    void restartAlgorithm();
+
+    void stopAlgorithm();
+
+   protected:
+    void onAlgorithmFinish() override;
+    void onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState) override;
+
+    void onAlgorithmPseudocodeEvent(const std::string_view event) override;
+
    private:
     void onSceneResize(float displayWidth, float displayHeight);
     void onCameraPan(float deltaX, float deltaY);
@@ -109,6 +141,8 @@ export class GraphViewModel {
     void clampCameraPositionInBounds();
     void updateVisibleRegion();
     void invalidateVisibleData();
+
+    void tickAlgorithmExecution();
 
     GraphModel* m_model{nullptr};
 
@@ -149,6 +183,12 @@ export class GraphViewModel {
 
     std::unordered_map<SDL_FingerID, SDL_TouchFingerEvent> m_activeFingers;
     float m_lastZoomDelta{};
+
+    std::unique_ptr<IAlgorithm> m_runningAlgorithm;
+    std::chrono::steady_clock::time_point m_lastAlgorithmStepTime{};
+    int m_algorithmStepDelayMs{100};
+    uint16_t m_iterationsPerStep{1};
+    bool m_isAlgorithmPaused{true};
 
     std::vector<IGraphViewModelListener*> m_listeners{};
 };

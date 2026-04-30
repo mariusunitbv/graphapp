@@ -105,6 +105,15 @@ void GraphRenderer::onNodeAddedToVisibleData(NodeIndex_t nodeIndex, uint32_t loo
     nodeColor.m_outlineColor = getOutlineColor(nodeIndex);
 }
 
+void GraphRenderer::onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState,
+                                      AlgorithmType algorithmType) {
+    colorNode(nodeIndex);
+}
+
+void GraphRenderer::onAlgorithmStarted() { colorNodes(); }
+
+void GraphRenderer::onAlgorithmAborted() { colorNodes(); }
+
 void GraphRenderer::initializeNodesBuffersGL() {
 #ifdef __EMSCRIPTEN__
     glGenTextures(1, &m_nodePositionTex);
@@ -195,6 +204,7 @@ void GraphRenderer::initializeEdgeGL() {
         uniform vec2 uCameraPos;
         uniform float uCameraZoom;
         uniform float uNodeRadius;
+        uniform int uAlgorithmRunning;
 
         out vec4 vColor;
 
@@ -216,8 +226,16 @@ void GraphRenderer::initializeEdgeGL() {
             uvec4 srcColors = fetchNodeColors(int(aSrcLookupIndex));
             uvec4 destColors = fetchNodeColors(int(aDestLookupIndex));
 
-            vec4 srcColor = unpackColor(srcColors.y);
-            vec4 destColor = unpackColor(destColors.y);
+            vec4 srcColor;
+            vec4 destColor;
+
+            if (uAlgorithmRunning == 1) {
+                srcColor = unpackColor(srcColors.x);
+                destColor = unpackColor(destColors.x);
+            } else {     
+                srcColor = unpackColor(srcColors.y);
+                destColor = unpackColor(destColors.y);
+            }
 
             vec2 src = fetchNodePosition(int(aSrcLookupIndex));
             vec2 dest = fetchNodePosition(int(aDestLookupIndex));
@@ -336,6 +354,8 @@ void GraphRenderer::initializeEdgeGL() {
     m_edgeUniforms.m_cameraPos = glGetUniformLocation(edgeGL.m_shaderProgram, "uCameraPos");
     m_edgeUniforms.m_cameraZoom = glGetUniformLocation(edgeGL.m_shaderProgram, "uCameraZoom");
     m_edgeUniforms.m_nodeRadius = glGetUniformLocation(edgeGL.m_shaderProgram, "uNodeRadius");
+    m_edgeUniforms.m_algorithmCreated =
+        glGetUniformLocation(edgeGL.m_shaderProgram, "uAlgorithmRunning");
 
 #ifdef __EMSCRIPTEN__
     m_edgeUniforms.m_textureWidth = glGetUniformLocation(edgeGL.m_shaderProgram, "uTextureWidth");
@@ -930,6 +950,8 @@ void GraphRenderer::drawEdges() {
         glUniform1f(m_edgeUniforms.m_nodeRadius, 0.1f);
     }
 
+    glUniform1i(m_edgeUniforms.m_algorithmCreated, m_viewModel->isAlgorithmCreated() ? 1 : 0);
+
 #ifdef __EMSCRIPTEN__
     glUniform1i(m_edgeUniforms.m_textureWidth, m_maxTextureSize);
 
@@ -1264,11 +1286,48 @@ ImU32 GraphRenderer::getNodeColor(NodeIndex_t nodeIndex) const {
         nodeAlpha = std::max(nodeAlpha - 60, 30);
     }
 
-    if (node->hasCustomColor()) {
-        return node->getABGR(nodeAlpha);
+    if (m_viewModel->isAlgorithmCreated()) {
+        return getNodeColorAlgorithm(nodeIndex, m_viewModel->getRunningAlgorithmType(), nodeAlpha);
     }
 
     return theme.m_nodeColor & 0x00FFFFFF | (nodeAlpha << 24);
+}
+
+ImU32 GraphRenderer::getNodeColorAlgorithm(NodeIndex_t nodeIndex, AlgorithmType algorithmType,
+                                           int nodeAlpha) const {
+    const auto node = m_model->getNode(nodeIndex);
+
+    const auto overrideAlpha = [](ImU32 color, int nodeAlpha) {
+        return (color & 0x00FFFFFF) | (nodeAlpha << 24);
+    };
+
+    const auto& algorithmColors = m_viewSettings->m_algorithmColors;
+
+    const auto nodeState = static_cast<NodeState>(node->getState());
+
+    switch (algorithmType) {
+        case AlgorithmType::BREADTH_FIRST_SEARCH:
+        case AlgorithmType::DEPTH_FIRST_SEARCH:
+            switch (nodeState) {
+                case NodeState::NONE:
+                    return overrideAlpha(algorithmColors.m_defaultNodeColor, nodeAlpha);
+                case NodeState::VISITED:
+                    return overrideAlpha(algorithmColors.m_visitedNodeColor, nodeAlpha);
+                case NodeState::ANALYZING:
+                    return overrideAlpha(algorithmColors.m_analyzingNodeColor, nodeAlpha);
+                case NodeState::ANALYZED:
+                    return overrideAlpha(algorithmColors.m_analyzedNodeColor, nodeAlpha);
+                default:
+                    GAPP_THROW(
+                        "Unhandled node state: " + std::to_string(static_cast<int>(nodeState)) +
+                        " for algorithm type: " + std::to_string(static_cast<int>(algorithmType)));
+            }
+
+            break;
+        default:
+            GAPP_THROW("Unhandled algorithm type: " +
+                       std::to_string(static_cast<int>(algorithmType)));
+    }
 }
 
 ImU32 GraphRenderer::getOutlineColor(NodeIndex_t nodeIndex) const {

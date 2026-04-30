@@ -5,7 +5,7 @@ module graph_model_defines;
 
 static constexpr auto WORLD_POS_OFFSET = static_cast<int>(WORLD_BOUNDS_FIXED_SIZE);
 
-Node::Node(Vector2D worldPos) : m_selected{0} {
+Node::Node(Vector2D worldPos) : m_selected{0}, m_state{0} {
     m_worldPosX = static_cast<uint32_t>(static_cast<int>(worldPos.m_x) + WORLD_POS_OFFSET);
     m_worldPosY = static_cast<uint32_t>(static_cast<int>(worldPos.m_y) + WORLD_POS_OFFSET);
 
@@ -50,6 +50,16 @@ void Node::setColor(uint8_t red, uint8_t green, uint8_t blue) {
     m_green = lut[green];
     m_blue = lut[blue];
 }
+
+void Node::setState(uint8_t state) {
+    if (state >= (1 << NODE_STATE_BITS)) {
+        GAPP_THROW("Node state exceeds maximum allowed value");
+    }
+
+    m_state = state;
+}
+
+uint8_t Node::getState() const { return m_state; }
 
 void Node::markSelected() { m_selected = 1; }
 

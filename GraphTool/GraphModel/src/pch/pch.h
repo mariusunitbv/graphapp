@@ -6,9 +6,11 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <numeric>
 #include <vector>
 #include <string>
 #include <thread>
+#include <deque>
 #include <array>
 #include <cmath>
 #include <span>

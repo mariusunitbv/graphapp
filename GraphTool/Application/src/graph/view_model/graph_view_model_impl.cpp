@@ -522,6 +522,10 @@ bool GraphViewModel::isAlgorithmRunning() const {
     return m_runningAlgorithm && !m_runningAlgorithm->isFinished() && !m_isAlgorithmPaused;
 }
 
+bool GraphViewModel::isAlgorithmFinished() const {
+    return m_runningAlgorithm && m_runningAlgorithm->isFinished();
+}
+
 AlgorithmType GraphViewModel::getRunningAlgorithmType() const {
     return m_runningAlgorithm->getType();
 }

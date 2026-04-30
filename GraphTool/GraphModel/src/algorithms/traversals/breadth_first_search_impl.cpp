@@ -58,6 +58,8 @@ bool BreadthFirstSearch::stepAlgorithm() {
 
         m_nodesInfo[y].m_parent = x;
         m_nodesInfo[y].m_distance = m_nodesInfo[x].m_distance + 1;
+
+        return true;
     }
 
     m_queue.pop_front();

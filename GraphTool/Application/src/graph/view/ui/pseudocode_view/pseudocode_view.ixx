@@ -32,9 +32,6 @@ export class PseudocodeView : public IGraphViewModelListener {
     void onAlgorithmPseudocodeEvent(const std::string_view event) override;
 
    private:
-    const GraphModel* m_model{nullptr};
-    GraphViewModel* m_viewModel{nullptr};
-
     bool m_isOpen{true};
 
     struct PseudoCodeLine {
@@ -43,6 +40,8 @@ export class PseudocodeView : public IGraphViewModelListener {
     };
 
     std::string m_currentEvent{""};
+    std::chrono::steady_clock::time_point m_lastEventTime;
+
     std::vector<PseudoCodeLine> m_pseudocodeLines;
     int m_usedFontIndex{1};
 };

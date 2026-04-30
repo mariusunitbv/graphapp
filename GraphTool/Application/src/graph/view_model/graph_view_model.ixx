@@ -98,6 +98,7 @@ export class GraphViewModel : public IAlgorithmListener {
 
     bool isAlgorithmCreated() const;
     bool isAlgorithmRunning() const;
+    bool isAlgorithmFinished() const;
     AlgorithmType getRunningAlgorithmType() const;
     IAlgorithm::ExecutionInfo_t getRunningAlgorithmExecutionInfo() const;
 

@@ -17,7 +17,6 @@ void PseudocodeView::loadPseudocode(AlgorithmType algorithmType) {
     }
 
     std::string line;
-
     while (std::getline(file, line)) {
         PseudoCodeLine out;
 
@@ -28,7 +27,6 @@ void PseudocodeView::loadPseudocode(AlgorithmType algorithmType) {
             std::string event = line.substr(pos + 1);
 
             while (!event.empty() && std::isspace(event.back())) event.pop_back();
-
             while (!event.empty() && std::isspace(event.front())) event.erase(event.begin());
 
             out.m_event = event;
@@ -44,9 +42,11 @@ void PseudocodeView::loadPseudocode(AlgorithmType algorithmType) {
 }
 
 void PseudocodeView::render(const GraphModel* model, GraphViewModel* viewModel) {
-    if (!viewModel->isAlgorithmCreated()) {
+    if (!m_isOpen || !viewModel->isAlgorithmCreated()) {
         return;
     }
+
+    ImGui::SetNextWindowSize(ImVec2(450, 300), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("Pseudocode", &m_isOpen);
     ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[m_usedFontIndex]);
@@ -62,9 +62,13 @@ void PseudocodeView::render(const GraphModel* model, GraphViewModel* viewModel) 
     } else {
         auto* draw = ImGui::GetWindowDrawList();
 
+        const auto flashBorder =
+            std::chrono::steady_clock::now() - m_lastEventTime < std::chrono::milliseconds(230);
         for (int i = 0; i < m_pseudocodeLines.size(); ++i) {
             const auto& line = m_pseudocodeLines[i];
-            const auto active = line.m_event == m_currentEvent;
+            const auto active =
+                (line.m_event == m_currentEvent && !viewModel->isAlgorithmFinished()) ||
+                (line.m_event == "end" && viewModel->isAlgorithmFinished());
 
             ImVec2 pos = ImGui::GetCursorScreenPos();
             float lineHeight = ImGui::GetTextLineHeightWithSpacing();
@@ -72,7 +76,7 @@ void PseudocodeView::render(const GraphModel* model, GraphViewModel* viewModel) 
             if (active) {
                 draw->AddRectFilled(
                     pos, ImVec2(pos.x + ImGui::GetContentRegionAvail().x, pos.y + lineHeight),
-                    ImGui::GetColorU32(ImGuiCol_HeaderHovered));
+                    ImGui::GetColorU32(flashBorder ? ImGuiCol_HeaderHovered : ImGuiCol_Header));
             }
 
             ImGui::BeginGroup();
@@ -109,4 +113,5 @@ bool& PseudocodeView::isOpen() { return m_isOpen; }
 
 void PseudocodeView::onAlgorithmPseudocodeEvent(const std::string_view event) {
     m_currentEvent = event;
+    m_lastEventTime = std::chrono::steady_clock::now();
 }

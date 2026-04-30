@@ -3,7 +3,7 @@
 #include <source_location>
 #include <stdexcept>
 
-#define GAPP_VERSION "pre1.5.0"
+#define GAPP_VERSION "pre1.5.1"
 
 #define GAPP_THROW(message)                                                       \
     throw std::runtime_error(                                                     \

@@ -201,21 +201,22 @@ void GraphUI::setupDockSpace() {
         ImGuiID fileViewID{}, inspectorViewID{}, tabViewID{}, logsViewID{}, nodeViewerID{};
         ImGuiID algorithmPickerID{};
 
-        ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Left, 0.2f, &fileViewID, &mainDockID);
-        ImGui::DockBuilderSplitNode(fileViewID, ImGuiDir_Down, 0.4f, &algorithmPickerID,
+        ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Left, 0.23f, &fileViewID, &mainDockID);
+        ImGui::DockBuilderSplitNode(fileViewID, ImGuiDir_Down, 0.6f, &algorithmPickerID,
                                     &fileViewID);
         ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Right, 0.45f, &inspectorViewID,
                                     &mainDockID);
-        ImGui::DockBuilderSplitNode(inspectorViewID, ImGuiDir_Up, 0.60f, &inspectorViewID,
+        ImGui::DockBuilderSplitNode(inspectorViewID, ImGuiDir_Up, 0.6f, &inspectorViewID,
                                     &nodeViewerID);
         ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Up, 0.06f, &tabViewID, nullptr);
-        ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Down, 0.35f, &logsViewID, nullptr);
+        ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Down, 0.38f, &logsViewID, nullptr);
 
         ImGui::DockBuilderDockWindow("File View", fileViewID);
         ImGui::DockBuilderDockWindow("Inspector", inspectorViewID);
         ImGui::DockBuilderDockWindow("Node Viewer", nodeViewerID);
         ImGui::DockBuilderDockWindow("Tab Area", tabViewID);
         ImGui::DockBuilderDockWindow("Logs", logsViewID);
+        ImGui::DockBuilderDockWindow("Pseudocode", logsViewID);
         ImGui::DockBuilderDockWindow("Algorithms", algorithmPickerID);
 
         ImGui::DockBuilderFinish(dockspaceId);
@@ -1172,6 +1173,7 @@ void GraphUI::drawAlgorithmsPicker() {
         auto alToInt = [](AlgorithmType type) { return static_cast<int>(type); };
         static auto selectedAlgorithm = alToInt(AlgorithmType::ALGORITHM_TYPE_MAX);
 
+        ImGui::SeparatorText("Algorithms");
         if (ImGui::CollapsingHeader("Traversals")) {
             if (ImGui::TreeNode("What are traversals?")) {
                 ImGui::TextWrapped(
@@ -1203,16 +1205,19 @@ void GraphUI::drawAlgorithmsPicker() {
                                alToInt(AlgorithmType::DEPTH_FIRST_SEARCH));
         }
 
-        ImGui::BeginChild("##algs", ImVec2(0, 0),
-                          ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+        ImGui::SeparatorText("Configuration");
 
         const auto [src, dest] = m_viewModel->getSelectedNodesPair();
         if (src != INVALID_NODE) {
             ImGui::Text("Source Node: %u", src);
+        } else {
+            ImGui::TextUnformatted("Source Node: None");
         }
 
         if (dest != INVALID_NODE) {
             ImGui::Text("Destination Node: %u", dest);
+        } else {
+            ImGui::TextUnformatted("Destination Node: None");
         }
 
         const auto isTraversal =
@@ -1250,8 +1255,6 @@ void GraphUI::drawAlgorithmsPicker() {
         }
 
         ImGui::EndDisabled();
-
-        ImGui::EndChild();
     }
 
     ImGui::End();

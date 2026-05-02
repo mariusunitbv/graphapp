@@ -61,6 +61,7 @@ void PseudocodeView::render(const GraphModel* model, GraphViewModel* viewModel) 
         ImGui::TextUnformatted("No pseudocode loaded.");
     } else {
         auto* draw = ImGui::GetWindowDrawList();
+        draw->ChannelsSplit(2);
 
         const auto flashBorder =
             std::chrono::steady_clock::now() - m_lastEventTime < std::chrono::milliseconds(230);
@@ -70,17 +71,13 @@ void PseudocodeView::render(const GraphModel* model, GraphViewModel* viewModel) 
                 (line.m_event == m_currentEvent && !viewModel->isAlgorithmFinished()) ||
                 (line.m_event == "end" && viewModel->isAlgorithmFinished());
 
-            ImVec2 pos = ImGui::GetCursorScreenPos();
-            float lineHeight = ImGui::GetTextLineHeightWithSpacing();
-
-            if (active) {
-                draw->AddRectFilled(
-                    pos, ImVec2(pos.x + ImGui::GetContentRegionAvail().x, pos.y + lineHeight),
-                    ImGui::GetColorU32(flashBorder ? ImGuiCol_HeaderHovered : ImGuiCol_Header));
-            }
+            const auto startPos = ImGui::GetCursorScreenPos();
+            draw->ChannelsSetCurrent(1);
 
             ImGui::BeginGroup();
-            ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled), "%2d", i + 1);
+            ImGui::TextColored(
+                ImGui::GetStyleColorVec4(active ? ImGuiCol_CheckMark : ImGuiCol_TextDisabled),
+                "%2d", i + 1);
             ImGui::SameLine();
 
             ImGui::PushTextWrapPos();
@@ -101,8 +98,25 @@ void PseudocodeView::render(const GraphModel* model, GraphViewModel* viewModel) 
 #endif
 
             ImGui::EndGroup();
+
+            if (active) {
+                const auto rectMin = ImGui::GetItemRectMin();
+                const auto rectMax = ImGui::GetItemRectMax();
+
+                draw->ChannelsSetCurrent(0);
+
+                draw->AddRectFilled(
+                    ImVec2(startPos.x, rectMin.y),
+                    ImVec2(startPos.x + ImGui::GetContentRegionAvail().x, rectMax.y - 1.f),
+                    ImGui::GetColorU32(flashBorder ? ImGuiCol_HeaderHovered : ImGuiCol_Header));
+            }
+
+            draw->ChannelsSetCurrent(1);
         }
+
+        draw->ChannelsMerge();
     }
+
     ImGui::PopStyleVar();
 
     ImGui::PopFont();

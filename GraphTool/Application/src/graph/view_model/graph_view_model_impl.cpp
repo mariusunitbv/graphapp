@@ -442,6 +442,16 @@ Vector2D GraphViewModel::screenToWorld(Vector2D screenPos) const {
 
 void GraphViewModel::removeSelectedNodes() {
     if (isRunningUpdate()) {
+        common::Logger::get().warning(
+            "Cannot remove selected nodes while visible data update is running. Wait for the "
+            "update to finish first.");
+        return;
+    }
+
+    if (m_runningAlgorithm) {
+        common::Logger::get().warning(
+            "Cannot remove selected nodes while an algorithm is running. Stop the algorithm "
+            "first.");
         return;
     }
 
@@ -497,11 +507,23 @@ void GraphViewModel::cancelRunningUpdate() {
 }
 
 void GraphViewModel::addEdge(NodeIndex_t from, NodeIndex_t to, int weight) {
+    if (m_runningAlgorithm) {
+        common::Logger::get().warning(
+            "Cannot add edge while an algorithm is running. Stop the algorithm first.");
+        return;
+    }
+
     m_model->addEdge(from, to, weight);
     invalidateVisibleData();
 }
 
 void GraphViewModel::removeEdge(NodeIndex_t from, NodeIndex_t to) {
+    if (m_runningAlgorithm) {
+        common::Logger::get().warning(
+            "Cannot remove edge while an algorithm is running. Stop the algorithm first.");
+        return;
+    }
+
     m_model->removeEdge(from, to);
     invalidateVisibleData();
 }
@@ -667,6 +689,15 @@ void GraphViewModel::onMouseClick(float cursorX, float cursorY, bool ctrlPressed
     }
 
     if (isRunningUpdate()) {
+        common::Logger::get().warning(
+            "Cannot add node while visible data update is running. Wait for the update to finish "
+            "first.");
+        return;
+    }
+
+    if (m_runningAlgorithm) {
+        common::Logger::get().warning(
+            "Cannot add node while an algorithm is running. Stop the algorithm first.");
         return;
     }
 

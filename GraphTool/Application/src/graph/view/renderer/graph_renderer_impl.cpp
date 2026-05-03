@@ -64,6 +64,7 @@ void GraphRenderer::preRenderUpdate(const GraphModel* model, GraphViewModel* vie
 void GraphRenderer::render() {
     ImDrawList* drawList = ImGui::GetBackgroundDrawList();
 
+    drawHighlightedEdges(drawList);
     drawCosts(drawList);
     drawNodesIndexes(drawList);
     drawMinMax(drawList);
@@ -1046,6 +1047,47 @@ void GraphRenderer::drawNodes() {
     glBindVertexArray(0);
 }
 
+void GraphRenderer::drawHighlightedEdges(ImDrawList* drawList) {
+    if (!m_viewModel->isAlgorithmFinished()) {
+        return;
+    }
+
+    const auto& highlightedEdges = m_viewModel->getRunningAlgorithmHighlightedEdges();
+    if (highlightedEdges.empty()) {
+        return;
+    }
+
+    const auto edgeColor = [&]() {
+        switch (m_viewModel->getRunningAlgorithmType()) {
+            case AlgorithmType::DIJKSTRA:
+                return m_viewSettings->m_algorithmColors.m_pathColor;
+            default:
+                GAPP_THROW("Unhandled algorithm type in drawHighlightedEdges().");
+        }
+    }();
+
+    constexpr auto timeUntilFullPathShown = 1000.f;
+    const auto timeSinceFinish = m_viewModel->getTimeSinceAlgorithmFinishMs();
+
+    const auto t = std::clamp(timeSinceFinish / timeUntilFullPathShown, 0.f, 1.f);
+
+    const auto eased = 1.f - std::exp(-5.f * t);
+    const auto limit =
+        std::min(eased * highlightedEdges.size(), static_cast<float>(highlightedEdges.size()));
+
+    for (size_t i{}; i < limit; ++i) {
+        const auto [src, dest] = highlightedEdges[i];
+
+        const auto p1 = m_model->getNode(src);
+        const auto p2 = m_model->getNode(dest);
+
+        const auto screenPos1 = m_viewModel->worldToScreen(p1->getWorldPos());
+        const auto screenPos2 = m_viewModel->worldToScreen(p2->getWorldPos());
+
+        drawList->AddLine(toImVec(screenPos1), toImVec(screenPos2), edgeColor, 4.f);
+    }
+}
+
 void GraphRenderer::drawCosts(ImDrawList* drawList) {
     if (!shouldDrawNodes()) {
         return;
@@ -1296,13 +1338,15 @@ ImU32 GraphRenderer::getNodeColor(NodeIndex_t nodeIndex) const {
 ImU32 GraphRenderer::getNodeColorAlgorithm(NodeIndex_t nodeIndex, AlgorithmType algorithmType,
                                            int nodeAlpha) const {
     const auto node = m_model->getNode(nodeIndex);
-
     const auto overrideAlpha = [](ImU32 color, int nodeAlpha) {
         return (color & 0x00FFFFFF) | (nodeAlpha << 24);
     };
 
-    const auto& algorithmColors = m_viewSettings->m_algorithmColors;
+    if (node->hasCustomColor()) {
+        return node->getABGR(nodeAlpha);
+    }
 
+    const auto& algorithmColors = m_viewSettings->m_algorithmColors;
     const auto nodeState = static_cast<NodeState>(node->getState());
 
     switch (algorithmType) {
@@ -1317,6 +1361,25 @@ ImU32 GraphRenderer::getNodeColorAlgorithm(NodeIndex_t nodeIndex, AlgorithmType 
                     return overrideAlpha(algorithmColors.m_analyzingNodeColor, nodeAlpha);
                 case NodeState::ANALYZED:
                     return overrideAlpha(algorithmColors.m_analyzedNodeColor, nodeAlpha);
+                default:
+                    GAPP_THROW(
+                        "Unhandled node state: " + std::to_string(static_cast<int>(nodeState)) +
+                        " for algorithm type: " + std::to_string(static_cast<int>(algorithmType)));
+            }
+
+            break;
+        case AlgorithmType::DIJKSTRA:
+            switch (nodeState) {
+                case NodeState::NONE:
+                    return overrideAlpha(algorithmColors.m_defaultNodeColor, nodeAlpha);
+                case NodeState::VISITED:
+                    return overrideAlpha(algorithmColors.m_visitedNodeColor, nodeAlpha);
+                case NodeState::ANALYZING:
+                    return overrideAlpha(algorithmColors.m_analyzingNodeColor, nodeAlpha);
+                case NodeState::RELAXED:
+                    return overrideAlpha(algorithmColors.m_relaxedNodeColor, nodeAlpha);
+                case NodeState::UNREACHABLE:
+                    return overrideAlpha(algorithmColors.m_unreachableNodeColor, nodeAlpha);
                 default:
                     GAPP_THROW(
                         "Unhandled node state: " + std::to_string(static_cast<int>(nodeState)) +

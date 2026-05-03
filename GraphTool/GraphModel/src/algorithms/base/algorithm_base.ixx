@@ -14,6 +14,7 @@ export class AlgorithmBase : public IAlgorithm {
     void addListener(IAlgorithmListener* listener) override;
 
     void restart() override;
+    void finish() override;
 
     void step() override;
     void undo(int stepsToUndo) override;
@@ -21,6 +22,8 @@ export class AlgorithmBase : public IAlgorithm {
 
     void setSourceNode(NodeIndex_t sourceNode) override;
     void setTargetNode(NodeIndex_t targetNode) override;
+
+    const std::vector<std::pair<NodeIndex_t, NodeIndex_t>>& getHighlightedEdges() const override;
 
     void setNodesState(NodeState newState);
     void setNodeState(NodeIndex_t nodeIndex, NodeState newState);
@@ -39,8 +42,11 @@ export class AlgorithmBase : public IAlgorithm {
     NodeIndex_t m_sourceNode{INVALID_NODE};
     NodeIndex_t m_targetNode{INVALID_NODE};
 
+    std::vector<std::pair<NodeIndex_t, NodeIndex_t>> m_highlightedEdges;
+
    private:
     std::vector<IAlgorithmListener*> m_listeners;
     int m_currentStep{0};
     bool m_finished{false};
+    bool m_shouldInstantlyFinish{false};
 };

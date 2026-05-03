@@ -39,17 +39,19 @@ void Node::setColor(uint8_t red, uint8_t green, uint8_t blue) {
     static constexpr auto buildLUT = []() {
         std::array<uint8_t, 256> lut{};
         for (int i = 0; i < 256; ++i) {
-            lut[i] = (std::clamp(i, 30, 210) - 30) * 127 / 180;
+            lut[i] = (std::clamp(i, 30, 210) - 30);
         }
         return lut;
     };
 
     static constexpr auto lut = buildLUT();
 
-    m_red = lut[red];
-    m_green = lut[green];
-    m_blue = lut[blue];
+    m_red = lut[red] * 127 / 180;
+    m_green = lut[green] * 127 / 180;
+    m_blue = lut[blue] * 63 / 180;
 }
+
+void Node::clearColor() { m_red = m_green = m_blue = 0; }
 
 void Node::setState(uint8_t state) {
     if (state >= (1 << NODE_STATE_BITS)) {

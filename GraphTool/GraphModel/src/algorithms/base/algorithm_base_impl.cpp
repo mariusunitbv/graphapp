@@ -14,8 +14,17 @@ void AlgorithmBase::restart() {
 
     m_finished = false;
     m_currentStep = 0;
+    m_highlightedEdges.clear();
 
     restartAlgorithm();
+}
+
+void AlgorithmBase::finish() {
+    m_shouldInstantlyFinish = true;
+    while (!isFinished()) {
+        step();
+    }
+    m_shouldInstantlyFinish = false;
 }
 
 void AlgorithmBase::step() {
@@ -50,6 +59,10 @@ void AlgorithmBase::setSourceNode(NodeIndex_t sourceNode) { m_sourceNode = sourc
 
 void AlgorithmBase::setTargetNode(NodeIndex_t targetNode) { m_targetNode = targetNode; }
 
+const std::vector<std::pair<NodeIndex_t, NodeIndex_t>>& AlgorithmBase::getHighlightedEdges() const {
+    return m_highlightedEdges;
+}
+
 void AlgorithmBase::setNodesState(NodeState newState) {
     for (NodeIndex_t nodeIndex = 0; nodeIndex < m_model->getNodeCount(); ++nodeIndex) {
         setNodeState(nodeIndex, newState);
@@ -57,7 +70,13 @@ void AlgorithmBase::setNodesState(NodeState newState) {
 }
 
 void AlgorithmBase::setNodeState(NodeIndex_t nodeIndex, NodeState newState) {
-    m_model->getNode(nodeIndex)->setState(static_cast<uint8_t>(newState));
+    const auto node = m_model->getNode(nodeIndex);
+
+    if (newState == NodeState::NONE) {
+        node->clearColor();
+    }
+
+    node->setState(static_cast<uint8_t>(newState));
     notifyNodeStateChanged(nodeIndex, newState);
 }
 
@@ -72,12 +91,20 @@ void AlgorithmBase::notifyAlgorithmFinished() {
 }
 
 void AlgorithmBase::notifyNodeStateChanged(NodeIndex_t nodeIndex, NodeState newState) {
+    if (m_shouldInstantlyFinish) {
+        return;
+    }
+
     for (auto* listener : m_listeners) {
         listener->onNodeStateChange(nodeIndex, newState);
     }
 }
 
 void AlgorithmBase::notifyPseudocodeEvent(const std::string_view event) {
+    if (m_shouldInstantlyFinish) {
+        return;
+    }
+
     for (auto* listener : m_listeners) {
         listener->onAlgorithmPseudocodeEvent(event);
     }

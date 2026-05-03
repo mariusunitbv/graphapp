@@ -10,7 +10,7 @@ export using NodeIndex_t = uint32_t;
 export constexpr auto INVALID_NODE = std::numeric_limits<NodeIndex_t>::max();
 export constexpr auto NODE_LIMIT = 1'500'000'000;
 
-export constexpr auto NODE_STATE_BITS = 2;
+export constexpr auto NODE_STATE_BITS = 3;
 
 export constexpr auto WORLD_BOUNDS_FIXED_SIZE = 500000.f;
 export constexpr BoundingBox2D WORLD_BOUNDS{-WORLD_BOUNDS_FIXED_SIZE, -WORLD_BOUNDS_FIXED_SIZE,
@@ -42,6 +42,7 @@ export struct Node {
     bool hasCustomColor() const;
     uint32_t getABGR(int alpha = 255) const;
     void setColor(uint8_t red, uint8_t green, uint8_t blue);
+    void clearColor();
 
     void setState(uint8_t state);
     uint8_t getState() const;
@@ -53,7 +54,11 @@ export struct Node {
    private:
     uint64_t m_worldPosX : 20 {};
     uint64_t m_worldPosY : 20 {};
-    uint64_t m_red : 7 {}, m_green : 7 {}, m_blue : 7 {};
+
+    // Colors are stored as 7-bit values (0-127) to fit in the remaining bits, with a simple linear
+    // quantization. Only algorithms that need custom colors will use these fields, and they can be
+    // left at 0 for default coloring.
+    uint64_t m_red : 7 {}, m_green : 7 {}, m_blue : 6 {};
 
     // This flag indicates whether the node is selected, which is way faster to check than using
     // contains() on a set of selected nodes.

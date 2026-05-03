@@ -557,6 +557,17 @@ IAlgorithm::ExecutionInfo_t GraphViewModel::getRunningAlgorithmExecutionInfo() c
                               : IAlgorithm::ExecutionInfo_t{};
 }
 
+const std::vector<std::pair<NodeIndex_t, NodeIndex_t>>&
+GraphViewModel::getRunningAlgorithmHighlightedEdges() const {
+    return m_runningAlgorithm->getHighlightedEdges();
+}
+
+int GraphViewModel::getTimeSinceAlgorithmFinishMs() const {
+    return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::steady_clock::now() - m_algorithmFinishTime)
+                                .count());
+}
+
 void GraphViewModel::startAlgorithm(AlgorithmType algorithmType, NodeIndex_t sourceNode,
                                     NodeIndex_t targetNode) {
     m_isAlgorithmPaused = true;
@@ -598,8 +609,12 @@ void GraphViewModel::stepForwardAlgorithm() {
 void GraphViewModel::stepBackwardAlgorithm() { m_runningAlgorithm->undo(m_iterationsPerStep); }
 
 void GraphViewModel::finishAlgorithm() {
-    while (!m_runningAlgorithm->isFinished()) {
-        m_runningAlgorithm->step();
+    m_runningAlgorithm->finish();
+
+    // onAlgorithmAborted just recolors the nodes and edges to their default color, so we can reuse
+    // it here to ensure the final state of the graph is properly colored.
+    for (auto* listener : m_listeners) {
+        listener->onAlgorithmAborted();
     }
 }
 
@@ -607,6 +622,7 @@ void GraphViewModel::restartAlgorithm() { m_runningAlgorithm->restart(); }
 
 void GraphViewModel::onAlgorithmFinish() {
     common::Logger::get().information("Algorithm {} finished.", m_runningAlgorithm->getName());
+    m_algorithmFinishTime = std::chrono::steady_clock::now();
 }
 
 void GraphViewModel::onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState) {
@@ -909,7 +925,7 @@ void GraphViewModel::updateVisibleEdges(VisibleData& visibleData) {
     }
 
     const auto chunkSize = (totalNodes + threadCount - 1) / threadCount;
-    std::vector<std::vector<VisibleEdge> > threadEdges(threadCount);
+    std::vector<std::vector<VisibleEdge>> threadEdges(threadCount);
 
     auto worker = [this, &visibleData, &threadEdges](uint32_t start, uint32_t end,
                                                      uint32_t threadIndex) {

@@ -40,4 +40,5 @@ export constexpr std::array<std::string_view, (size_t)AlgorithmType::ALGORITHM_T
     g_algorithmPseudocodes = {
         "assets/pseudocode/bfs.txt",
         "assets/pseudocode/dfs.txt",
+        "assets/pseudocode/dijkstra.txt",
 };

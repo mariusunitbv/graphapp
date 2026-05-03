@@ -59,6 +59,7 @@ export class GraphRenderer : public IGraphViewModelListener {
     void drawEdges();
     void drawNodes();
 
+    void drawHighlightedEdges(ImDrawList* drawList);
     void drawCosts(ImDrawList* drawList);
     void drawNodesIndexes(ImDrawList* drawList);
     void drawMinMax(ImDrawList* drawList);

@@ -20,6 +20,10 @@ export struct AlgorithmColors {
     ImU32 m_visitedNodeColor{IM_COL32(70, 130, 180, 255)};
     ImU32 m_analyzingNodeColor{IM_COL32(255, 165, 0, 255)};
     ImU32 m_analyzedNodeColor{IM_COL32(60, 179, 113, 255)};
+
+    ImU32 m_unreachableNodeColor{IM_COL32(210, 30, 30, 255)};
+    ImU32 m_pathColor{IM_COL32(210, 120, 30, 255)};
+    ImU32 m_relaxedNodeColor{IM_COL32(210, 30, 210, 255)};
 };
 
 export struct GraphViewSettings {

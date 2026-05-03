@@ -10,6 +10,8 @@ export enum class AlgorithmType {
     BREADTH_FIRST_SEARCH = 0,
     DEPTH_FIRST_SEARCH,
 
+    DIJKSTRA,
+
     ALGORITHM_TYPE_MAX
 };
 
@@ -32,10 +34,12 @@ export class IAlgorithm {
 
     virtual void initialize() = 0;
     virtual void restart() = 0;
+    virtual void finish() = 0;
 
     virtual void step() = 0;
     virtual void undo(int stepsToUndo) = 0;
     virtual bool isFinished() const = 0;
 
+    virtual const std::vector<std::pair<NodeIndex_t, NodeIndex_t>>& getHighlightedEdges() const = 0;
     virtual ExecutionInfo_t getExecutionInfo() const = 0;
 };

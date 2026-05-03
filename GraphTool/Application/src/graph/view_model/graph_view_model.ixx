@@ -101,6 +101,9 @@ export class GraphViewModel : public IAlgorithmListener {
     bool isAlgorithmFinished() const;
     AlgorithmType getRunningAlgorithmType() const;
     IAlgorithm::ExecutionInfo_t getRunningAlgorithmExecutionInfo() const;
+    const std::vector<std::pair<NodeIndex_t, NodeIndex_t>>& getRunningAlgorithmHighlightedEdges()
+        const;
+    int getTimeSinceAlgorithmFinishMs() const;
 
     void startAlgorithm(AlgorithmType algorithmType, NodeIndex_t sourceNode,
                         NodeIndex_t targetNode);
@@ -187,6 +190,7 @@ export class GraphViewModel : public IAlgorithmListener {
 
     std::unique_ptr<IAlgorithm> m_runningAlgorithm;
     std::chrono::steady_clock::time_point m_lastAlgorithmStepTime{};
+    std::chrono::steady_clock::time_point m_algorithmFinishTime{};
     int m_algorithmStepDelayMs{100};
     uint16_t m_iterationsPerStep{1};
     bool m_isAlgorithmPaused{true};

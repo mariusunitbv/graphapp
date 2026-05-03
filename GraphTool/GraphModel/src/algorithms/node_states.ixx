@@ -13,6 +13,9 @@ export enum NodeState : uint8_t {
     ANALYZING,
     ANALYZED,
 
+    RELAXED,
+    UNREACHABLE,
+
     MAX_NODE_STATE,
 };
 

@@ -1,0 +1,19 @@
+PROGRAM DIJKSTRA
+BEGIN
+  W := N; d(s) := 0; p(s) := -; #init
+  FOR y ∈ N − {s} DO #init
+  BEGIN #init
+    d(y) := ∞; p(y) := -; #init
+  END #init
+  WHILE W ≠ ∅ DO
+  BEGIN
+    se selectează un nod x ∈ W astfel încât d(x) este minimă; #analyzing
+    FOR y ∈ W \ {x} ∩ V+(x) DO #relax
+      IF d(x) + b(x, y) < d(y) THEN #relax
+      BEGIN #relax
+        d(y) := d(x) + b(x, y); #relax
+        p(y) := x; #relax
+	  END #relax
+    W := W − {x}; #analyzed
+  END
+END #end

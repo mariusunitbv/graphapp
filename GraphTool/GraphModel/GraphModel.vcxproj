@@ -209,6 +209,12 @@
     </ClCompile>
     <ClCompile Include="src\algorithms\listener\algorithm_listener.ixx" />
     <ClCompile Include="src\algorithms\node_states.ixx" />
+    <ClCompile Include="src\algorithms\paths\dijkstra.ixx">
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="src\algorithms\paths\dijkstra_impl.cpp">
+      <SubType>Code</SubType>
+    </ClCompile>
     <ClCompile Include="src\algorithms\traversals\breadth_first_search.ixx">
       <SubType>Code</SubType>
     </ClCompile>

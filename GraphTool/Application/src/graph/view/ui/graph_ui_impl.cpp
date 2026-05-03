@@ -881,6 +881,9 @@ void GraphUI::drawSettings() {
             drawColorPicker("Visited color", algColors.m_visitedNodeColor);
             drawColorPicker("Currently analyzed color", algColors.m_analyzingNodeColor);
             drawColorPicker("Analyzed color", algColors.m_analyzedNodeColor);
+            drawColorPicker("Unreachable color", algColors.m_unreachableNodeColor);
+            drawColorPicker("Path color", algColors.m_pathColor);
+            drawColorPicker("Relaxed color", algColors.m_relaxedNodeColor);
 
             ImGui::EndTable();
         }
@@ -1186,7 +1189,6 @@ void GraphUI::drawAlgorithmsPicker() {
                 ImGui::TextLinkOpenURL("Breadth-First Search (BFS)",
                                        "https://en.wikipedia.org/wiki/Breadth-first_search");
                 ImGui::SameLine();
-
                 ImGui::TextUnformatted("explores nodes level by level.");
 
                 ImGui::Bullet();
@@ -1203,6 +1205,27 @@ void GraphUI::drawAlgorithmsPicker() {
                                alToInt(AlgorithmType::BREADTH_FIRST_SEARCH));
             ImGui::RadioButton("Depth-First Search", &selectedAlgorithm,
                                alToInt(AlgorithmType::DEPTH_FIRST_SEARCH));
+        }
+
+        if (ImGui::CollapsingHeader("Pathfinding")) {
+            if (ImGui::TreeNode("What is pathfinding?")) {
+                ImGui::TextWrapped(
+                    "Pathfinding algorithms are used to find the shortest path between two nodes "
+                    "in a graph.");
+
+                ImGui::Spacing();
+                ImGui::Bullet();
+                ImGui::TextLinkOpenURL("Dijkstra's Algorithm",
+                                       "https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm");
+                ImGui::SameLine();
+                ImGui::TextUnformatted(
+                    "finds the shortest path from a source node to all other nodes in the graph.");
+
+                ImGui::TreePop();
+            }
+
+            ImGui::Separator();
+            ImGui::RadioButton("Dijkstra", &selectedAlgorithm, alToInt(AlgorithmType::DIJKSTRA));
         }
 
         ImGui::SeparatorText("Configuration");
@@ -1224,6 +1247,8 @@ void GraphUI::drawAlgorithmsPicker() {
             (selectedAlgorithm == alToInt(AlgorithmType::BREADTH_FIRST_SEARCH) ||
              selectedAlgorithm == alToInt(AlgorithmType::DEPTH_FIRST_SEARCH));
 
+        const auto isPathfinding = (selectedAlgorithm == alToInt(AlgorithmType::DIJKSTRA));
+
         const char* reasonForDisabling = "";
         bool shouldDisable = [&]() {
             if (selectedAlgorithm == alToInt(AlgorithmType::ALGORITHM_TYPE_MAX)) {
@@ -1233,6 +1258,11 @@ void GraphUI::drawAlgorithmsPicker() {
 
             if (isTraversal && src == INVALID_NODE) {
                 reasonForDisabling = "Select a source node for the traversal";
+                return true;
+            }
+
+            if (isPathfinding && src == INVALID_NODE) {
+                reasonForDisabling = "Select a source node for the pathfinding";
                 return true;
             }
 

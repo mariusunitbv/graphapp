@@ -113,7 +113,7 @@ export class GraphViewModel : public IAlgorithmListener {
     void stepBackwardAlgorithm();
     void finishAlgorithm();
     void restartAlgorithm();
-
+    void benchmarkAlgorithm();
     void stopAlgorithm();
 
    protected:

@@ -25,8 +25,7 @@ export class IGraphViewModelListener {
     virtual void onNodeAddedToVisibleData(NodeIndex_t nodeIndex, uint32_t lookupIndex,
                                           VisibleData& visibleData) = 0;
 
-    virtual void onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState,
-                                   AlgorithmType algorithmType) = 0;
+    virtual void onNodeStateChange(NodeIndex_t nodeIndex) = 0;
 
     virtual void onAlgorithmStarted() = 0;
     virtual void onAlgorithmAborted() = 0;

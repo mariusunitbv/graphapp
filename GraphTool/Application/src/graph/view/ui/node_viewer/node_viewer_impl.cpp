@@ -19,6 +19,8 @@ void NodeViewer::openAddEdgePopup() { m_addEdgePopupOpen = true; }
 
 bool& NodeViewer::isOpen() { return m_isOpen; }
 
+bool& NodeViewer::followNodeStateChangeAlgorithm() { return m_followNodeStateChangeAlgorithm; }
+
 void NodeViewer::onNodeSelected(NodeIndex_t nodeIndex) {
     m_shouldScrollToNode = nodeIndex;
     m_selectedNode = nodeIndex;
@@ -27,6 +29,14 @@ void NodeViewer::onNodeSelected(NodeIndex_t nodeIndex) {
 void NodeViewer::onNodeAdded(NodeIndex_t nodeIndex) {
     m_shouldScrollToNode = nodeIndex;
     m_selectedNode = nodeIndex;
+}
+
+void NodeViewer::onNodeStateChange(NodeIndex_t nodeIndex) {
+    if (!m_followNodeStateChangeAlgorithm) {
+        return;
+    }
+
+    m_viewModel->centerOnNode(nodeIndex);
 }
 
 void NodeViewer::drawNodeViewer() {

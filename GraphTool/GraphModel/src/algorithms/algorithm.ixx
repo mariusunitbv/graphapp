@@ -11,6 +11,7 @@ export enum class AlgorithmType {
     DEPTH_FIRST_SEARCH,
 
     DIJKSTRA,
+    A_STAR,
 
     ALGORITHM_TYPE_MAX
 };

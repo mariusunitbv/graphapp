@@ -36,8 +36,7 @@ export class GraphRenderer : public IGraphViewModelListener {
     void onNodeAddedToVisibleData(NodeIndex_t nodeIndex, uint32_t lookupIndex,
                                   VisibleData& visibleData) override;
 
-    void onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState,
-                           AlgorithmType algorithmType) override;
+    void onNodeStateChange(NodeIndex_t nodeIndex) override;
 
     void onAlgorithmStarted() override;
     void onAlgorithmAborted() override;

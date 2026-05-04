@@ -25,7 +25,7 @@ export class PseudocodeView : public IGraphViewModelListener {
     void onNodeUnhover(NodeIndex_t) override {}
     void onNodeAdded(NodeIndex_t) override {}
     void onNodeAddedToVisibleData(NodeIndex_t, uint32_t, VisibleData&) override {}
-    void onNodeStateChange(NodeIndex_t, NodeState, AlgorithmType) override {}
+    void onNodeStateChange(NodeIndex_t) override {}
     void onAlgorithmStarted() override {}
     void onAlgorithmAborted() override {}
 

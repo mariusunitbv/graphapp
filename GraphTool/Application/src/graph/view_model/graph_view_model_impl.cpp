@@ -645,6 +645,17 @@ void GraphViewModel::restartAlgorithm() {
     notifyNodesStyleChange();
 }
 
+void GraphViewModel::benchmarkAlgorithm() {
+    m_runningAlgorithm->restart();
+
+    {
+        common::ScopedTimer timer("Benchmarking \"{}\" execution time", m_runningAlgorithm->getName());
+        m_runningAlgorithm->finish();
+    }
+
+    notifyNodesStyleChange();
+}
+
 void GraphViewModel::onAlgorithmFinish() {
     common::Logger::get().information("Algorithm {} finished.", m_runningAlgorithm->getName());
     m_algorithmFinishTime = std::chrono::steady_clock::now();
@@ -652,7 +663,7 @@ void GraphViewModel::onAlgorithmFinish() {
 
 void GraphViewModel::onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState) {
     for (auto* listener : m_listeners) {
-        listener->onNodeStateChange(nodeIndex, newState, m_runningAlgorithm->getType());
+        listener->onNodeStateChange(nodeIndex);
     }
 }
 

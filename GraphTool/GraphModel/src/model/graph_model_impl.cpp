@@ -4,6 +4,7 @@ module;
 module graph_model;
 
 import editable_edge_storage;
+import haversine_heuristic;
 
 GraphModel::GraphModel() : m_edgeStorage(std::make_unique<EditableEdgeStorage>()) {}
 
@@ -70,6 +71,57 @@ void GraphModel::endBulkInsert() {
 
     m_bulkInsertMode = false;
 }
+
+void GraphModel::setMetadata(const std::string& key, const std::string& value) {
+    if (key.empty()) {
+        GAPP_THROW("Metadata key cannot be empty");
+    }
+
+    if (value.empty()) {
+        GAPP_THROW("Metadata value cannot be empty");
+    }
+
+    if (key.size() > MAX_METADATA_LENGTH) {
+        GAPP_THROW("Metadata key is too long");
+    }
+
+    if (value.size() > MAX_METADATA_LENGTH) {
+        GAPP_THROW("Metadata value is too long");
+    }
+
+    m_metadata[key] = value;
+}
+
+const std::unordered_map<std::string, std::string>& GraphModel::getMetadata() const {
+    return m_metadata;
+}
+
+void GraphModel::setHeuristic(HeuristicType type) {
+    switch (type) {
+        case HeuristicType::NONE:
+            m_heuristic.reset();
+            break;
+        case HeuristicType::HAVERSINE:
+            m_heuristic = std::make_unique<HaversineHeuristic>(m_metadata);
+            break;
+        default:
+            GAPP_THROW("Unsupported heuristic type");
+    }
+}
+
+double GraphModel::heuristicDistance(NodeIndex_t a, NodeIndex_t b) const {
+    if (!m_heuristic) {
+        return 0.0;
+    }
+
+    return m_heuristic->distance(getNode(a), getNode(b));
+}
+
+HeuristicType GraphModel::getHeuristicType() const {
+    return m_heuristic ? m_heuristic->getType() : HeuristicType::NONE;
+}
+
+bool GraphModel::hasHeuristic() const { return m_heuristic != nullptr; }
 
 uint32_t GraphModel::getNodeCount() const { return static_cast<uint32_t>(m_nodes.size()); }
 

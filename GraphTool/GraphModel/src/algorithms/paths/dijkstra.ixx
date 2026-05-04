@@ -18,6 +18,8 @@ export class Dijkstra : public AlgorithmBase {
     ExecutionInfo_t getExecutionInfo() const override;
 
    protected:
+    virtual int calculateHeuristic(NodeIndex_t node) const;
+
     void markTargetUnreachable();
     void markShortestPath();
 
@@ -41,6 +43,8 @@ export class Dijkstra : public AlgorithmBase {
 
     uint32_t m_neighbourIndex{0};
     NodeIndex_t m_lastRelaxedNeighbour{INVALID_NODE};
+
+    DijkstraNodeInfo::CostType_t m_foundPathCost{};
 
     using MinHeapEntry_t = std::pair<DijkstraNodeInfo::CostType_t, NodeIndex_t>;
     std::priority_queue<MinHeapEntry_t, std::vector<MinHeapEntry_t>, std::greater<>> m_minHeap;

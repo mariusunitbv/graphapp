@@ -68,6 +68,7 @@ void FileView::renderOSMPopup() {
     auto& loadSettings = m_documentHandler->getOSMLoadSettings();
 
     const auto centerPos = ImGui::GetIO().DisplaySize * 0.5f;
+    ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
     ImGui::SetNextWindowPos(centerPos, ImGuiCond_Once, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Open OSM File", &m_isOpenOSMPopup)) {
         if (ImGui::BeginTable("OSMLoadSettingsTable", 2, ImGuiTableFlags_SizingFixedFit)) {

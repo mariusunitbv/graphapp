@@ -215,6 +215,12 @@
     </ClCompile>
     <ClCompile Include="src\algorithms\listener\algorithm_listener.ixx" />
     <ClCompile Include="src\algorithms\node_states.ixx" />
+    <ClCompile Include="src\algorithms\paths\a_star.ixx">
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="src\algorithms\paths\a_star_impl.cpp">
+      <SubType>Code</SubType>
+    </ClCompile>
     <ClCompile Include="src\algorithms\paths\dijkstra.ixx">
       <SubType>Code</SubType>
     </ClCompile>
@@ -249,6 +255,13 @@
     <ClCompile Include="src\model\gridmap\gridmap_impl.cpp" />
     <ClCompile Include="src\loader\osm\osm_loader.ixx" />
     <ClCompile Include="src\loader\osm\osm_loader_impl.cpp" />
+    <ClCompile Include="src\model\heuristic\haversine\haversine_heuristic.ixx">
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="src\model\heuristic\haversine\haversine_heuristic_impl.cpp">
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="src\model\heuristic\heuristic.ixx" />
     <ClCompile Include="src\pch\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

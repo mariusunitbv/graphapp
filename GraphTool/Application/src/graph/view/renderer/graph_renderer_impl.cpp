@@ -106,10 +106,7 @@ void GraphRenderer::onNodeAddedToVisibleData(NodeIndex_t nodeIndex, uint32_t loo
     nodeColor.m_outlineColor = getOutlineColor(nodeIndex);
 }
 
-void GraphRenderer::onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState,
-                                      AlgorithmType algorithmType) {
-    colorNode(nodeIndex);
-}
+void GraphRenderer::onNodeStateChange(NodeIndex_t nodeIndex) { colorNode(nodeIndex); }
 
 void GraphRenderer::onAlgorithmStarted() { colorNodes(); }
 
@@ -1076,6 +1073,7 @@ void GraphRenderer::drawHighlightedEdges(ImDrawList* drawList) {
     const auto edgeColor = [&]() {
         switch (m_viewModel->getRunningAlgorithmType()) {
             case AlgorithmType::DIJKSTRA:
+            case AlgorithmType::A_STAR:
                 return m_viewSettings->m_algorithmColors.m_pathColor;
             default:
                 GAPP_THROW("Unhandled algorithm type in drawHighlightedEdges().");
@@ -1385,6 +1383,7 @@ ImU32 GraphRenderer::getNodeColorAlgorithm(NodeIndex_t nodeIndex, AlgorithmType 
 
             break;
         case AlgorithmType::DIJKSTRA:
+        case AlgorithmType::A_STAR:
             switch (nodeState) {
                 case NodeState::NONE:
                     return overrideAlpha(algorithmColors.m_defaultNodeColor, nodeAlpha);

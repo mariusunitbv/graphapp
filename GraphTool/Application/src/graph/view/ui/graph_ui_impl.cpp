@@ -1109,6 +1109,10 @@ void GraphUI::drawAlgorithmsPicker() {
             }
         });
 
+        if (ImGui::Button("Benchmark algorithm", ImVec2(-FLT_MIN, 0))) {
+            m_viewModel->benchmarkAlgorithm();
+        }
+
         if (ImGui::BeginTable("InspectorTable", 2, ImGuiTableFlags_SizingFixedFit)) {
             ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 140.0f);
@@ -1149,6 +1153,15 @@ void GraphUI::drawAlgorithmsPicker() {
             ImGui::TableSetColumnIndex(1);
             ImGui::Checkbox("##showPseudocode", &m_pseudocodeView.isOpen());
 
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+
+            drawTextCentered("Center on node state change");
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Checkbox("##centerOnNodeStateChange",
+                            &m_nodeViewer.followNodeStateChangeAlgorithm());
+
             ImGui::EndTable();
         }
 
@@ -1171,7 +1184,7 @@ void GraphUI::drawAlgorithmsPicker() {
         for (auto& [key, value] : algState) {
             if (ImGui::CollapsingHeader(key.c_str())) {
                 ImGui::PushID(key.c_str());
-                ImGui::InputTextMultiline("##value", &value, ImVec2(-FLT_MIN, 120),
+                ImGui::InputTextMultiline("##value", &value, ImVec2(-FLT_MIN, 180),
                                           ImGuiInputTextFlags_ReadOnly);
                 ImGui::PopID();
             }
@@ -1228,11 +1241,32 @@ void GraphUI::drawAlgorithmsPicker() {
                 ImGui::TextUnformatted(
                     "finds the shortest path from a source node to all other nodes in the graph.");
 
+                ImGui::Spacing();
+                ImGui::Bullet();
+                ImGui::TextLinkOpenURL("A* Search Algorithm",
+                                       "https://en.wikipedia.org/wiki/A*_search_algorithm");
+                ImGui::SameLine();
+                ImGui::TextUnformatted(
+                    "finds the shortest path from a source node to a target node using a "
+                    "heuristic.");
+
                 ImGui::TreePop();
             }
 
             ImGui::Separator();
             ImGui::RadioButton("Dijkstra", &selectedAlgorithm, alToInt(AlgorithmType::DIJKSTRA));
+
+            ImGui::BeginDisabled(!m_model->hasHeuristic());
+            ImGui::RadioButton("A-star", &selectedAlgorithm, alToInt(AlgorithmType::A_STAR));
+            if (!m_model->hasHeuristic() &&
+                ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+                ImGui::SetTooltip(
+                    "The graph does not have a heuristic, which is required for A-star.\n"
+                    "A heuristic is a function that estimates the cost of the cheapest path\n"
+                    "from a node to the target node. Without a heuristic, A-star cannot\n"
+                    "function properly.");
+            }
+            ImGui::EndDisabled();
         }
 
         ImGui::SeparatorText("Configuration");
@@ -1254,7 +1288,8 @@ void GraphUI::drawAlgorithmsPicker() {
             (selectedAlgorithm == alToInt(AlgorithmType::BREADTH_FIRST_SEARCH) ||
              selectedAlgorithm == alToInt(AlgorithmType::DEPTH_FIRST_SEARCH));
 
-        const auto isPathfinding = (selectedAlgorithm == alToInt(AlgorithmType::DIJKSTRA));
+        const auto isPathfinding = selectedAlgorithm == alToInt(AlgorithmType::DIJKSTRA) ||
+                                   selectedAlgorithm == alToInt(AlgorithmType::A_STAR);
 
         const char* reasonForDisabling = "";
         bool shouldDisable = [&]() {
@@ -1270,6 +1305,18 @@ void GraphUI::drawAlgorithmsPicker() {
 
             if (isPathfinding && src == INVALID_NODE) {
                 reasonForDisabling = "Select a source node for the pathfinding";
+                return true;
+            }
+
+            if (isPathfinding && selectedAlgorithm != alToInt(AlgorithmType::DIJKSTRA) &&
+                dest == INVALID_NODE) {
+                reasonForDisabling = "Select a destination node for the pathfinding";
+                return true;
+            }
+
+            if (selectedAlgorithm == alToInt(AlgorithmType::A_STAR) && !m_model->hasHeuristic()) {
+                reasonForDisabling =
+                    "The graph does not have a heuristic, which is required for A-star";
                 return true;
             }
 
@@ -1300,7 +1347,7 @@ void GraphUI::drawAlgorithmsPicker() {
 void GraphUI::drawPlaybackControls(std::function<void(int)> on_click) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
 
-    ImGui::BeginChild("##playback_controls", ImVec2(0, 45));
+    ImGui::BeginChild("##playback_controls", ImVec2(0, 40));
 
     ImVec2 start = ImGui::GetCursorScreenPos();
     float avail_w = ImGui::GetContentRegionAvail().x;

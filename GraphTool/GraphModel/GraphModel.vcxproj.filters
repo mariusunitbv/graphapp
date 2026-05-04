@@ -33,6 +33,11 @@
     <ClCompile Include="src\algorithms\traversals\depth_first_search_impl.cpp" />
     <ClCompile Include="src\algorithms\paths\dijkstra.ixx" />
     <ClCompile Include="src\algorithms\paths\dijkstra_impl.cpp" />
+    <ClCompile Include="src\model\heuristic\heuristic.ixx" />
+    <ClCompile Include="src\model\heuristic\haversine\haversine_heuristic.ixx" />
+    <ClCompile Include="src\model\heuristic\haversine\haversine_heuristic_impl.cpp" />
+    <ClCompile Include="src\algorithms\paths\a_star.ixx" />
+    <ClCompile Include="src\algorithms\paths\a_star_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

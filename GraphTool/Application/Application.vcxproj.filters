@@ -43,6 +43,7 @@
     <ClCompile Include="..\GraphModel\src\algorithms\listener\algorithm_listener.ixx" />
     <ClCompile Include="src\graph\view\ui\pseudocode_view\pseudocode_view.ixx" />
     <ClCompile Include="src\graph\view\ui\pseudocode_view\pseudocode_view_impl.cpp" />
+    <ClCompile Include="..\GraphModel\src\model\heuristic\heuristic.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

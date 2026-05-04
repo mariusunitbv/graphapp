@@ -41,4 +41,5 @@ export constexpr std::array<std::string_view, (size_t)AlgorithmType::ALGORITHM_T
         "assets/pseudocode/bfs.txt",
         "assets/pseudocode/dfs.txt",
         "assets/pseudocode/dijkstra.txt",
+        "assets/pseudocode/astar.txt",
 };

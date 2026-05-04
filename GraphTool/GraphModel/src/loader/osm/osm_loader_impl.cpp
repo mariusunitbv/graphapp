@@ -208,6 +208,20 @@ void OSMLoader::parseAndComputeBounds() {
     m_totalNodeCount = static_cast<uint32_t>(m_nodesLocations.size());
     m_nodesLocations =
         phmap::parallel_flat_hash_map<osmium::unsigned_object_id_type, osmium::Location>{};
+
+    m_model->setMetadata("min_x", std::to_string(m_minX));
+    m_model->setMetadata("min_y", std::to_string(m_minY));
+    m_model->setMetadata("max_x", std::to_string(m_maxX));
+    m_model->setMetadata("max_y", std::to_string(m_maxY));
+    m_model->setMetadata("data_width", std::to_string(m_dataWidth));
+    m_model->setMetadata("data_height", std::to_string(m_dataHeight));
+    m_model->setMetadata("scaled_width", std::to_string(m_scaledWidth));
+    m_model->setMetadata("scaled_height", std::to_string(m_scaledHeight));
+    m_model->setMetadata("scaled_padding_x", std::to_string(m_scaledPaddingX));
+    m_model->setMetadata("scaled_padding_y", std::to_string(m_scaledPaddingY));
+    m_model->setMetadata("world_bounds", std::to_string(m_loadSettings.m_worldBounds));
+
+    m_model->setHeuristic(HeuristicType::HAVERSINE);
 }
 
 void OSMLoader::addNodesToGraph() {

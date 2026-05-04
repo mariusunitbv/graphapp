@@ -16,6 +16,7 @@ export class NodeViewer : public IGraphViewModelListener {
     void openAddEdgePopup();
 
     bool& isOpen();
+    bool& followNodeStateChangeAlgorithm();
 
    protected:
     void onFullDataUpdate() override {}
@@ -30,8 +31,7 @@ export class NodeViewer : public IGraphViewModelListener {
     void onNodeAddedToVisibleData(NodeIndex_t nodeIndex, uint32_t lookupIndex,
                                   VisibleData& visibleData) override {}
 
-    void onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState,
-                           AlgorithmType algorithmType) override {}
+    void onNodeStateChange(NodeIndex_t nodeIndex) override;
 
     void onAlgorithmStarted() override {}
     void onAlgorithmAborted() override {}
@@ -57,4 +57,6 @@ export class NodeViewer : public IGraphViewModelListener {
     bool m_addEdgePopupOpen{false};
     bool m_changeIDPopupOpen{false};
     bool m_changeWeightPopupOpen{false};
+
+    bool m_followNodeStateChangeAlgorithm{false};
 };

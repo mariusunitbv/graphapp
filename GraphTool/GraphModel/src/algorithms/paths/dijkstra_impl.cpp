@@ -20,6 +20,7 @@ void Dijkstra::initialize() {
 
     m_currentMinNode = m_lastRelaxedNeighbour = INVALID_NODE;
     m_neighbourIndex = 0;
+    m_foundPathCost = 0;
 }
 
 void Dijkstra::restartAlgorithm() {
@@ -37,6 +38,7 @@ void Dijkstra::restartAlgorithm() {
 
     m_currentMinNode = m_lastRelaxedNeighbour = INVALID_NODE;
     m_neighbourIndex = 0;
+    m_foundPathCost = 0;
 }
 
 bool Dijkstra::stepAlgorithm() {
@@ -78,7 +80,7 @@ bool Dijkstra::stepAlgorithm() {
             setNodeState(neighbour, NodeState::UNREACHABLE);
 
             common::Logger::get().error(
-                "Dijkstra: Negative edge weight {} from node {} to node {} is not supported",
+                "Dijkstra: Negative edge weight {} from node {} to node {} is not supported.",
                 weight, m_currentMinNode, neighbour);
 
             return false;
@@ -100,7 +102,7 @@ bool Dijkstra::stepAlgorithm() {
 
             m_nodesInfo[neighbour].m_minCost = newCost;
             m_nodesInfo[neighbour].m_parent = m_currentMinNode;
-            m_minHeap.emplace(newCost, neighbour);
+            m_minHeap.emplace(newCost + calculateHeuristic(neighbour), neighbour);
             m_lastRelaxedNeighbour = neighbour;
 
             return true;
@@ -195,6 +197,8 @@ IAlgorithm::ExecutionInfo_t Dijkstra::getExecutionInfo() const {
     return info;
 }
 
+int Dijkstra::calculateHeuristic(NodeIndex_t node) const { return 0; }
+
 void Dijkstra::markTargetUnreachable() {
     setNodeState(m_targetNode, NodeState::UNREACHABLE);
     common::Logger::get().warning("Dijkstra: Target node {} is unreachable from source node {}",
@@ -212,6 +216,8 @@ void Dijkstra::markShortestPath() {
     NodeIndex_t parent = m_nodesInfo[m_targetNode].m_parent;
     while (parent != INVALID_NODE) {
         m_highlightedEdges.emplace_back(parent, current);
+
+        m_foundPathCost += m_model->getEdgeWeight(parent, current);
 
         current = parent;
         parent = m_nodesInfo[current].m_parent;

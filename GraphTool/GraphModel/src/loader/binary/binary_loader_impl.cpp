@@ -79,7 +79,7 @@ BinaryLoader::BinaryLoader(GraphModel* model, const std::string_view binaryPath)
     }
 }
 
-void BinaryLoader::loadGraph() const {
+void BinaryLoader::loadGraph() {
     std::ifstream file(m_binaryPath, std::ios::binary);
     if (!file) {
         common::Logger::get().error("Failed to open LZ4 file: {}", m_binaryPath);
@@ -95,10 +95,11 @@ void BinaryLoader::loadGraph() const {
     std::vector<char> outBuffer(OUTPUT_BLOCK_SIZE);
 
     size_t inputPos = 0, inputSize = 0;
-    bool headerRead = false;
 
     std::vector<char> pending;
     uint32_t nodeCount = 0, processedNodeCount = 0;
+    uint32_t metadataSize = 0, processedMetadataSize = 0;
+    HeuristicType heuristicType = HeuristicType::NONE;
 
     std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
 
@@ -114,15 +115,16 @@ void BinaryLoader::loadGraph() const {
             inputPos = 0;
         }
 
-        processChunk(ctx, inBuffer.data(), inputPos, inputSize, pending, outBuffer, headerRead,
-                     nodeCount, processedNodeCount, lastUpdate);
+        processChunk(ctx, inBuffer.data(), inputPos, inputSize, pending, outBuffer, nodeCount,
+                     processedNodeCount, heuristicType, metadataSize, processedMetadataSize,
+                     lastUpdate);
     }
 
     m_model->endBulkInsert();
     LZ4F_freeDecompressionContext(ctx);
 }
 
-void BinaryLoader::loadGraphFromMemory(const char* data, size_t size) const {
+void BinaryLoader::loadGraphFromMemory(const char* data, size_t size) {
     LZ4F_decompressionContext_t ctx;
     if (LZ4F_createDecompressionContext(&ctx, LZ4F_VERSION) != 0) {
         GAPP_THROW("Failed to create LZ4 decompress context");
@@ -130,17 +132,18 @@ void BinaryLoader::loadGraphFromMemory(const char* data, size_t size) const {
 
     std::vector<char> outBuffer(OUTPUT_BLOCK_SIZE);
     size_t inputPos = 0;
-    bool headerRead = false;
 
     std::vector<char> pending;
     uint32_t nodeCount = 0, processedNodeCount = 0;
+    uint32_t metadataSize = 0, processedMetadataSize = 0;
+    HeuristicType heuristicType = HeuristicType::NONE;
 
     std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
 
     m_model->beginBulkInsert();
 
-    processChunk(ctx, data, inputPos, size, pending, outBuffer, headerRead, nodeCount,
-                 processedNodeCount, lastUpdate);
+    processChunk(ctx, data, inputPos, size, pending, outBuffer, nodeCount, processedNodeCount,
+                 heuristicType, metadataSize, processedMetadataSize, lastUpdate);
 
     m_model->endBulkInsert();
     LZ4F_freeDecompressionContext(ctx);
@@ -238,6 +241,40 @@ void BinaryLoader::saveGraph() const {
 #endif
     }
 
+    const auto heuristicType = static_cast<uint8_t>(m_model->getHeuristicType());
+    writeValue(rawBuffer, heuristicType);
+
+    const auto& metadata = m_model->getMetadata();
+    const auto metaCount = static_cast<uint16_t>(metadata.size());
+    writeValue(rawBuffer, metaCount);
+
+    for (const auto& [key, value] : metadata) {
+        const auto keyLen = static_cast<uint8_t>(key.size());
+        const auto valLen = static_cast<uint8_t>(value.size());
+
+        writeValue(rawBuffer, keyLen);
+        writeValue(rawBuffer, valLen);
+
+        rawBuffer.insert(rawBuffer.end(), key.begin(), key.end());
+        rawBuffer.insert(rawBuffer.end(), value.begin(), value.end());
+
+        if (rawBuffer.size() >= INPUT_BLOCK_SIZE) {
+#ifdef __EMSCRIPTEN__
+            flushToLZ4(buffer, ctx, outBuffer, rawBuffer);
+#else
+            flushToLZ4(file, ctx, outBuffer, rawBuffer);
+#endif
+        }
+    }
+
+    if (!rawBuffer.empty()) {
+#ifdef __EMSCRIPTEN__
+        flushToLZ4(buffer, ctx, outBuffer, rawBuffer);
+#else
+        flushToLZ4(file, ctx, outBuffer, rawBuffer);
+#endif
+    }
+
     const auto endResult = LZ4F_compressEnd(ctx, outBuffer.data(), outBuffer.size(), nullptr);
     if (LZ4F_isError(endResult)) {
         LZ4F_freeCompressionContext(ctx);
@@ -259,9 +296,10 @@ void BinaryLoader::saveGraph() const {
 
 void BinaryLoader::processChunk(LZ4F_decompressionContext_t ctx, const char* input,
                                 size_t& inputPos, size_t inputSize, std::vector<char>& pending,
-                                std::vector<char>& outBuffer, bool& headerRead, uint32_t& nodeCount,
-                                uint32_t& processedNodeCount,
-                                std::chrono::steady_clock::time_point& lastUpdate) const {
+                                std::vector<char>& outBuffer, uint32_t& nodeCount,
+                                uint32_t& processedNodeCount, HeuristicType& heuristicType,
+                                uint32_t& metadataSize, uint32_t& processedMetadataSize,
+                                std::chrono::steady_clock::time_point& lastUpdate) {
     while (inputPos < inputSize) {
         size_t inSize = inputSize - inputPos;
         size_t outSize = OUTPUT_BLOCK_SIZE;
@@ -281,7 +319,7 @@ void BinaryLoader::processChunk(LZ4F_decompressionContext_t ctx, const char* inp
             size_t available = pending.size();
             size_t consumed = 0;
 
-            if (!headerRead) {
+            if (m_loadState == LoadState::READING_HEADER) {
                 constexpr size_t headerSize = sizeof(float) * 4 + sizeof(uint32_t);
                 if (available < headerSize) {
                     inputPos += inSize;
@@ -297,12 +335,12 @@ void BinaryLoader::processChunk(LZ4F_decompressionContext_t ctx, const char* inp
                 m_model->reserveNodes(nodeCount);
                 m_model->reserveArea({minX, minY, maxX, maxY});
 
-                headerRead = true;
+                m_loadState = LoadState::READING_DATA;
                 available -= headerSize;
                 consumed += headerSize;
             }
 
-            if (headerRead) {
+            if (m_loadState == LoadState::READING_DATA) {
                 constexpr size_t nodeSize = sizeof(float) * 2 + sizeof(uint32_t);
                 constexpr size_t edgeSize = sizeof(NodeIndex_t) + sizeof(int);
 
@@ -339,6 +377,57 @@ void BinaryLoader::processChunk(LZ4F_decompressionContext_t ctx, const char* inp
                             static_cast<double>(processedNodeCount) / nodeCount * 100.0);
                         lastUpdate = now;
                     }
+                }
+
+                if (processedNodeCount >= nodeCount) {
+                    m_loadState = LoadState::READING_METADATA_HEADER;
+                }
+            }
+
+            if (m_loadState == LoadState::READING_METADATA_HEADER) {
+                constexpr auto metadataHeaderSize = sizeof(uint8_t) + sizeof(uint16_t);
+                if (available < metadataHeaderSize) {
+                    inputPos += inSize;
+                    continue;
+                }
+
+                heuristicType = static_cast<HeuristicType>(readValue<uint8_t>(ptr));
+                metadataSize = readValue<uint16_t>(ptr);
+
+                m_loadState = LoadState::READING_METADATA;
+                available -= metadataHeaderSize;
+                consumed += metadataHeaderSize;
+            }
+
+            if (m_loadState == LoadState::READING_METADATA) {
+                constexpr auto metaEntryHeaderSize = sizeof(uint8_t) * 2;
+
+                while (processedMetadataSize < metadataSize && available >= metaEntryHeaderSize) {
+                    const char* tmpPtr = ptr;
+
+                    const auto keyLen = readValue<uint8_t>(tmpPtr);
+                    const auto valLen = readValue<uint8_t>(tmpPtr);
+
+                    const auto totalSize = metaEntryHeaderSize + keyLen + valLen;
+                    if (available < totalSize) {
+                        break;
+                    }
+
+                    std::string key(tmpPtr, keyLen);
+                    tmpPtr += keyLen;
+                    std::string value(tmpPtr, valLen);
+                    tmpPtr += valLen;
+
+                    m_model->setMetadata(key, value);
+
+                    ptr = tmpPtr;
+                    available -= totalSize;
+                    consumed += totalSize;
+                    ++processedMetadataSize;
+                }
+
+                if (processedMetadataSize >= metadataSize) {
+                    m_model->setHeuristic(heuristicType);
                 }
             }
 

@@ -17,6 +17,8 @@ export constexpr auto WORLD_BOUNDS_FIXED_SIZE = 2'000'000.f;
 export constexpr BoundingBox2D WORLD_BOUNDS{-WORLD_BOUNDS_FIXED_SIZE, -WORLD_BOUNDS_FIXED_SIZE,
                                             WORLD_BOUNDS_FIXED_SIZE, WORLD_BOUNDS_FIXED_SIZE};
 
+export constexpr auto MAX_METADATA_LENGTH = 24;
+
 // Node represents a single point in the graph with compact storage.
 //
 // Memory layout is carefully packed into 8 bytes (64 bits):

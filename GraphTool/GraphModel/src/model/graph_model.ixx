@@ -8,6 +8,7 @@ export import graph_model_defines;
 import gridmap;
 import edge_storage;
 import graph_common;
+import heuristic;
 
 export class GraphModel {
    public:
@@ -23,6 +24,14 @@ export class GraphModel {
 
     void beginBulkInsert();
     void endBulkInsert();
+
+    void setMetadata(const std::string& key, const std::string& value);
+    const std::unordered_map<std::string, std::string>& getMetadata() const;
+
+    void setHeuristic(HeuristicType type);
+    double heuristicDistance(NodeIndex_t a, NodeIndex_t b) const;
+    HeuristicType getHeuristicType() const;
+    bool hasHeuristic() const;
 
     uint32_t getNodeCount() const;
     NodeIndex_t getLastNodeIndex() const;
@@ -73,7 +82,11 @@ export class GraphModel {
 
     common::MediumVector<Node> m_nodes;
     GridMap m_gridMap;
+
     std::unique_ptr<EdgeStorage> m_edgeStorage;
+    std::unique_ptr<IHeuristic> m_heuristic;
+
+    std::unordered_map<std::string, std::string> m_metadata;
 
     bool m_bulkInsertMode{false};
 };

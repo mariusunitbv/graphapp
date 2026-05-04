@@ -222,6 +222,7 @@
     <ClCompile Include="..\GraphModel\src\model\edge_storage\edge_storage.ixx" />
     <ClCompile Include="..\GraphModel\src\model\graph_model.ixx" />
     <ClCompile Include="..\GraphModel\src\model\gridmap\gridmap.ixx" />
+    <ClCompile Include="..\GraphModel\src\model\heuristic\heuristic.ixx" />
     <ClCompile Include="src\application\application.ixx" />
     <ClCompile Include="src\application\application_impl.cpp" />
     <ClCompile Include="src\graph\document\graph_document.ixx" />

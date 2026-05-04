@@ -3,6 +3,8 @@ module;
 
 module dijkstra;
 
+import graph_common;
+
 AlgorithmType Dijkstra::getType() const { return AlgorithmType::DIJKSTRA; }
 
 const char* Dijkstra::getName() const { return "Dijkstra"; }
@@ -25,13 +27,10 @@ void Dijkstra::restartAlgorithm() {
     notifyPseudocodeEvent("init");
 
     for (auto& info : m_nodesInfo) {
-        info.m_minCost = std::numeric_limits<int64_t>::max();
-        info.m_parent = INVALID_NODE;
+        info.invalidate();
     }
 
-    while (!m_minHeap.empty()) {
-        m_minHeap.pop();
-    }
+    m_minHeap = {};
 
     m_nodesInfo[m_sourceNode].m_minCost = 0;
     m_minHeap.emplace(0, m_sourceNode);
@@ -73,6 +72,18 @@ bool Dijkstra::stepAlgorithm() {
     const auto& neighbours = m_model->getNodeEdges(m_currentMinNode);
     while (m_neighbourIndex < neighbours.size()) {
         const auto [neighbour, weight] = neighbours[m_neighbourIndex++];
+
+        if (weight < 0) {
+            setNodeState(m_currentMinNode, NodeState::UNREACHABLE);
+            setNodeState(neighbour, NodeState::UNREACHABLE);
+
+            common::Logger::get().error(
+                "Dijkstra: Negative edge weight {} from node {} to node {} is not supported",
+                weight, m_currentMinNode, neighbour);
+
+            return false;
+        }
+
         if (getNodeState(neighbour) == NodeState::VISITED || m_currentMinNode == neighbour) {
             continue;
         }
@@ -161,10 +172,10 @@ IAlgorithm::ExecutionInfo_t Dijkstra::getExecutionInfo() const {
             p += '\n';
         }
 
-        if (m_nodesInfo[i].m_parent == INVALID_NODE) {
-            p += '-';
-        } else {
+        if (m_nodesInfo[i].hasParent()) {
             p += std::to_string(m_nodesInfo[i].m_parent);
+        } else {
+            p += '-';
         }
 
         if (dCount++ > 0) {
@@ -174,10 +185,10 @@ IAlgorithm::ExecutionInfo_t Dijkstra::getExecutionInfo() const {
             d += '\n';
         }
 
-        if (m_nodesInfo[i].m_minCost == std::numeric_limits<int64_t>::max()) {
-            d += "∞";
-        } else {
+        if (m_nodesInfo[i].isValidCost()) {
             d += std::to_string(m_nodesInfo[i].m_minCost);
+        } else {
+            d += "∞";
         }
     }
 

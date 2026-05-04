@@ -50,6 +50,7 @@ export class GraphUI {
     auto& inspectorOpen() { return m_inspectorOpen; }
     auto& nodeViewerOpen() { return m_nodeViewer.isOpen(); }
     auto& algorithmPickerOpen() { return m_algorithmsPickerOpen; }
+    auto& hideUIWindows() { return m_hideWindows; }
 
     auto& currentTheme() { return m_currentTheme; }
     auto& currentGraphTheme() { return m_currentGraphTheme; }
@@ -111,6 +112,7 @@ export class GraphUI {
     bool m_appFullScreen{false};
     bool m_inspectorOpen{true};
     bool m_algorithmsPickerOpen{true};
+    bool m_hideWindows{true};
 
     ImGuiStyle m_defaultStyle;
     UITheme m_currentTheme{UITheme::IMGUI_CLASSIC};

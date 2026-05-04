@@ -21,8 +21,8 @@ export struct OSMLoadSettings {
     bool m_parsePrimarys{true};
     bool m_parsePrimaryLinks{true};
 
-    bool m_parseSecondarys{false};
-    bool m_parseSecondaryLinks{false};
+    bool m_parseSecondarys{true};
+    bool m_parseSecondaryLinks{true};
 
     bool m_parseTertiarys{false};
     bool m_parseTertiaryLinks{false};

@@ -135,6 +135,7 @@ export class GraphRenderer : public IGraphViewModelListener {
         GLint m_cameraZoom{-1};
         GLint m_nodeThickness{-1};
         GLint m_selfLoops{-1};
+        GLint m_selfLoopsSize{-1};
 
 #ifdef __EMSCRIPTEN__
         GLint m_textureWidth{-1};

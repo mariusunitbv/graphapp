@@ -40,6 +40,6 @@ export struct GraphViewSettings {
 
     int m_outlineThickness{2};
     float m_gridCellSize{100.f};
-    int m_nodeCutoffZoom{55};
+    int m_nodeCutoffZoom{35};
     int m_graphTextFontIndex{1};
 };

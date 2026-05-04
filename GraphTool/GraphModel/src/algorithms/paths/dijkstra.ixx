@@ -22,7 +22,17 @@ export class Dijkstra : public AlgorithmBase {
     void markShortestPath();
 
     struct DijkstraNodeInfo {
-        int64_t m_minCost{std::numeric_limits<int64_t>::max()};
+        using CostType_t = int;
+
+        void invalidate() {
+            m_minCost = std::numeric_limits<CostType_t>::max();
+            m_parent = INVALID_NODE;
+        }
+
+        bool isValidCost() const { return m_minCost != std::numeric_limits<CostType_t>::max(); }
+        bool hasParent() const { return m_parent != INVALID_NODE; }
+
+        CostType_t m_minCost{std::numeric_limits<CostType_t>::max()};
         NodeIndex_t m_parent{INVALID_NODE};
     };
 
@@ -32,6 +42,6 @@ export class Dijkstra : public AlgorithmBase {
     uint32_t m_neighbourIndex{0};
     NodeIndex_t m_lastRelaxedNeighbour{INVALID_NODE};
 
-    using MinHeapEntry_t = std::pair<int64_t, NodeIndex_t>;
+    using MinHeapEntry_t = std::pair<DijkstraNodeInfo::CostType_t, NodeIndex_t>;
     std::priority_queue<MinHeapEntry_t, std::vector<MinHeapEntry_t>, std::greater<>> m_minHeap;
 };

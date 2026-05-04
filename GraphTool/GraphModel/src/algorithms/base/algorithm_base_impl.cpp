@@ -7,6 +7,12 @@ void AlgorithmBase::setModel(GraphModel* model) { m_model = model; }
 
 void AlgorithmBase::addListener(IAlgorithmListener* listener) { m_listeners.push_back(listener); }
 
+void AlgorithmBase::removeListeners() { m_listeners.clear(); }
+
+void AlgorithmBase::setShouldNotifyListeners(bool shouldNotify) {
+    m_shouldNotifyListeners = shouldNotify;
+}
+
 void AlgorithmBase::restart() {
     if (m_currentStep <= 0) {
         return;
@@ -16,15 +22,17 @@ void AlgorithmBase::restart() {
     m_currentStep = 0;
     m_highlightedEdges.clear();
 
+    m_shouldNotifyListeners = false;
     restartAlgorithm();
+    m_shouldNotifyListeners = true;
 }
 
 void AlgorithmBase::finish() {
-    m_shouldInstantlyFinish = true;
+    m_shouldNotifyListeners = false;
     while (!isFinished()) {
         step();
     }
-    m_shouldInstantlyFinish = false;
+    m_shouldNotifyListeners = true;
 }
 
 void AlgorithmBase::step() {
@@ -48,9 +56,11 @@ void AlgorithmBase::undo(int stepsToUndo) {
     int stepsToRedo = m_currentStep - stepsToUndo;
     restart();
 
+    m_shouldNotifyListeners = false;
     for (int i = 0; i < stepsToRedo; ++i) {
         step();
     }
+    m_shouldNotifyListeners = true;
 }
 
 bool AlgorithmBase::isFinished() const { return m_finished; }
@@ -91,7 +101,7 @@ void AlgorithmBase::notifyAlgorithmFinished() {
 }
 
 void AlgorithmBase::notifyNodeStateChanged(NodeIndex_t nodeIndex, NodeState newState) {
-    if (m_shouldInstantlyFinish) {
+    if (!m_shouldNotifyListeners) {
         return;
     }
 
@@ -101,10 +111,6 @@ void AlgorithmBase::notifyNodeStateChanged(NodeIndex_t nodeIndex, NodeState newS
 }
 
 void AlgorithmBase::notifyPseudocodeEvent(const std::string_view event) {
-    if (m_shouldInstantlyFinish) {
-        return;
-    }
-
     for (auto* listener : m_listeners) {
         listener->onAlgorithmPseudocodeEvent(event);
     }

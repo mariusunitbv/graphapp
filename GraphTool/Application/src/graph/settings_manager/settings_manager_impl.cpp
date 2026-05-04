@@ -45,6 +45,8 @@ void SettingsManager::saveSettings() {
         sb.append_comma();
         sb.append_key_value<"logs_open">(m_graphUI->logsOpen());
         sb.append_comma();
+        sb.append_key_value<"hide_ui_windows">(m_graphUI->hideUIWindows());
+        sb.append_comma();
         sb.append_key_value<"vsync_mode">(m_graphUI->getVsyncMode());
         sb.append_comma();
         sb.append_key_value<"fps_limit_enabled">(m_graphUI->isFpsLimitEnabled());
@@ -128,6 +130,13 @@ void SettingsManager::saveSettings() {
             sb.append_key_value<"traversal_analyzing">(algColors.m_analyzingNodeColor);
             sb.append_comma();
             sb.append_key_value<"traversal_analyzed">(algColors.m_analyzedNodeColor);
+
+            sb.append_comma();
+            sb.append_key_value<"path_unreachable">(algColors.m_unreachableNodeColor);
+            sb.append_comma();
+            sb.append_key_value<"path_path">(algColors.m_pathColor);
+            sb.append_comma();
+            sb.append_key_value<"path_relaxed">(algColors.m_relaxedNodeColor);
         }
     }
     sb.end_object();
@@ -175,6 +184,7 @@ void SettingsManager::loadSettings() {
         m_graphUI->nodeViewerOpen() = doc["node_viewer_open"].get_bool().value();
         m_graphUI->algorithmPickerOpen() = doc["algorithms_picker_open"].get_bool().value();
         m_graphUI->logsOpen() = doc["logs_open"].get_bool().value();
+        m_graphUI->hideUIWindows() = doc["hide_ui_windows"].get_bool().value();
         m_graphUI->getVsyncMode() = static_cast<int>(doc["vsync_mode"].get_int64().value());
         m_graphUI->isFpsLimitEnabled() = doc["fps_limit_enabled"].get_bool().value();
         m_graphUI->getMaxFps() = static_cast<int>(doc["max_fps"].get_int64().value());
@@ -232,6 +242,9 @@ void SettingsManager::loadSettings() {
             algColors.m_visitedNodeColor = (ImU32)doc["traversal_visited"].get_uint64().value();
             algColors.m_analyzingNodeColor = (ImU32)doc["traversal_analyzing"].get_uint64().value();
             algColors.m_analyzedNodeColor = (ImU32)doc["traversal_analyzed"].get_uint64().value();
+            algColors.m_unreachableNodeColor = (ImU32)doc["path_unreachable"].get_uint64().value();
+            algColors.m_pathColor = (ImU32)doc["path_path"].get_uint64().value();
+            algColors.m_relaxedNodeColor = (ImU32)doc["path_relaxed"].get_uint64().value();
 
             m_graphUI->viewSettings()->m_shouldFullColorNodes = true;
         }

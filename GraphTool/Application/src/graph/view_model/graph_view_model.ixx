@@ -145,6 +145,7 @@ export class GraphViewModel : public IAlgorithmListener {
     void clampCameraPositionInBounds();
     void updateVisibleRegion();
     void invalidateVisibleData();
+    void notifyNodesStyleChange();
 
     void tickAlgorithmExecution();
 

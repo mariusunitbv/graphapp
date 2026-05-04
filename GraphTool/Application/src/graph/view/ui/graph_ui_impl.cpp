@@ -123,6 +123,9 @@ void GraphUI::onSDLEvent(const SDL_Event& event) {
                 case SDLK_G:
                     m_viewSettings->m_drawGrid = !m_viewSettings->m_drawGrid;
                     break;
+                case SDLK_H:
+                    m_hideWindows = !m_hideWindows;
+                    break;
                 case SDLK_N:
                     if (!ctrlPressed) {
                         m_viewSettings->m_drawNodes = !m_viewSettings->m_drawNodes;
@@ -158,15 +161,18 @@ void GraphUI::render() {
 
     setupDockSpace();
 
-    m_fileView.render();
-    drawInspector();
-    m_nodeViewer.render(m_model, m_viewModel);
+    if (!m_hideWindows) {
+        m_fileView.render();
+        drawInspector();
+        m_nodeViewer.render(m_model, m_viewModel);
+        m_logView.render();
+        drawAlgorithmsPicker();
+        m_pseudocodeView.render(m_model, m_viewModel);
+    }
+
     drawOpenedTabs();
-    m_logView.render();
     drawStatusBar();
     drawSettings();
-    drawAlgorithmsPicker();
-    m_pseudocodeView.render(m_model, m_viewModel);
 
     // We don't need focus the first time the window appears.
     static bool initialized = false;
@@ -315,6 +321,7 @@ void GraphUI::drawMenuBar() {
 
             ImGui::MenuItem("Render Grid", "G", &m_viewSettings->m_drawGrid);
             ImGui::MenuItem("Highlight Extents", nullptr, &m_viewSettings->m_drawMinMax);
+            ImGui::MenuItem("Hide UI Windows", "H", &m_hideWindows);
 
             if (ImGui::BeginMenu("Graph Elements")) {
                 ImGui::MenuItem("Show Nodes", "N", &m_viewSettings->m_drawNodes);
@@ -570,7 +577,7 @@ void GraphUI::drawInspector() {
             ImGui::SetNextItemWidth(-FLT_MIN);
             auto graphZoom = m_viewModel->getZoomFactor();
             if (ImGui::SliderFloat("##graphZoom", &graphZoom, 0.01f, 50.f, "%.2fx")) {
-                graphZoom = std::clamp(graphZoom, 0.01f, 50.f);
+                graphZoom = std::clamp(graphZoom, 0.001f, 50.f);
                 m_viewModel->setZoomFactor(graphZoom);
             }
 
@@ -877,7 +884,7 @@ void GraphUI::drawSettings() {
             ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 140.0f);
 
-            drawColorPicker("Default traversal color", algColors.m_defaultNodeColor);
+            drawColorPicker("Default color", algColors.m_defaultNodeColor);
             drawColorPicker("Visited color", algColors.m_visitedNodeColor);
             drawColorPicker("Currently analyzed color", algColors.m_analyzingNodeColor);
             drawColorPicker("Analyzed color", algColors.m_analyzedNodeColor);
@@ -1454,6 +1461,7 @@ void GraphUI::drawVersion(ImDrawList* drawList) {
 
 void GraphUI::drawWatermark(ImDrawList* drawList) {
     const auto [width, height] = ImGui::GetIO().DisplaySize;
+    const auto mousePos = ImGui::GetIO().MousePos;
 
     const auto font = ImGui::GetIO().Fonts->Fonts[1];
     constexpr auto waterMarkText = "github.com/mariusunitbv/graphapp";
@@ -1462,23 +1470,31 @@ void GraphUI::drawWatermark(ImDrawList* drawList) {
 
     const auto imagePos = textPos - ImVec2{font->FontSize + 5.f, 0};
 
-    drawList->AddRectFilled(imagePos - ImVec2{4, 4}, textPos + watermarkSize + ImVec2{4, 4},
-                            IM_COL32(0, 0, 0, 120), 5.f);
+    const auto rectMin = imagePos - ImVec2{4, 4};
+    const auto rectMax = textPos + watermarkSize + ImVec2{4, 4};
+
+    const auto hovered = (mousePos.x >= rectMin.x && mousePos.x <= rectMax.x &&
+                          mousePos.y >= rectMin.y && mousePos.y <= rectMax.y);
+    const auto alpha = hovered ? 0.4f : 1.0f;
+
+    drawList->AddRectFilled(rectMin, rectMax, IM_COL32(0, 0, 0, 120 * alpha), 5.f);
 
     const auto t = static_cast<float>(ImGui::GetTime());
-    ImU32 rainbowColor = IM_COL32((int)((sin(t * 2.0f + 0) * 0.5f + 0.5f) * 255),
-                                  (int)((sin(t * 2.0f + 2) * 0.5f + 0.5f) * 255),
-                                  (int)((sin(t * 2.0f + 4) * 0.5f + 0.5f) * 255), 255);
+    const auto rainbowColor = IM_COL32((int)((sin(t * 2.0f + 0) * 0.5f + 0.5f) * 255),
+                                       (int)((sin(t * 2.0f + 2) * 0.5f + 0.5f) * 255),
+                                       (int)((sin(t * 2.0f + 4) * 0.5f + 0.5f) * 255), 255 * alpha);
 
     drawList->AddImage(m_unitbvLogoTexture, imagePos,
                        imagePos + ImVec2{watermarkSize.y, watermarkSize.y}, {0.f, 0.f}, {1.f, 1.f},
                        rainbowColor);
 
-    drawList->AddText(font, font->FontSize, textPos + ImVec2{-1, 0}, IM_COL32_BLACK, waterMarkText);
-    drawList->AddText(font, font->FontSize, textPos + ImVec2{1, 0}, IM_COL32_BLACK, waterMarkText);
-    drawList->AddText(font, font->FontSize, textPos + ImVec2{0, -1}, IM_COL32_BLACK, waterMarkText);
-    drawList->AddText(font, font->FontSize, textPos + ImVec2{0, 1}, IM_COL32_BLACK, waterMarkText);
-    drawList->AddText(font, font->FontSize, textPos, IM_COL32_WHITE, waterMarkText);
+    const auto black = IM_COL32(0, 0, 0, 255 * alpha);
+    drawList->AddText(font, font->FontSize, textPos + ImVec2{-1, 0}, black, waterMarkText);
+    drawList->AddText(font, font->FontSize, textPos + ImVec2{1, 0}, black, waterMarkText);
+    drawList->AddText(font, font->FontSize, textPos + ImVec2{0, -1}, black, waterMarkText);
+    drawList->AddText(font, font->FontSize, textPos + ImVec2{0, 1}, black, waterMarkText);
+    drawList->AddText(font, font->FontSize, textPos, IM_COL32(255, 255, 255, 255 * alpha),
+                      waterMarkText);
 }
 
 void GraphUI::drawTextCentered(const char* fmt, ...) {

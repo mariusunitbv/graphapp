@@ -17,7 +17,14 @@ GraphViewModel::GraphViewModel(GraphViewModel&& rhs) noexcept
       m_edgeDrawPercentage(rhs.m_edgeDrawPercentage),
       m_maxVisibleNodes(rhs.m_maxVisibleNodes),
       m_nodesRadius(rhs.m_nodesRadius),
+      m_overscanFactor(rhs.m_overscanFactor),
       m_shouldCondensateNodesLowZoom(rhs.m_shouldCondensateNodesLowZoom),
+      m_runningAlgorithm(std::move(rhs.m_runningAlgorithm)),
+      m_lastAlgorithmStepTime(rhs.m_lastAlgorithmStepTime),
+      m_algorithmFinishTime(rhs.m_algorithmFinishTime),
+      m_algorithmStepDelayMs(rhs.m_algorithmStepDelayMs),
+      m_iterationsPerStep(rhs.m_iterationsPerStep),
+      m_isAlgorithmPaused(rhs.m_isAlgorithmPaused),
       m_listeners(std::move(rhs.m_listeners)) {
     m_visibleData = m_cachedVisibleData = {};
 }
@@ -32,7 +39,14 @@ GraphViewModel& GraphViewModel::operator=(GraphViewModel&& rhs) noexcept {
         m_edgeDrawPercentage = rhs.m_edgeDrawPercentage;
         m_maxVisibleNodes = rhs.m_maxVisibleNodes;
         m_nodesRadius = rhs.m_nodesRadius;
+        m_overscanFactor = rhs.m_overscanFactor;
         m_shouldCondensateNodesLowZoom = rhs.m_shouldCondensateNodesLowZoom;
+        m_runningAlgorithm = std::move(rhs.m_runningAlgorithm);
+        m_lastAlgorithmStepTime = rhs.m_lastAlgorithmStepTime;
+        m_algorithmFinishTime = rhs.m_algorithmFinishTime;
+        m_algorithmStepDelayMs = rhs.m_algorithmStepDelayMs;
+        m_iterationsPerStep = rhs.m_iterationsPerStep;
+        m_isAlgorithmPaused = rhs.m_isAlgorithmPaused;
         m_listeners = std::move(rhs.m_listeners);
 
         m_visibleData = m_cachedVisibleData = {};
@@ -268,7 +282,15 @@ void GraphViewModel::preRenderUpdate() {
 #endif
 }
 
-void GraphViewModel::setModel(GraphModel* model) { m_model = model; }
+void GraphViewModel::setModel(GraphModel* model) {
+    m_model = model;
+
+    if (m_runningAlgorithm) {
+        m_runningAlgorithm->removeListeners();
+        m_runningAlgorithm->setModel(model);
+        m_runningAlgorithm->addListener(this);
+    }
+}
 
 GraphModel* GraphViewModel::getModel() const { return m_model; }
 
@@ -579,7 +601,9 @@ void GraphViewModel::startAlgorithm(AlgorithmType algorithmType, NodeIndex_t sou
     m_runningAlgorithm->setTargetNode(targetNode);
     m_runningAlgorithm->setModel(m_model);
 
+    m_runningAlgorithm->setShouldNotifyListeners(false);
     m_runningAlgorithm->initialize();
+    m_runningAlgorithm->setShouldNotifyListeners(true);
 
     for (auto* listener : m_listeners) {
         listener->onAlgorithmStarted();
@@ -606,19 +630,20 @@ void GraphViewModel::stepForwardAlgorithm() {
     }
 }
 
-void GraphViewModel::stepBackwardAlgorithm() { m_runningAlgorithm->undo(m_iterationsPerStep); }
+void GraphViewModel::stepBackwardAlgorithm() {
+    m_runningAlgorithm->undo(m_iterationsPerStep);
+    notifyNodesStyleChange();
+}
 
 void GraphViewModel::finishAlgorithm() {
     m_runningAlgorithm->finish();
-
-    // onAlgorithmAborted just recolors the nodes and edges to their default color, so we can reuse
-    // it here to ensure the final state of the graph is properly colored.
-    for (auto* listener : m_listeners) {
-        listener->onAlgorithmAborted();
-    }
+    notifyNodesStyleChange();
 }
 
-void GraphViewModel::restartAlgorithm() { m_runningAlgorithm->restart(); }
+void GraphViewModel::restartAlgorithm() {
+    m_runningAlgorithm->restart();
+    notifyNodesStyleChange();
+}
 
 void GraphViewModel::onAlgorithmFinish() {
     common::Logger::get().information("Algorithm {} finished.", m_runningAlgorithm->getName());
@@ -1086,6 +1111,14 @@ void GraphViewModel::invalidateVisibleData() {
     m_cachedVisibleData = std::move(m_visibleData);
 
     m_lastQueryRegionArea = {};
+}
+
+void GraphViewModel::notifyNodesStyleChange() {
+    // onAlgorithmAborted just calls colorNodes() in the Rendering class, so it's enough to call it
+    // to update nodes colors after algorithm finishes.
+    for (auto* listener : m_listeners) {
+        listener->onAlgorithmAborted();
+    }
 }
 
 void GraphViewModel::tickAlgorithmExecution() {

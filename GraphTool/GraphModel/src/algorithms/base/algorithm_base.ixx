@@ -12,6 +12,8 @@ export class AlgorithmBase : public IAlgorithm {
    public:
     void setModel(GraphModel* model) override;
     void addListener(IAlgorithmListener* listener) override;
+    void removeListeners() override;
+    void setShouldNotifyListeners(bool shouldNotify) override;
 
     void restart() override;
     void finish() override;
@@ -48,5 +50,5 @@ export class AlgorithmBase : public IAlgorithm {
     std::vector<IAlgorithmListener*> m_listeners;
     int m_currentStep{0};
     bool m_finished{false};
-    bool m_shouldInstantlyFinish{false};
+    bool m_shouldNotifyListeners{true};
 };

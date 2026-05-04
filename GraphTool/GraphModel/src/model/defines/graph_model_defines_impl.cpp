@@ -25,30 +25,21 @@ Vector2D Node::getWorldPos() const {
 bool Node::hasCustomColor() const { return !(m_red == 0 && m_green == 0 && m_blue == 0); }
 
 uint32_t Node::getABGR(int alpha) const {
-    auto dequantize = [](uint8_t val) -> uint8_t { return val * 180 / 127 + 30; };
+    constexpr auto expand5 = [](uint8_t v) -> uint8_t { return (v * 255) / 31; };
+    constexpr auto expand6 = [](uint8_t v) -> uint8_t { return (v * 255) / 63; };
 
-    const auto r = dequantize(m_red);
-    const auto g = dequantize(m_green);
-    const auto b = dequantize(m_blue);
+    const auto r = expand5(static_cast<uint8_t>(m_red));
+    const auto g = expand6(static_cast<uint8_t>(m_green));
+    const auto b = expand5(static_cast<uint8_t>(m_blue));
 
     return (static_cast<uint32_t>(alpha) << 24) | (static_cast<uint32_t>(b) << 16) |
            (static_cast<uint32_t>(g) << 8) | static_cast<uint32_t>(r);
 }
 
 void Node::setColor(uint8_t red, uint8_t green, uint8_t blue) {
-    static constexpr auto buildLUT = []() {
-        std::array<uint8_t, 256> lut{};
-        for (int i = 0; i < 256; ++i) {
-            lut[i] = (std::clamp(i, 30, 210) - 30);
-        }
-        return lut;
-    };
-
-    static constexpr auto lut = buildLUT();
-
-    m_red = lut[red] * 127 / 180;
-    m_green = lut[green] * 127 / 180;
-    m_blue = lut[blue] * 63 / 180;
+    m_red = static_cast<uint8_t>((red * 31) / 255);
+    m_green = static_cast<uint8_t>((green * 63) / 255);
+    m_blue = static_cast<uint8_t>((blue * 31) / 255);
 }
 
 void Node::clearColor() { m_red = m_green = m_blue = 0; }

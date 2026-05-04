@@ -11,6 +11,7 @@
 #include <string>
 #include <thread>
 #include <deque>
+#include <queue>
 #include <array>
 #include <cmath>
 #include <span>

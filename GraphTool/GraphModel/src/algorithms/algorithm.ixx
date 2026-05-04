@@ -28,6 +28,8 @@ export class IAlgorithm {
 
     virtual void setModel(GraphModel* model) = 0;
     virtual void addListener(IAlgorithmListener* listener) = 0;
+    virtual void removeListeners() = 0;
+    virtual void setShouldNotifyListeners(bool shouldNotify) = 0;
 
     virtual void setSourceNode(NodeIndex_t sourceNode) = 0;
     virtual void setTargetNode(NodeIndex_t targetNode) = 0;

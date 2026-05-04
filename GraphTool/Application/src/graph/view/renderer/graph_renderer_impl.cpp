@@ -371,6 +371,7 @@ void GraphRenderer::initializeNodeGL() {
         uniform vec2 uScreenSize;
         uniform vec2 uCameraPos;
         uniform float uCameraZoom;
+        uniform int uSelfLoopsSize;
 
 #ifdef WEBGL
         uniform sampler2D uNodePositions;
@@ -453,7 +454,12 @@ void GraphRenderer::initializeNodeGL() {
             vOutlineColor = unpackColor(outlineColor);
 
             vTexCoord = aPos * 0.5 + 0.5;
-            vHasSelfLoop = fetchSelfLoop(int(gl_InstanceID));
+
+            if (int(gl_InstanceID) < uSelfLoopsSize) {
+                vHasSelfLoop = fetchSelfLoop(int(gl_InstanceID));
+            } else {
+                vHasSelfLoop = 0u;
+            }
         }
 )";
 
@@ -539,6 +545,7 @@ void GraphRenderer::initializeNodeGL() {
     m_nodeUniforms.m_nodeThickness =
         glGetUniformLocation(nodeGL.m_shaderProgram, "uOutlineThickness");
     m_nodeUniforms.m_selfLoops = glGetUniformLocation(nodeGL.m_shaderProgram, "uSelfLoops");
+    m_nodeUniforms.m_selfLoopsSize = glGetUniformLocation(nodeGL.m_shaderProgram, "uSelfLoopsSize");
 
 #ifdef __EMSCRIPTEN__
     m_nodeUniforms.m_textureWidth = glGetUniformLocation(nodeGL.m_shaderProgram, "uTextureWidth");
@@ -556,6 +563,7 @@ void GraphRenderer::initializeNodeFastGL() {
         uniform vec2 uScreenSize;
         uniform vec2 uCameraPos;
         uniform float uCameraZoom;
+        uniform int uSelfLoopsSize;
 
         out vec4 vColor;
         out vec4 vOutlineColor;
@@ -593,7 +601,11 @@ void GraphRenderer::initializeNodeFastGL() {
 
             vColor = unpackColor(color);
             vOutlineColor = unpackColor(outlineColor);
-            vHasSelfLoop = hasSelfLoop(int(gl_InstanceID));
+            if (int(gl_InstanceID) < uSelfLoopsSize) {
+                vHasSelfLoop = hasSelfLoop(int(gl_InstanceID));
+            } else {
+                vHasSelfLoop = 0u;
+            }
         }
 )";
 
@@ -665,6 +677,8 @@ void GraphRenderer::initializeNodeFastGL() {
     m_fastNodeUniforms.m_nodeThickness =
         glGetUniformLocation(nodeGL.m_shaderProgram, "uOutlineThickness");
     m_fastNodeUniforms.m_selfLoops = glGetUniformLocation(nodeGL.m_shaderProgram, "uSelfLoops");
+    m_fastNodeUniforms.m_selfLoopsSize =
+        glGetUniformLocation(nodeGL.m_shaderProgram, "uSelfLoopsSize");
 #endif
 }
 
@@ -990,6 +1004,7 @@ void GraphRenderer::drawNodes() {
     const auto [cameraX, cameraY] = m_viewModel->getCameraPosition();
 
     const auto& visibleNodes = m_viewModel->getVisibleNodes();
+    const auto& selfLoops = m_viewModel->getVisibleLoops();
 
 #ifdef __EMSCRIPTEN__
     constexpr auto shouldDrawFast = false;
@@ -1006,6 +1021,7 @@ void GraphRenderer::drawNodes() {
     glUniform1i(uniforms.m_nodePosition, 0);
     glUniform1i(uniforms.m_nodeColor, 1);
     glUniform1i(uniforms.m_selfLoops, 2);
+    glUniform1i(uniforms.m_selfLoopsSize, static_cast<int>(selfLoops.size() * 8));
 
     glUniform1f(uniforms.m_nodeRadius, radius);
     glUniform2f(uniforms.m_screenSize, width, height);

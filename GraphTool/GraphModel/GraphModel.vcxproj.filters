@@ -38,6 +38,8 @@
     <ClCompile Include="src\model\heuristic\haversine\haversine_heuristic_impl.cpp" />
     <ClCompile Include="src\algorithms\paths\a_star.ixx" />
     <ClCompile Include="src\algorithms\paths\a_star_impl.cpp" />
+    <ClCompile Include="src\algorithms\paths\a_star_landmark.ixx" />
+    <ClCompile Include="src\algorithms\paths\a_star_landmark_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch\pch.h" />

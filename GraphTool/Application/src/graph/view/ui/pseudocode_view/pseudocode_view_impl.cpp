@@ -9,6 +9,11 @@ void PseudocodeView::loadPseudocode(AlgorithmType algorithmType) {
     m_pseudocodeLines.clear();
 
     const auto path = g_algorithmPseudocodes[(size_t)algorithmType];
+    if (path.empty()) {
+        common::Logger::get().error("No pseudocode path defined for algorithm type: {}",
+                                    static_cast<int>(algorithmType));
+        return;
+    }
 
     std::ifstream file(path.data());
     if (!file.is_open()) {

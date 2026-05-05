@@ -218,6 +218,12 @@
     <ClCompile Include="src\algorithms\paths\a_star.ixx">
       <SubType>Code</SubType>
     </ClCompile>
+    <ClCompile Include="src\algorithms\paths\a_star_landmark.ixx">
+      <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="src\algorithms\paths\a_star_landmark_impl.cpp">
+      <SubType>Code</SubType>
+    </ClCompile>
     <ClCompile Include="src\algorithms\paths\a_star_impl.cpp">
       <SubType>Code</SubType>
     </ClCompile>

@@ -1074,6 +1074,7 @@ void GraphRenderer::drawHighlightedEdges(ImDrawList* drawList) {
         switch (m_viewModel->getRunningAlgorithmType()) {
             case AlgorithmType::DIJKSTRA:
             case AlgorithmType::A_STAR:
+            case AlgorithmType::A_STAR_LANDMARK:
                 return m_viewSettings->m_algorithmColors.m_pathColor;
             default:
                 GAPP_THROW("Unhandled algorithm type in drawHighlightedEdges().");
@@ -1384,6 +1385,7 @@ ImU32 GraphRenderer::getNodeColorAlgorithm(NodeIndex_t nodeIndex, AlgorithmType 
             break;
         case AlgorithmType::DIJKSTRA:
         case AlgorithmType::A_STAR:
+        case AlgorithmType::A_STAR_LANDMARK:
             switch (nodeState) {
                 case NodeState::NONE:
                     return overrideAlpha(algorithmColors.m_defaultNodeColor, nodeAlpha);

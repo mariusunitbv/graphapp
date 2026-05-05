@@ -116,6 +116,9 @@ export class GraphViewModel : public IAlgorithmListener {
     void benchmarkAlgorithm();
     void stopAlgorithm();
 
+    void setAlgorithmSourceNode(NodeIndex_t sourceNode);
+    void setAlgorithmTargetNode(NodeIndex_t targetNode);
+
    protected:
     void onAlgorithmFinish() override;
     void onNodeStateChange(NodeIndex_t nodeIndex, NodeState newState) override;

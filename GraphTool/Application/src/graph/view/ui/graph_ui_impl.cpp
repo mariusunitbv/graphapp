@@ -1083,6 +1083,24 @@ void GraphUI::drawAlgorithmsPicker() {
     ImGui::Begin("Algorithms", &m_algorithmsPickerOpen);
 
     if (m_viewModel->isAlgorithmCreated()) {
+        ImGui::SeparatorText("Configuration");
+
+        const auto [selectedNode, _] = m_viewModel->getSelectedNodesPair();
+        if (selectedNode != INVALID_NODE) {
+            ImGui::Text("Selected node: %u", selectedNode);
+        } else {
+            ImGui::TextUnformatted("Selected node: None");
+        }
+
+        ImGui::BeginDisabled(selectedNode == INVALID_NODE);
+        if (ImGui::Button("Set node as source", ImVec2(-FLT_MIN, 0))) {
+            m_viewModel->setAlgorithmSourceNode(selectedNode);
+        }
+        if (ImGui::Button("Set node as target", ImVec2(-FLT_MIN, 0))) {
+            m_viewModel->setAlgorithmTargetNode(selectedNode);
+        }
+        ImGui::EndDisabled();
+
         ImGui::TextUnformatted("Playback controls");
         ImGui::Separator();
 
@@ -1180,7 +1198,7 @@ void GraphUI::drawAlgorithmsPicker() {
             }
         }
 
-        ImGui::BeginChild("##algs", ImVec2(0, 0), ImGuiChildFlags_Borders);
+        ImGui::BeginChild("##algs", ImVec2(0, 1000), ImGuiChildFlags_Borders);
         for (auto& [key, value] : algState) {
             if (ImGui::CollapsingHeader(key.c_str())) {
                 ImGui::PushID(key.c_str());
@@ -1267,21 +1285,24 @@ void GraphUI::drawAlgorithmsPicker() {
                     "function properly.");
             }
             ImGui::EndDisabled();
+
+            ImGui::RadioButton("A-Star Landmark", &selectedAlgorithm,
+                               alToInt(AlgorithmType::A_STAR_LANDMARK));
         }
 
         ImGui::SeparatorText("Configuration");
 
         const auto [src, dest] = m_viewModel->getSelectedNodesPair();
         if (src != INVALID_NODE) {
-            ImGui::Text("Source Node: %u", src);
+            ImGui::Text("Source node: %u", src);
         } else {
-            ImGui::TextUnformatted("Source Node: None");
+            ImGui::TextUnformatted("Source node: None");
         }
 
         if (dest != INVALID_NODE) {
-            ImGui::Text("Destination Node: %u", dest);
+            ImGui::Text("Destination node: %u", dest);
         } else {
-            ImGui::TextUnformatted("Destination Node: None");
+            ImGui::TextUnformatted("Destination node: None");
         }
 
         const auto isTraversal =
@@ -1289,7 +1310,8 @@ void GraphUI::drawAlgorithmsPicker() {
              selectedAlgorithm == alToInt(AlgorithmType::DEPTH_FIRST_SEARCH));
 
         const auto isPathfinding = selectedAlgorithm == alToInt(AlgorithmType::DIJKSTRA) ||
-                                   selectedAlgorithm == alToInt(AlgorithmType::A_STAR);
+                                   selectedAlgorithm == alToInt(AlgorithmType::A_STAR) ||
+                                   selectedAlgorithm == alToInt(AlgorithmType::A_STAR_LANDMARK);
 
         const char* reasonForDisabling = "";
         bool shouldDisable = [&]() {

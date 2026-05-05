@@ -12,6 +12,7 @@ export enum class AlgorithmType {
 
     DIJKSTRA,
     A_STAR,
+    A_STAR_LANDMARK,
 
     ALGORITHM_TYPE_MAX
 };

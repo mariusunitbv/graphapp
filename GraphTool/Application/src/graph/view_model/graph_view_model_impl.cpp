@@ -618,6 +618,14 @@ void GraphViewModel::stopAlgorithm() {
     }
 }
 
+void GraphViewModel::setAlgorithmSourceNode(NodeIndex_t sourceNode) {
+    m_runningAlgorithm->setSourceNode(sourceNode);
+}
+
+void GraphViewModel::setAlgorithmTargetNode(NodeIndex_t targetNode) {
+    m_runningAlgorithm->setTargetNode(targetNode);
+}
+
 void GraphViewModel::toggleAlgorithmPause() { m_isAlgorithmPaused = !m_isAlgorithmPaused; }
 
 void GraphViewModel::stepForwardAlgorithm() {
@@ -649,7 +657,8 @@ void GraphViewModel::benchmarkAlgorithm() {
     m_runningAlgorithm->restart();
 
     {
-        common::ScopedTimer timer("Benchmarking \"{}\" execution time", m_runningAlgorithm->getName());
+        common::ScopedTimer timer("Benchmarking \"{}\" execution time",
+                                  m_runningAlgorithm->getName());
         m_runningAlgorithm->finish();
     }
 

@@ -1,0 +1,28 @@
+PROGRAM A*-LANDMARK
+BEGIN
+  W := N; d(s) := 0; p(s) := -; #init
+  FOR y ∈ N − {s} DO #init
+  BEGIN #init
+    d(y) := ∞; p(y) := -; #init
+  END #init
+
+  ALEGE L = {l1, l2, ..., lk} #init
+  FOR fiecare l ∈ L: #init
+    rulează Dijkstra din l #init
+    salvează d(l, x) pentru toate nodurile x #init
+
+  WHILE W ≠ ∅ DO
+  BEGIN
+    se selectează un nod x ∈ W astfel încât d(x) + h_ALT(x) este minimă; #analyzing
+	
+	IF x = dest THEN STOP;
+	
+    FOR y ∈ W \ {x} ∩ V+(x) DO #relax
+      IF d(x) + b(x, y) < d(y) THEN #relax
+      BEGIN #relax
+        d(y) := d(x) + b(x, y); #relax
+        p(y) := x; #relax
+	  END #relax
+    W := W − {x}; #analyzed
+  END
+END #end

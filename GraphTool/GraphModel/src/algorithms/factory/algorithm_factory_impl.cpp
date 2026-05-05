@@ -8,6 +8,7 @@ import depth_first_search;
 
 import dijkstra;
 import a_star;
+import a_star_landmark;
 
 std::unique_ptr<IAlgorithm> AlgorithmFactory::createAlgorithm(AlgorithmType type) {
     switch (type) {
@@ -19,6 +20,8 @@ std::unique_ptr<IAlgorithm> AlgorithmFactory::createAlgorithm(AlgorithmType type
             return std::make_unique<Dijkstra>();
         case AlgorithmType::A_STAR:
             return std::make_unique<AStar>();
+        case AlgorithmType::A_STAR_LANDMARK:
+            return std::make_unique<AStarLandmark>();
         default:
             GAPP_THROW("Unsupported algorithm type");
     }

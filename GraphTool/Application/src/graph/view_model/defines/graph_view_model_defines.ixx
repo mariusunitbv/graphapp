@@ -38,8 +38,7 @@ export struct VisibleData {
 
 export constexpr std::array<std::string_view, (size_t)AlgorithmType::ALGORITHM_TYPE_MAX>
     g_algorithmPseudocodes = {
-        "assets/pseudocode/bfs.txt",
-        "assets/pseudocode/dfs.txt",
-        "assets/pseudocode/dijkstra.txt",
-        "assets/pseudocode/astar.txt",
+        "assets/pseudocode/bfs.txt",           "assets/pseudocode/dfs.txt",
+        "assets/pseudocode/dijkstra.txt",      "assets/pseudocode/astar.txt",
+        "assets/pseudocode/astarlandmark.txt",
 };
